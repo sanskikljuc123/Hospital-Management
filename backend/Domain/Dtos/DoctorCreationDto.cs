@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Domain.Dtos
+﻿namespace Domain.Dtos
 {
     public class DoctorCreationDto
     {
@@ -13,6 +7,7 @@ namespace Domain.Dtos
         public string? LastName { get; set; }
         public DateTime? Birthday { get; set; }
         public string? Address { get; set; }
-        public int[] ServiceIds { get; set; }
+        public int? DepartmentId { get; set; }
+        public int[] ServiceIds { get; set; } = Array.Empty<int>();
     }
 }

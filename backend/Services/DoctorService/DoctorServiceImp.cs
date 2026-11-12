@@ -42,6 +42,7 @@ namespace Services.DoctorService
                 LastName = doctorDto.LastName,
                 Birthday = doctorDto.Birthday,
                 Address = doctorDto.Address,
+                DepartmentId = doctorDto.DepartmentId,
                 DoctorServices = new List<Domain.Entities.DoctorService>() // Initialize DoctorServices collection
             };
 
@@ -71,6 +72,7 @@ namespace Services.DoctorService
                     LastName = newDoctor.LastName,
                     Birthday = newDoctor.Birthday,
                     Address = newDoctor.Address,
+                    DepartmentId = newDoctor.DepartmentId,
                     ServiceIds= doctorDto.ServiceIds,
                 };
                 return (doctor: resNewDoctor, success: true);
@@ -97,6 +99,7 @@ namespace Services.DoctorService
             existingDoctor.LastName = doctorDto.LastName;
             existingDoctor.Birthday = doctorDto.Birthday;
             existingDoctor.Address = doctorDto.Address;
+            existingDoctor.DepartmentId = doctorDto.DepartmentId;
 
             // Clear existing doctor services
 
@@ -137,6 +140,7 @@ namespace Services.DoctorService
                     LastName = existingDoctor.LastName,
                     Birthday = existingDoctor.Birthday,
                     Address = existingDoctor.Address,
+                    DepartmentId = existingDoctor.DepartmentId,
                     ServiceIds = doctorDto.ServiceIds,
                 };
                 return (doctor: resUpdatedDoctor, success: true);
