@@ -48,6 +48,7 @@ namespace Services.PatientService
             {
                 UserName = patientDto.UserName,
                 Phone = patientDto.Phone,
+                Email = patientDto.Email,
                 Service = service // Associate the patient with the retrieved service
             };
 
@@ -59,6 +60,7 @@ namespace Services.PatientService
                 Id = patient.Id,
                 UserName = patient.UserName,
                 Phone = patient.Phone,
+                Email = patient.Email,
                 ServiceId = patient.ServiceId
 
             };
@@ -77,6 +79,7 @@ namespace Services.PatientService
             // Update the existing patient entity with data from the DTO
             existingPatient.UserName = patientDto.UserName;
             existingPatient.Phone = patientDto.Phone;
+            existingPatient.Email = patientDto.Email;
 
             // Retrieve the service associated with the provided service ID
             var service = await _context.Services.FindAsync(patientDto.ServiceId);

@@ -42,6 +42,7 @@ namespace Services.ServiceService
 
         public async Task<bool> UpdateService(int id, Service service)
         {
+            service.Id = id; // the route id is authoritative, not the body
             _context.Entry(service).State = EntityState.Modified;
             return await SaveService();
         }

@@ -1,34 +1,44 @@
-﻿using Data;
+﻿using api.Auth;
+using api.Infrastructure;
 using Domain.Dtos;
-using Domain.Entities;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Services.PatientService;
+using Services.UserService;
 
 namespace api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PatientController : ControllerBase
+    [Authorize]
+    public class PatientController : HospitalControllerBase
     {
         private readonly IPatientService _patientService;
+        private readonly IUserService _users;
 
-        public PatientController(IPatientService patientService)
+        public PatientController(IPatientService patientService, IUserService users)
         {
             _patientService = patientService;
+            _users = users;
         }
 
         [HttpGet]
+        [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> GetAllPatients()
         {
             var patients = await _patientService.GetAllPatients();
             return Ok(patients);
         }
 
+        /// <summary>Staff can read any patient; a patient can only read their own record.</summary>
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetPatientById([FromRoute] int id)
+        public async Task<IActionResult> GetPatientById([FromRoute] int id, CancellationToken cancellationToken)
         {
+            if (!IsStaff && await _users.GetCurrentPatientIdAsync(cancellationToken) != id)
+            {
+                return Forbid();
+            }
+
             var patient = await _patientService.GetPatientById(id);
             if (patient == null)
             {
@@ -38,6 +48,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> CreatePatient([FromBody] PatientCreationDto patientDto)
         {
             var (newPatient, res) = await _patientService.CreatePatient(patientDto);
@@ -49,6 +60,7 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> UpdatePatient([FromRoute] int id, [FromBody] PatientCreationDto patientDto)
         {
             var result = await _patientService.UpdatePatient(id, patientDto);
@@ -60,6 +72,7 @@ namespace api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeletePatient([FromRoute] int id)
         {
             var result = await _patientService.DeletePatient(id);
@@ -72,4 +85,3 @@ namespace api.Controllers
     }
 
 }
-
