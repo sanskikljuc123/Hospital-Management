@@ -1,0 +1,114 @@
+{
+  "realm": "HospitalRealm",
+  "displayName": "Hospital Management",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "eventsEnabled": true,
+  "eventsExpiration": 2592000,
+  "eventsListeners": ["jboss-logging"],
+  "enabledEventTypes": ["LOGIN", "LOGIN_ERROR", "LOGOUT", "REFRESH_TOKEN_ERROR", "UPDATE_PASSWORD", "RESET_PASSWORD"],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": true,
+  "roles": {
+    "realm": [
+      { "name": "Admin", "description": "Hospital administrator: master data, users and audit trail" },
+      { "name": "Doctor", "description": "Physician: reads and writes clinical content" },
+      { "name": "Nurse", "description": "Nursing staff: manages patients and appointments, reads clinical content" },
+      { "name": "Patient", "description": "Patient: sees and books only their own data" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "hospital-api",
+      "name": "Hospital API",
+      "description": "Resource server. Never requests tokens itself; it is the audience of tokens issued to other clients.",
+      "enabled": true,
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "hospital-web",
+      "name": "Hospital Web",
+      "description": "Public client for the web front end and Swagger UI (authorization code + PKCE).",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5117/swagger/oauth2-redirect.html",
+        "https://localhost:7164/swagger/oauth2-redirect.html"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "hospital-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hospital-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin.user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin@hospital.local",
+      "firstName": "Alex",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "Admin123!", "temporary": false }],
+      "realmRoles": ["Admin"]
+    },
+    {
+      "username": "doctor.user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "doctor@hospital.local",
+      "firstName": "Dana",
+      "lastName": "Doctor",
+      "credentials": [{ "type": "password", "value": "Doctor123!", "temporary": false }],
+      "realmRoles": ["Doctor"]
+    },
+    {
+      "username": "nurse.user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "nurse@hospital.local",
+      "firstName": "Noel",
+      "lastName": "Nurse",
+      "credentials": [{ "type": "password", "value": "Nurse123!", "temporary": false }],
+      "realmRoles": ["Nurse"]
+    },
+    {
+      "username": "patient.user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "patient@hospital.local",
+      "firstName": "Pat",
+      "lastName": "Patient",
+      "credentials": [{ "type": "password", "value": "Patient123!", "temporary": false }],
+      "realmRoles": ["Patient"]
+    }
+  ]
+}

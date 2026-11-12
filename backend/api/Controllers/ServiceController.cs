@@ -1,5 +1,7 @@
 ﻿using Data;
 using Domain.Entities;
+using api.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +11,7 @@ namespace api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ServiceController : ControllerBase
     {
         private readonly IServiceService _serviceService;
@@ -37,6 +40,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> CreateService([FromBody] Service service)
         {
             var (nawService, res) = await _serviceService.CreateService(service);
@@ -48,6 +52,7 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] Service service)
         {
             var result = await _serviceService.UpdateService(id, service);
@@ -59,6 +64,7 @@ namespace api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteService([FromRoute] int id)
         {
             var result = await _serviceService.DeleteService(id);
