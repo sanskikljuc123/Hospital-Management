@@ -1,9 +1,4 @@
 ﻿using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Data
 {
@@ -18,58 +13,50 @@ namespace Data
 
         public void SeedDataContext()
         {
+            if (!_context.Departments.Any())
+            {
+                _context.Departments.AddRange(
+                    new Department { Name = "Cardiology", Description = "Heart and vascular care" },
+                    new Department { Name = "General Medicine", Description = "Primary and internal medicine" });
+                _context.SaveChanges();
+            }
+
+            var departments = _context.Departments.OrderBy(d => d.Id).ToList();
+
             if (!_context.Services.Any())
             {
-                var services = new List<Service>
-                {
-                    new Service { Name = "Service1", Description = "Description1" },
-                    new Service { Name = "Service2", Description = "Description2" },
-                    // Add more services as needed
-                };
-
-                _context.Services.AddRange(services);
+                _context.Services.AddRange(
+                    new Service { Name = "Service1", Description = "Description1", DepartmentId = departments[0].Id },
+                    new Service { Name = "Service2", Description = "Description2", DepartmentId = departments[1].Id });
                 _context.SaveChanges();
             }
 
             if (!_context.Doctors.Any())
             {
-                var doctors = new List<Doctor>
-                {
-                    new Doctor { FirstName = "John", LastName = "Doe", Birthday = new DateTime(1980, 1, 1), Address = "123 Main St" },
-                    new Doctor { FirstName = "Jane", LastName = "Smith", Birthday = new DateTime(1975, 5, 5), Address = "456 Elm St" },
-                    // Add more doctors as needed
-                };
-
-                _context.Doctors.AddRange(doctors);
+                _context.Doctors.AddRange(
+                    new Doctor { FirstName = "John", LastName = "Doe", Birthday = new DateTime(1980, 1, 1), Address = "123 Main St", DepartmentId = departments[0].Id },
+                    new Doctor { FirstName = "Jane", LastName = "Smith", Birthday = new DateTime(1975, 5, 5), Address = "456 Elm St", DepartmentId = departments[1].Id });
                 _context.SaveChanges();
             }
 
+            var services = _context.Services.OrderBy(s => s.Id).ToList();
+            var doctors = _context.Doctors.OrderBy(d => d.Id).ToList();
+
             if (!_context.Patients.Any())
             {
-                var patients = new List<Patient>
-                {
-                    new Patient { UserName = "patient1", Phone = 12345678, ServiceId = 1 },
-                    new Patient { UserName = "patient2", Phone = 98765432, ServiceId = 2 },
-                    // Add more patients as needed
-                };
-
-                _context.Patients.AddRange(patients);
+                _context.Patients.AddRange(
+                    new Patient { UserName = "patient1", Phone = 12345678, Email = "patient1@hospital.local", ServiceId = services[0].Id },
+                    new Patient { UserName = "patient2", Phone = 98765432, Email = "patient2@hospital.local", ServiceId = services[1].Id });
                 _context.SaveChanges();
             }
 
             if (!_context.DoctorServices.Any())
             {
-                var doctorServices = new List<DoctorService>
-                {
-                    new DoctorService { DoctorId = 1, ServiceId = 1},
-                    new DoctorService { DoctorId = 2, ServiceId = 2},
-                    // Add more doctor-service relationships as needed
-                };
-
-                _context.DoctorServices.AddRange(doctorServices);
+                _context.DoctorServices.AddRange(
+                    new DoctorService { DoctorId = doctors[0].Id, ServiceId = services[0].Id },
+                    new DoctorService { DoctorId = doctors[1].Id, ServiceId = services[1].Id });
                 _context.SaveChanges();
             }
-
         }
     }
 }

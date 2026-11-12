@@ -2,6 +2,8 @@
 using Data;
 using Domain.Dtos;
 using Domain.Entities;
+using api.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +13,7 @@ namespace api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DoctorController : ControllerBase
     {
         private readonly IDoctorService _doctorService;
@@ -40,6 +43,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> CreateDoctor([FromBody] DoctorCreationDto doctorDto)
         {
             var (resNewDoctor, success) = await _doctorService.CreateDoctor(doctorDto);
@@ -51,6 +55,7 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> UpdateDoctor([FromRoute] int id, [FromBody] DoctorCreationDto doctorDto)
         {
             var (resUpdatedDoctor, success) = await _doctorService.UpdateDoctor(id, doctorDto);
@@ -62,6 +67,7 @@ namespace api.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteDoctor([FromRoute] int id)
         {
             var result = await _doctorService.DeleteDoctor(id);

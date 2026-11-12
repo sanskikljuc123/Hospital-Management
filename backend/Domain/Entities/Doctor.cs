@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
 namespace Domain.Entities
 {
@@ -15,6 +9,13 @@ namespace Domain.Entities
         public string? LastName { get; set; }
         public DateTime? Birthday { get; set; }
         public string? Address { get; set; }
+        public int? DepartmentId { get; set; }
+        [JsonIgnore]
+        public virtual Department? Department { get; set; }
+        /// <summary>Linked login account, if the doctor has one.</summary>
+        public int? UserId { get; set; }
+        [JsonIgnore]
+        public virtual User? User { get; set; }
         public virtual ICollection<DoctorService> DoctorServices { get; set; }
 
     }
