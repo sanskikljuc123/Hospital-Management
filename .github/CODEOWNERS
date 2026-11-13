@@ -1,0 +1,21 @@
+# Code owners enforce who must approve changes to gate-relevant files (G-PR-02 and
+# docs/qe-framework/PIPELINE_AND_TOOLING_MAPPING.md section 9).
+#
+# NOT ACTIVE YET: no role has a named holder (docs/qe-framework/ROLE_REGISTER.md section 6).
+# Replace each placeholder with the GitHub user or team of the role holder, remove the leading
+# "# " from the line, and turn on "Require review from Code Owners" in branch protection.
+# A person cannot approve their own pull request, so each rule needs an owner other than the author.
+
+# Authorization code and identity configuration: Security Lead and Tech Lead
+# /backend/api/Auth/                        <security-lead> <tech-lead>
+# /keycloak/                                <security-lead> <tech-lead>
+
+# Security tests and the role by endpoint matrix: Security Lead
+# /backend/api.Tests/Security/              <security-lead>
+
+# Pipeline, gate configuration and secret-scan exceptions: Tech Lead and QE Lead
+# /.github/                                 <tech-lead> <qe-lead>
+# /.gitleaks.toml                           <security-lead>
+
+# Framework documents: QE Lead
+# /docs/qe-framework/                       <qe-lead>

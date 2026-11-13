@@ -61,3 +61,6 @@ app.MapControllers();
 app.MapDefaultEndpoints();
 
 app.Run();
+
+// Lets the API test project host the application in-process (WebApplicationFactory<Program>).
+public partial class Program { }

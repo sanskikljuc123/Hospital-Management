@@ -1,0 +1,74 @@
+# Quality gates that are automated so far (docs/qe-framework/PIPELINE_AND_TOOLING_MAPPING.md):
+#   G-PR-01  build and all tests pass
+#   G-SEC-01 authentication and role-level authorization tests (Patient and User endpoints)
+#   G-SEC-02 object-level authorization (BOLA) tests for patient records
+#   G-SEC-04 secret scanning (repository part)
+# To make these blocking, mark both jobs as required status checks in the branch protection
+# settings of the default branch. Until that is done they are advisory.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Backend build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # 8.0 is the API's target framework and the one tested here.
+      # The 10.0 SDK is needed only to build the test project's second target.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore backend/api.Tests/api.Tests.csproj
+
+      - name: Build
+        run: dotnet build backend/api.Tests/api.Tests.csproj --configuration Release --no-restore
+
+      # Tests start a real PostgreSQL in Docker (preinstalled on the runner).
+      # No retries: a test that fails once is a failure (G-TST-01).
+      - name: Test
+        run: >
+          dotnet test backend/api.Tests/api.Tests.csproj
+          --configuration Release --no-build --framework net8.0
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory test-results
+
+      - name: Keep test results as evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: test-results
+          if-no-files-found: error
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan working tree for secrets
+        run: >
+          docker run --rm -v "${{ github.workspace }}:/repo"
+          zricethezav/gitleaks:v8.18.4
+          detect --source /repo --no-git --redact --verbose --config /repo/.gitleaks.toml

@@ -1,0 +1,19 @@
+# Secret scanning configuration (gate G-SEC-04).
+# Extends the default rules. Every exception below was inspected by hand and is a false positive;
+# add a new exception only after doing the same, and say why here.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Inspected false positives"
+regexTarget = "line"
+regexes = [
+  # .NET assembly identity in designer-generated .resx files (public key token of mscorlib etc.).
+  '''PublicKeyToken=[0-9a-fA-F]{16}''',
+  # Typed DataSet designer metadata: refers to a connection string by name, contains no value.
+  '''<DbSource ConnectionRef="[^"]*\(Settings\)"''',
+]
+paths = [
+  # Visual Studio per-user IDE state (window layout). Should not be tracked at all.
+  '''(^|/)\.vs/''',
+]
