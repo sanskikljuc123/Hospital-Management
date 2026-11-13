@@ -204,6 +204,17 @@ public class AppointmentBolaTests : IAsyncLifetime
         Assert.Equal(await others.Content.ReadAsStringAsync(), await missing.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task Staff_still_get_not_found_for_a_missing_appointment()
+    {
+        // Staff may read every appointment, so telling them an id does not exist discloses nothing.
+        var read = await _api.SendAsync(HttpMethod.Get, $"/api/Appointment/{int.MaxValue}", TestIdentities.Nurse1);
+        var cancel = await _api.SendAsync(HttpMethod.Post, $"/api/Appointment/{int.MaxValue}/cancel", TestIdentities.Nurse1);
+
+        Assert.Equal(HttpStatusCode.NotFound, read.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, cancel.StatusCode);
+    }
+
     [Fact, Trait("Case", "BOLA-08")]
     public async Task Patient_cannot_probe_for_appointments_through_cancel()
     {

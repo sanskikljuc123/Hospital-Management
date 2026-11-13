@@ -459,3 +459,16 @@ Result: 281 tests, 277 passing and 4 failing. The failures are two findings in t
 What this shows about the framework: the matrix-as-data approach and the BOLA case list in SECURITY_TESTING.md found real deviations on first use, and the rule that expected outcomes come from the documentation, not from the code, is what exposed them. Both findings need a Risk Owner, who does not exist yet (ROLE_REGISTER.md).
 
 Readiness score: 61 out of 100. Evidence from use rises from 4 to 6. Nothing is enforced, the pipeline has not run on the hosting platform, and no assumption has been ratified.
+
+## 14. Addendum: Findings Fixed
+
+Commit 4c67229 (pushed to the fork branch `feature/keycloak-aspire-postgres`) contains the framework documents, the test project and the pipeline files, with the four tests failing as described in section 13.
+
+Both findings were then fixed in the API:
+
+| ID | Change |
+|---|---|
+| F-01 | `GET /api/Appointment/{id}`, `POST /api/Appointment/{id}/cancel` and `GET /api/MedicalRecord/{id}` return 403 to a non-staff caller for a missing id as well as for another patient's. Staff still receive 404 for a missing id; tests were added for that. |
+| F-02 | `AppointmentController` requires one of the roles Admin, Doctor, Nurse or Patient. |
+
+Result: 283 tests, all passing in three consecutive runs on .NET 10. The net8.0 run, the pipeline on the hosting platform and branch protection remain unverified. The readiness score stays at 61: a found-and-fixed defect is already counted as evidence from use, and nothing is enforced yet.

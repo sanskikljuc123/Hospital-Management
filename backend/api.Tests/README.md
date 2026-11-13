@@ -31,14 +31,14 @@ dotnet test backend/api.Tests -c Release -f net10.0
 
 Test names and `Case` traits use the case IDs in `docs/qe-framework/SECURITY_TESTING.md` (for example `BOLA-02`).
 
-## Known failing tests
+## Findings these tests have caught
 
-Four tests fail because the API does not behave as the documentation and the security standard require. They are left failing on purpose; do not skip or loosen them. Fix the API, or change the documented rule and then the test.
+| Finding | What was wrong | Fix |
+|---|---|---|
+| F-01 Record enumeration | A Patient got 404 for a missing appointment or medical record id and 403 for someone else's, so they could learn which ids exist | Non-staff callers now get 403 in both cases; staff still get 404 for a missing id |
+| F-02 Access without a role | An identity with no roles got 200 and an empty list from `GET /api/Appointment` | The appointment endpoints now require a staff or Patient role |
 
-| Finding | Failing tests | Observed | Expected |
-|---|---|---|---|
-| F-01 Record enumeration | `AppointmentBolaTests.Patient_cannot_tell_a_missing_appointment_from_another_patients_appointment`, `AppointmentBolaTests.Patient_cannot_probe_for_appointments_through_cancel`, `MedicalRecordBolaTests.Patient_cannot_tell_a_missing_record_from_another_patients_record` | A Patient gets 404 for an id that does not exist and 403 for one that belongs to someone else, so they can learn which appointment and medical record ids exist | The same response for both (BOLA-08), as `GET /api/Patient/{id}` already does |
-| F-02 Undocumented access for an identity without roles | `AuthorizationMatrixTests.Matrix_cell_has_the_documented_outcome(GET /api/Appointment, NoRoles)` | 200 with an empty list | 403: the endpoint is documented for Staff and Patient only |
+There are no known failing tests. If a test fails, do not skip or loosen it: fix the API, or change the documented rule and then the test.
 
 ## What is not covered yet
 

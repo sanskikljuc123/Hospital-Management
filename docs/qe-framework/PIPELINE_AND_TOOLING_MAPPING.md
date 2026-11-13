@@ -113,7 +113,7 @@ Findings, to be entered in the risk register by a Risk Owner (ratings below are 
 | F-01 | A Patient-role caller can tell which appointment and medical record identifiers exist: a missing id returns 404, another patient's id returns 403. Affects `GET /api/Appointment/{id}`, `POST /api/Appointment/{id}/cancel` and `GET /api/MedicalRecord/{id}`. | PRV | Medium (enumeration; no record content is disclosed) |
 | F-02 | An authenticated identity with no roles gets 200 and an empty list from `GET /api/Appointment`, which is documented for Staff and Patient only. | SEC | Low (no data is returned) |
 
-The four failing tests are left failing. They were not skipped or loosened, in line with TEST_STRATEGY.md section 15.
+The four failing tests were committed failing, not skipped or loosened, in line with TEST_STRATEGY.md section 15. Both findings were then fixed in the API (non-staff callers get 403 for missing ids; the appointment endpoints require a staff or Patient role) and all 283 tests pass.
 
 ## 6. Candidate Tooling
 

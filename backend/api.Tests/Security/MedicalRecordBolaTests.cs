@@ -148,6 +148,15 @@ public class MedicalRecordBolaTests : IAsyncLifetime
             Task.FromResult(db.MedicalRecords.Any(r => r.AppointmentId == appointmentOfB.Id))));
     }
 
+    [Fact]
+    public async Task Clinical_staff_still_get_not_found_for_a_missing_record()
+    {
+        // Doctors and nurses may read every record, so telling them an id does not exist discloses nothing.
+        var response = await _api.SendAsync(HttpMethod.Get, $"/api/MedicalRecord/{int.MaxValue}", TestIdentities.Doctor1);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact, Trait("Case", "BOLA-08")]
     public async Task Patient_cannot_tell_a_missing_record_from_another_patients_record()
     {
