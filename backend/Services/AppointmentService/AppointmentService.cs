@@ -81,30 +81,88 @@ namespace Services.AppointmentService
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
 
             var scheduledAt = ToUtc(dto.ScheduledAt);
-            if (dto.Status != AppointmentStatus.Cancelled)
+            var now = DateTime.UtcNow;
+            var rescheduled = appointment.DoctorId != dto.DoctorId
+                || appointment.ServiceId != dto.ServiceId
+                || appointment.ScheduledAt != scheduledAt
+                || appointment.DurationMinutes != dto.DurationMinutes;
+            var before = new { appointment.DoctorId, appointment.ScheduledAt, Status = appointment.Status.ToString() };
+
+            // Completed, NoShow and Cancelled are history: only the notes can still be added to.
+            if (IsFinal(appointment.Status))
             {
-                var error = await ValidateSlotAsync(id, dto.DoctorId, dto.ServiceId, scheduledAt, dto.DurationMinutes, cancellationToken);
-                if (error != null) return error;
+                if (rescheduled || dto.Status != appointment.Status || dto.Reason != appointment.Reason)
+                    return ServiceResult<AppointmentDto>.Conflict(
+                        $"A {appointment.Status} appointment cannot be changed; only its notes can be updated");
+
+                appointment.Notes = dto.Notes;
+                return await SaveUpdateAsync(appointment, before, cancellationToken);
             }
 
-            var before = new { appointment.DoctorId, appointment.ScheduledAt, Status = appointment.Status.ToString() };
+            // From here the appointment is Scheduled or Confirmed.
+            var transitionError = ValidateTransition(appointment, dto.Status, rescheduled, now);
+            if (transitionError != null) return transitionError;
+
+            if (rescheduled)
+            {
+                if (scheduledAt <= now)
+                    return ServiceResult<AppointmentDto>.Invalid("An appointment must be scheduled in the future");
+                var slotError = await ValidateSlotAsync(id, dto.DoctorId, dto.ServiceId, scheduledAt, dto.DurationMinutes, cancellationToken);
+                if (slotError != null) return slotError;
+            }
+
             appointment.DoctorId = dto.DoctorId;
             appointment.ServiceId = dto.ServiceId;
             appointment.ScheduledAt = scheduledAt;
             appointment.DurationMinutes = dto.DurationMinutes;
-            appointment.Status = dto.Status;
+            // A moved appointment has to be confirmed again.
+            appointment.Status = rescheduled ? AppointmentStatus.Scheduled : dto.Status;
             appointment.Reason = dto.Reason;
             appointment.Notes = dto.Notes;
 
             return await SaveUpdateAsync(appointment, before, cancellationToken);
         }
 
+        /// <summary>
+        /// Allowed status changes for a Scheduled or Confirmed appointment:
+        /// Scheduled ⇄ Confirmed at any time; Cancelled only before the start;
+        /// Completed (doctor only) and NoShow only once the appointment has started.
+        /// A change of time, doctor, service or duration cannot be combined with a final status.
+        /// </summary>
+        private ServiceResult<AppointmentDto>? ValidateTransition(Appointment appointment, AppointmentStatus target,
+            bool rescheduled, DateTime now)
+        {
+            if (target is AppointmentStatus.Scheduled or AppointmentStatus.Confirmed) return null;
+
+            if (rescheduled)
+                return ServiceResult<AppointmentDto>.Conflict(
+                    $"An appointment cannot be moved and set to {target} in the same request");
+
+            var started = appointment.ScheduledAt <= now;
+            return target switch
+            {
+                AppointmentStatus.Cancelled when started => ServiceResult<AppointmentDto>.Conflict(
+                    "An appointment that has started cannot be cancelled; set it to Completed or NoShow"),
+                AppointmentStatus.Completed when !_currentUser.IsInRole(Roles.Doctor) =>
+                    ServiceResult<AppointmentDto>.Forbidden("Only a doctor can mark an appointment as Completed"),
+                AppointmentStatus.Completed or AppointmentStatus.NoShow when !started =>
+                    ServiceResult<AppointmentDto>.Conflict($"An appointment cannot be set to {target} before it starts"),
+                _ => null
+            };
+        }
+
+        private static bool IsFinal(AppointmentStatus status) =>
+            status is AppointmentStatus.Completed or AppointmentStatus.NoShow or AppointmentStatus.Cancelled;
+
         public async Task<ServiceResult<AppointmentDto>> CancelAsync(int id, CancellationToken cancellationToken = default)
         {
             var appointment = await _context.Appointments.FindAsync(new object[] { id }, cancellationToken);
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
-            if (appointment.Status is AppointmentStatus.Completed or AppointmentStatus.NoShow)
+            if (IsFinal(appointment.Status))
                 return ServiceResult<AppointmentDto>.Conflict($"A {appointment.Status} appointment cannot be cancelled");
+            if (appointment.ScheduledAt <= DateTime.UtcNow)
+                return ServiceResult<AppointmentDto>.Conflict(
+                    "An appointment that has started cannot be cancelled; set it to Completed or NoShow");
 
             var before = new { appointment.DoctorId, appointment.ScheduledAt, Status = appointment.Status.ToString() };
             appointment.Status = AppointmentStatus.Cancelled;
