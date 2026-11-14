@@ -1,5 +1,6 @@
 using api.Auth;
 using api.Infrastructure;
+using Domain.Constants;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,8 @@ namespace api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    // Staff and patients only: an authenticated identity without a hospital role has no access.
+    [Authorize(Roles = Roles.Admin + "," + Roles.Doctor + "," + Roles.Nurse + "," + Roles.Patient)]
     public class AppointmentController : HospitalControllerBase
     {
         private readonly IAppointmentService _appointments;
@@ -40,7 +42,8 @@ namespace api.Controllers
         public async Task<IActionResult> GetAppointmentById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
-            if (appointment == null) return NotFound($"Appointment with ID {id} not found");
+            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
+            if (appointment == null) return IsStaff ? NotFound($"Appointment with ID {id} not found") : Forbid();
             if (!await CanAccessPatientAsync(appointment.PatientId, cancellationToken)) return Forbid();
             return Ok(appointment);
         }
@@ -67,7 +70,8 @@ namespace api.Controllers
         public async Task<IActionResult> CancelAppointment([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
-            if (appointment == null) return NotFound($"Appointment with ID {id} not found");
+            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
+            if (appointment == null) return IsStaff ? NotFound($"Appointment with ID {id} not found") : Forbid();
             if (!await CanAccessPatientAsync(appointment.PatientId, cancellationToken)) return Forbid();
 
             return FromResult(await _appointments.CancelAsync(id, cancellationToken));

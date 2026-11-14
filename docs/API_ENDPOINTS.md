@@ -10,6 +10,8 @@ Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive versi
   "Staff" means Admin, Doctor or Nurse.
 - **Own data.** A user with only the `Patient` role is limited to the patient record an admin linked to their
   account (`PUT /api/User/{id}/link`). Until linked, they see empty lists and get 403 on individual records.
+  A patient gets 403 for any patient, appointment or medical record id that is not theirs, whether or not it
+  exists, so ids cannot be probed. Staff get 404 for an id that does not exist.
 - **Common responses.**
 
   | Status | Meaning |

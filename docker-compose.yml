@@ -1,12 +1,13 @@
 # Hospital Management platform: API + PostgreSQL + Keycloak.
 #
+#   cp .env.example .env      (then set the three passwords in .env)
 #   docker compose up --build
 #
 # API (Swagger):   http://localhost:5117/swagger
-# Keycloak:        http://localhost:8080   (admin console: admin / see KEYCLOAK_ADMIN_PASSWORD)
+# Keycloak:        http://localhost:8080   (admin console: KEYCLOAK_ADMIN / KEYCLOAK_ADMIN_PASSWORD)
 #
-# Every value below has a development default so the stack starts without a .env file.
-# Copy .env.example to .env and change the passwords for anything that is not a local sandbox.
+# No password is stored in this repository. The stack refuses to start until
+# POSTGRES_PASSWORD, KEYCLOAK_ADMIN_PASSWORD and DEV_USERS_PASSWORD are set in .env (git-ignored).
 
 name: hospitalmanagement
 
@@ -15,7 +16,7 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hospital}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hospital_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
       POSTGRES_DB: hospitaldb
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -36,17 +37,19 @@ services:
     command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_password}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env (see .env.example)}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: ${POSTGRES_USER:-hospital}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-hospital_dev_password}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
       # Tokens always carry the browser-facing URL as issuer, while the API
       # fetches signing keys over the internal network (http://keycloak:8080).
       KC_HOSTNAME: http://localhost:8080
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
       KC_HEALTH_ENABLED: "true"
+      # Substituted into the realm file on first import: password of the four sample users.
+      DEV_USERS_PASSWORD: ${DEV_USERS_PASSWORD:?Set DEV_USERS_PASSWORD in .env (see .env.example)}
     volumes:
       - ./keycloak/realms:/opt/keycloak/data/import:ro
     ports:
@@ -74,7 +77,7 @@ services:
       dockerfile: api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__hospitaldb: Host=postgres;Port=5432;Database=hospitaldb;Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:-hospital_dev_password}
+      ConnectionStrings__hospitaldb: Host=postgres;Port=5432;Database=hospitaldb;Username=${POSTGRES_USER:-hospital};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
       Keycloak__Authority: http://keycloak:8080/realms/HospitalRealm
       Keycloak__Issuer: http://localhost:8080/realms/HospitalRealm
       Keycloak__RequireHttpsMetadata: "false"

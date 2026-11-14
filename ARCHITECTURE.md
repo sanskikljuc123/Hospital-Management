@@ -102,7 +102,7 @@ For scripts and manual testing, `hospital-web` also allows the password grant:
 ```bash
 curl -X POST http://localhost:8080/realms/HospitalRealm/protocol/openid-connect/token \
   -d grant_type=password -d client_id=hospital-web \
-  -d username=doctor.user -d 'password=Doctor123!'
+  -d username=doctor.user -d "password=$DEV_USERS_PASSWORD"
 ```
 
 Disable "Direct access grants" on the client before any real deployment.
@@ -155,9 +155,11 @@ imported on first start by both docker-compose and Aspire. Keycloak requires the
 | Events | Login, logout and admin events are recorded by Keycloak |
 | Brute-force protection | Enabled |
 
-Development users (password in brackets): `admin.user` (`Admin123!`), `doctor.user` (`Doctor123!`),
-`nurse.user` (`Nurse123!`), `patient.user` (`Patient123!`). These exist for local use only; remove them
-from the realm file for any shared environment.
+Sample users: `admin.user`, `doctor.user`, `nurse.user`, `patient.user`. The realm file holds no
+password: it contains the placeholder `${DEV_USERS_PASSWORD}`, which Keycloak replaces with the
+environment variable of that name when it first imports the realm. docker-compose takes the value from
+`.env`; Aspire takes it from the `dev-users-password` parameter (user secrets). These users exist for
+local use only; remove them from the realm file for any shared environment.
 
 API configuration (`Keycloak` section, overridable with `Keycloak__*` environment variables):
 
@@ -327,13 +329,14 @@ Other integration points: Keycloak (OIDC discovery and JWKS over HTTP) and an Op
 | `Cors:AllowedOrigins` | Browser origins allowed to call the API | `http://localhost:3000` |
 | `Swagger:Enabled` | Serve Swagger outside Development | `false` (`true` in compose) |
 
-docker-compose reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` and
-`API_PORT` from `.env`; see [.env.example](.env.example). The built-in defaults are for local use only.
+docker-compose reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`,
+`DEV_USERS_PASSWORD` and `API_PORT` from `.env`; see [.env.example](.env.example). The three passwords
+have no default: the repository contains no credentials and compose refuses to start without them.
 
 ## 9. Gaps before production
 
 - Keycloak runs in `start-dev` mode over HTTP. Production needs `start`, TLS and a real hostname.
-- Secrets are environment variables with development defaults. Use a secret store.
+- Secrets are plain environment variables read from `.env`. Use a secret store.
 - The front end (`frontend-web`) does not sign in through Keycloak yet, so its API calls return 401.
 - `Patient.Phone` is an integer, which loses leading zeros and country codes.
 - `ServiceController` accepts the EF entity as its request body; it should use a DTO like the newer endpoints.
