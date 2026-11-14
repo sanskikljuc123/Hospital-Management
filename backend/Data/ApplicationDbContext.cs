@@ -14,6 +14,7 @@ namespace Data
         public DbSet<User> Users { get; set; }
         public DbSet<Appointment> Appointments { get; set; }
         public DbSet<MedicalRecord> MedicalRecords { get; set; }
+        public DbSet<MedicalRecordRevision> MedicalRecordRevisions { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
@@ -109,7 +110,23 @@ namespace Data
                     .HasForeignKey(m => m.DoctorId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(m => m.Appointment).WithMany()
                     .HasForeignKey(m => m.AppointmentId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(m => m.LastEditedByDoctor).WithMany()
+                    .HasForeignKey(m => m.LastEditedByDoctorId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(m => m.PatientId);
+            });
+
+            modelBuilder.Entity<MedicalRecordRevision>(e =>
+            {
+                e.Property(r => r.Diagnosis).HasMaxLength(2000);
+                e.Property(r => r.Treatment).HasMaxLength(4000);
+                e.Property(r => r.Notes).HasMaxLength(4000);
+                e.Property(r => r.ChangedFields).HasMaxLength(200);
+                e.Property(r => r.EditedByUserName).HasMaxLength(255);
+                e.HasOne(r => r.MedicalRecord).WithMany(m => m.Revisions)
+                    .HasForeignKey(r => r.MedicalRecordId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(r => r.EditedByDoctor).WithMany()
+                    .HasForeignKey(r => r.EditedByDoctorId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(r => new { r.MedicalRecordId, r.Revision }).IsUnique();
             });
 
             modelBuilder.Entity<AuditLog>(e =>
