@@ -6,8 +6,7 @@ namespace Domain.Dtos
     {
         [Range(1, int.MaxValue)]
         public int PatientId { get; set; }
-        [Range(1, int.MaxValue)]
-        public int DoctorId { get; set; }
+        // No DoctorId: the author is always the doctor linked to the caller's account.
         public int? AppointmentId { get; set; }
         [Required, MaxLength(2000)]
         public string Diagnosis { get; set; } = string.Empty;

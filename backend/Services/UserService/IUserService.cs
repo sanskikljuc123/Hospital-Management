@@ -15,6 +15,8 @@ namespace Services.UserService
         Task<UserDto?> GetCurrentAsync(CancellationToken cancellationToken = default);
         /// <summary>Id of the patient record linked to the caller, if any.</summary>
         Task<int?> GetCurrentPatientIdAsync(CancellationToken cancellationToken = default);
+        /// <summary>Id of the doctor record linked to the caller, if any.</summary>
+        Task<int?> GetCurrentDoctorIdAsync(CancellationToken cancellationToken = default);
         Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken cancellationToken = default);
         Task<UserDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
         Task<ServiceResult<UserDto>> SetActiveAsync(int id, bool isActive, CancellationToken cancellationToken = default);

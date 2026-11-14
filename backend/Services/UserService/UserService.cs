@@ -104,6 +104,16 @@ namespace Services.UserService
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
+        public async Task<int?> GetCurrentDoctorIdAsync(CancellationToken cancellationToken = default)
+        {
+            var subject = _currentUser.Subject;
+            if (subject == null) return null;
+            return await _context.Doctors
+                .Where(d => d.User != null && d.User.KeycloakId == subject)
+                .Select(d => (int?)d.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         public async Task<IReadOnlyList<UserDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
             await Query().OrderBy(u => u.UserName).ToListAsync(cancellationToken);
 
