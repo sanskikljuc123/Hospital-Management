@@ -45,7 +45,8 @@ namespace api.Controllers
         public async Task<IActionResult> GetMedicalRecordById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var record = await _records.GetByIdAsync(id, cancellationToken);
-            if (record == null) return NotFound($"Medical record with ID {id} not found");
+            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
+            if (record == null) return IsClinicalStaff ? NotFound($"Medical record with ID {id} not found") : Forbid();
             if (!IsClinicalStaff && await _users.GetCurrentPatientIdAsync(cancellationToken) != record.PatientId)
                 return Forbid();
             return Ok(record);
