@@ -43,7 +43,7 @@ level cannot see it.
 | Real database | `Testcontainers.PostgreSql` (same major version as `docker-compose.yml`: PostgreSQL 17) |
 | Test tokens | `System.IdentityModel.Tokens.Jwt` with an RSA key generated per test run |
 | E2E scenarios | Reqnroll (Gherkin) |
-| E2E driver | Playwright for .NET (API request context now, browser once the frontend has login — see A-002) |
+| E2E driver | Playwright for .NET: browser for user journeys through `frontend-web`, API request context for API-only journeys |
 | Mutation testing (optional, phase 5) | Stryker.NET on `AppointmentService` and `MedicalRecordService` |
 | Secret scanning | gitleaks in CI |
 
@@ -81,6 +81,8 @@ Rules for every test:
 | Anonymous | API | No `Authorization` header |
 | No role | API | Valid token with no realm roles |
 | Admin, Doctor, Nurse | API | Valid token with that realm role in `realm_access.roles` |
+| Doctor D1, Doctor D2 | API | `Doctor` role, each linked to a different doctor profile (record author and editor, R-010, R-011) |
+| Unlinked doctor | API | `Doctor` role, no doctor profile linked (R-021) |
 | Patient A, Patient B | API | Valid token with `Patient` role, each linked to a different patient record |
 | Unlinked patient | API | `Patient` role, no patient record linked |
 | Deactivated user | API | Valid token for a user whose account status is inactive |
@@ -123,9 +125,12 @@ must produce the same shape, and the test host must trust only the test key.
 - **Few journeys, high value.** 3–5 scenarios: sign in per role, book an appointment as a patient, a doctor
   records a diagnosis, a patient cannot see another patient's record.
 - **Gherkin describes behavior,** not clicks: `Given a linked patient`, `When they book an appointment for next week`.
-- **Today the frontend has no Keycloak login** (no OIDC code in `frontend-web/src`, see A-002). Until it
-  does, E2E journeys use the Playwright API request context with real Keycloak tokens against the real
-  deployed API. Browser journeys are added when the frontend signs in through Keycloak.
+- **The frontend signs in through Keycloak** (`frontend-web/src/auth/`, since `d96bba1`; A-002 closed).
+  Browser journeys start at `http://localhost:3000`, are redirected to the real Keycloak login page and
+  sign in as a sample user. Journeys that the frontend does not offer yet (appointments, medical records)
+  use the Playwright API request context with real Keycloak tokens.
+- **Login journeys to cover:** each role signs in and sees its name; a user without a hospital role sees
+  "No access"; logout returns to the Keycloak login page.
 
 ## 10. What makes a test "done"
 

@@ -18,8 +18,10 @@ Security tests are API-level tests tagged `[Trait("Category", "Security")]`.
 ## 2. Role-by-endpoint matrix
 
 Legend: **Yes** — allowed. **Own** — allowed only for the patient record linked to the caller; 403 for any
-other ID, existing or not. **403** — refused. Every endpoint returns **401** for anonymous callers, and
-**403** for deactivated accounts. Source: the `[Authorize]` attributes in `backend/api/Controllers/` and
+other ID, existing or not. **Linked** — allowed only for a Doctor account linked to a doctor profile; 403
+otherwise. **403** — refused. Every endpoint returns **401** for anonymous callers, and **403** for
+deactivated accounts and for tokens without a hospital role (R-015: `DefaultPolicy` and `FallbackPolicy` in
+`backend/api/Auth/Policies.cs`). Source: the `[Authorize]` attributes in `backend/api/Controllers/` and
 `backend/api/Auth/Policies.cs`.
 
 | Endpoint | Admin | Doctor | Nurse | Patient | No role | Risks |
@@ -28,24 +30,26 @@ other ID, existing or not. **403** — refused. Every endpoint returns **401** f
 | `GET /api/Appointment/{id}` | Yes | Yes | Yes | Own | 403 | R-002, R-004 |
 | `POST /api/Appointment` | Yes | Yes | Yes | Own (`patientId` must be theirs) | 403 | R-002 |
 | `PUT /api/Appointment/{id}` | Yes | Yes | Yes | 403 | 403 | R-014 |
+| `PUT /api/Appointment/{id}` with `status: Completed` | 403 | Yes (once started) | 403 | 403 | 403 | R-014 |
 | `POST /api/Appointment/{id}/cancel` | Yes | Yes | Yes | Own | 403 | R-002, R-004 |
 | `DELETE /api/Appointment/{id}` | Yes | 403 | 403 | 403 | 403 | R-005 |
 | `GET /api/AuditLog` | Yes | 403 | 403 | 403 | 403 | R-005 |
-| `GET /api/Department`, `GET /api/Department/{id}` | Yes | Yes | Yes | Yes | Yes (Q-001) | R-015 |
+| `GET /api/Department`, `GET /api/Department/{id}` | Yes | Yes | Yes | Yes | 403 | R-015 |
 | `POST/PUT/DELETE /api/Department…` | Yes | 403 | 403 | 403 | 403 | R-005 |
-| `GET /api/Doctor`, `GET /api/Doctor/{id}` | Yes | Yes | Yes | Yes | Yes (Q-001) | R-015 |
+| `GET /api/Doctor`, `GET /api/Doctor/{id}` | Yes | Yes | Yes | Yes | 403 | R-015 |
 | `POST/PUT/DELETE /api/Doctor…` | Yes | 403 | 403 | 403 | 403 | R-005 |
 | `GET /api/MedicalRecord` | 403 | Yes | Yes | Own (filtered list) | 403 | R-001, R-020 |
 | `GET /api/MedicalRecord/{id}` | 403 | Yes | Yes | Own | 403 | R-001, R-004, R-020 |
-| `POST /api/MedicalRecord` | 403 | Yes | 403 | 403 | 403 | R-010 |
-| `PUT /api/MedicalRecord/{id}` | 403 | Yes | 403 | 403 | 403 | R-011 |
+| `POST /api/MedicalRecord` | 403 | Linked | 403 | 403 | 403 | R-010, R-021 |
+| `PUT /api/MedicalRecord/{id}` | 403 | Linked | 403 | 403 | 403 | R-011, R-021 |
+| `GET /api/MedicalRecord/{id}/history` | 403 | Yes | Yes | 403 | 403 | R-011, R-020 |
 | `GET /api/Patient` | Yes | Yes | Yes | 403 | 403 | R-003 |
 | `GET /api/Patient/{id}` | Yes | Yes | Yes | Own | 403 | R-003 |
 | `POST /api/Patient`, `PUT /api/Patient/{id}` | Yes | Yes | Yes | 403 | 403 | R-003 |
 | `DELETE /api/Patient/{id}` | Yes | 403 | 403 | 403 | 403 | R-005 |
-| `GET /api/Service`, `GET /api/Service/{id}` | Yes | Yes | Yes | Yes | Yes (Q-001) | R-015 |
+| `GET /api/Service`, `GET /api/Service/{id}` | Yes | Yes | Yes | Yes | 403 | R-015 |
 | `POST/PUT/DELETE /api/Service…` | Yes | 403 | 403 | 403 | 403 | R-005, R-016 |
-| `GET /api/User/me` | Yes | Yes | Yes | Yes | Yes | R-007 |
+| `GET /api/User/me` | Yes | Yes | Yes | Yes | 403 | R-007, R-015 |
 | `GET /api/User`, `GET /api/User/{id}` | Yes | 403 | 403 | 403 | 403 | R-005 |
 | `PUT /api/User/{id}/status`, `PUT /api/User/{id}/link` | Yes | 403 | 403 | 403 | 403 | R-005, R-008 |
 | `GET /health`, `GET /alive` | anonymous allowed | | | | | – |
@@ -72,6 +76,20 @@ For every endpoint marked **Own**, test with two linked patients A and B and one
 
 "Unchanged" and "not created" are checked by reading the database or by a follow-up request as staff,
 not assumed from the status code.
+
+### Record author and editor (R-010, R-011)
+
+Use two doctors D1 and D2, each linked to a doctor profile, and one unlinked doctor account:
+
+| Case | Expected |
+|---|---|
+| D1 creates a record and sends `doctorId` = D2 in the body | 201, record `doctorId` = D1 |
+| D1 attaches a record to D2's appointment for the same patient | 400, no record created |
+| Unlinked doctor creates or edits a record | 403, nothing created or changed |
+| D2 edits D1's record | 200; `lastEditedByDoctorId` = D2; a new revision with editor D2 and the changed fields |
+| Edit that changes nothing | 200; no new revision; no audit entry |
+| History after one edit | 2 revisions: revision 1 = original content by the author, revision 2 = new content by the editor |
+| Patient or Admin reads history | 403 |
 
 ## 4. Token validation (R-006)
 
