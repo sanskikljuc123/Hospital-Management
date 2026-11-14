@@ -29,20 +29,21 @@ namespace Services.MedicalRecordService
         public async Task<MedicalRecordDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
             await Project(_context.MedicalRecords.AsNoTracking().Where(m => m.Id == id)).FirstOrDefaultAsync(cancellationToken);
 
-        public async Task<ServiceResult<MedicalRecordDto>> CreateAsync(MedicalRecordCreateDto dto, CancellationToken cancellationToken = default)
+        public async Task<ServiceResult<MedicalRecordDto>> CreateAsync(MedicalRecordCreateDto dto, int doctorId, CancellationToken cancellationToken = default)
         {
             if (!await _context.Patients.AnyAsync(p => p.Id == dto.PatientId, cancellationToken))
                 return ServiceResult<MedicalRecordDto>.Invalid($"Patient with ID {dto.PatientId} not found");
-            if (!await _context.Doctors.AnyAsync(d => d.Id == dto.DoctorId, cancellationToken))
-                return ServiceResult<MedicalRecordDto>.Invalid($"Doctor with ID {dto.DoctorId} not found");
+            // A record can only be attached to an appointment of this patient with this doctor.
             if (dto.AppointmentId.HasValue && !await _context.Appointments.AnyAsync(
-                    a => a.Id == dto.AppointmentId.Value && a.PatientId == dto.PatientId, cancellationToken))
-                return ServiceResult<MedicalRecordDto>.Invalid($"Appointment with ID {dto.AppointmentId} not found for this patient");
+                    a => a.Id == dto.AppointmentId.Value && a.PatientId == dto.PatientId && a.DoctorId == doctorId,
+                    cancellationToken))
+                return ServiceResult<MedicalRecordDto>.Invalid(
+                    $"Appointment with ID {dto.AppointmentId} not found for this patient and doctor");
 
             var record = new MedicalRecord
             {
                 PatientId = dto.PatientId,
-                DoctorId = dto.DoctorId,
+                DoctorId = doctorId,
                 AppointmentId = dto.AppointmentId,
                 Diagnosis = dto.Diagnosis,
                 Treatment = dto.Treatment,

@@ -56,7 +56,12 @@ namespace api.Controllers
         [Authorize(Policy = Policies.DoctorOnly)]
         public async Task<IActionResult> CreateMedicalRecord([FromBody] MedicalRecordCreateDto dto, CancellationToken cancellationToken)
         {
-            var result = await _records.CreateAsync(dto, cancellationToken);
+            // The author comes from the caller's account, so a doctor cannot sign as someone else.
+            var doctorId = await _users.GetCurrentDoctorIdAsync(cancellationToken);
+            if (doctorId == null)
+                return StatusCode(StatusCodes.Status403Forbidden, "This account is not linked to a doctor profile");
+
+            var result = await _records.CreateAsync(dto, doctorId.Value, cancellationToken);
             return result.Success
                 ? CreatedAtAction(nameof(GetMedicalRecordById), new { id = result.Value!.Id }, result.Value)
                 : FromResult(result);
