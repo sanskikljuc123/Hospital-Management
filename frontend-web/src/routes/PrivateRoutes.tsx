@@ -11,6 +11,7 @@ import { MdOutlineSpaceDashboard } from "react-icons/md";
 import { FaUserDoctor } from "react-icons/fa6";
 import { MdOutlineSick } from "react-icons/md";
 import { RiServiceLine } from "react-icons/ri";
+import { getDisplayName, logout } from "../auth/keycloak";
 
 const PrivateRouts = () => {
   const [pageName, setPageName] = useState<string>("");
@@ -37,18 +38,15 @@ const PrivateRouts = () => {
     getPageName();
   }, [location.pathname]);
 
-  const handelLogOut = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    window.location.reload();
-  };
+  // Ends the Keycloak session as well, so the next visit asks for a login again.
+  const handelLogOut = () => logout();
   return (
     <>
       <Layout style={{ overflow: "auto", display: "flex", flexDirection: "row", flexWrap: "nowrap", height: "100vh" }}>
         <SideMenu menuItems={menuItems} logOut={handelLogOut}></SideMenu>
 
         <Layout>
-          <NavBar userName={"Admin Name"} pageName={pageName} userImg='' pageIcon={pageIcon} />
+          <NavBar userName={getDisplayName()} pageName={pageName} userImg='' pageIcon={pageIcon} />
           <Content
             style={{
               margin: "24px 16px",

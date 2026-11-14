@@ -8,12 +8,15 @@ import { store } from "./store/store.ts";
 import "./styles/typography/headings.css";
 import "./styles/typography/text.css";
 import "./styles/colors/colors.css";
+import AuthGate from "./auth/AuthGate.tsx";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <Provider store={store}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </Provider>
+    <AuthGate>
+      <Provider store={store}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </Provider>
+    </AuthGate>
   </React.StrictMode>,
 );
