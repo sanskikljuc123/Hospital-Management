@@ -49,7 +49,7 @@ The `backend/Service` folder (`Servicest.csproj`) is leftover scaffolding that i
 | Concern | Where | Notes |
 |---|---|---|
 | Authentication | `api/Auth/AuthenticationExtensions.cs` | JWT bearer against Keycloak |
-| Authorization | `api/Auth/Policies.cs` + `[Authorize]` on controllers | Fallback policy: everything needs a token |
+| Authorization | `api/Auth/Policies.cs` + `[Authorize]` on controllers | Default and fallback policy: everything needs a token with a hospital role |
 | User mirroring, login audit | `api/Auth/UserSyncMiddleware.cs` → `UserService` | Runs after authentication |
 | Errors | `api/Infrastructure/DbUpdateExceptionHandler.cs` | Constraint violations → 409 problem details |
 | Health | `/health` (readiness, includes database), `/alive` (liveness) | Anonymous |
@@ -115,23 +115,34 @@ ASP.NET Core role checks work.
 
 Three layers, from coarse to fine:
 
-1. **Fallback policy.** Any endpoint without an explicit rule requires an authenticated user. A new
-   controller is therefore protected by default; anonymous access must be opted into with `[AllowAnonymous]`.
+1. **Default and fallback policy.** Every endpoint with a bare `[Authorize]` or with no rule at all requires
+   an authenticated user **with one of the hospital roles**. A token without a hospital role gets 403
+   everywhere. A new controller is therefore protected by default; anonymous access must be opted into with
+   `[AllowAnonymous]` (only `/health` and `/alive` do).
 2. **Role policies** (`api/Auth/Policies.cs`).
 
    | Policy | Roles | Used for |
    |---|---|---|
    | `AdminOnly` | Admin | Master data writes, user management, audit log, hard deletes |
    | `Staff` | Admin, Doctor, Nurse | Patient administration, appointment updates |
-   | `ClinicalStaff` | Doctor, Nurse | Reserved for clinical read endpoints |
+   | `ClinicalStaff` | Doctor, Nurse | Medical record history |
    | `DoctorOnly` | Doctor | Writing medical records |
 
 3. **Ownership checks** in controllers. A caller who is only a `Patient` can reach just the patient
-   record linked to their account, and only appointments and medical records of that patient.
+   record linked to their account, and only appointments and medical records of that patient. A doctor
+   writes records as the doctor profile linked to their account; the author is never taken from the request.
+
+4. **Business rules** in services. The appointment lifecycle (only a doctor marks `Completed`, final states
+   cannot change) is enforced in `AppointmentService`; see *Appointment lifecycle* in
+   [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md).
 
 Design decisions worth knowing:
 
 - **Admins cannot read medical records.** Administration and clinical access are separate duties.
+- **Medical records keep every version.** Any doctor may edit any record, but each change is stored as a
+  new revision (`MedicalRecordRevisions`) with the editing doctor, in the same transaction as the edit.
+- **The web frontend signs in through Keycloak** (`frontend-web/src/auth/`, keycloak-js, Authorization Code
+  + PKCE). Tokens stay in memory, are refreshed before each API call, and logout ends the Keycloak session.
 - **Doctors and nurses see all patients.** There is no per-department or per-care-team restriction yet.
 - **Deactivation is local.** `PUT /api/User/{id}/status` blocks a user in this API within the same
   instance immediately. Other API instances honour it within 5 minutes (per-instance cache). The Keycloak

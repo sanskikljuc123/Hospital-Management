@@ -42,7 +42,9 @@ only when the test owner changes it.
 
 ## 2. Risks
 
-All ratings below are `Proposed` and wait for the test owner. "Evidence" is where the current control is.
+Ratings marked `Proposed` wait for the test owner. `Accepted` rows were decided by the test owner on
+2026-11-15 when the related open question was answered; "Fixed in" names the commit that added the control.
+No row is `Covered` yet: the test projects arrive in phases 2–4. "Evidence" is where the current control is.
 
 | ID | Risk | STRIDE | I | L | Severity | Evidence (current control) | Level | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|
@@ -50,22 +52,26 @@ All ratings below are `Proposed` and wait for the test owner. "Evidence" is wher
 | R-002 | A patient reads or cancels another patient's appointment, or books one for another patient | I, T | 4 | 3 | **Critical (12)** | `AppointmentController.cs:32, 46-47, 55, 74-75` | API | – | Proposed |
 | R-003 | A patient reads another patient's profile | I | 4 | 3 | **Critical (12)** | `PatientController.cs:37-39` | API | – | Proposed |
 | R-004 | A patient learns which record IDs exist (404 for missing vs 403 for someone else's) | I | 3 | 3 | **High (9)** | `AppointmentController.cs:46, 74`; `MedicalRecordController.cs:49` | API | – | Proposed |
-| R-005 | A non-admin calls an admin endpoint (user status, user link, audit log, delete) | E | 4 | 2 | **High (8)** | `Policies.cs:22`; `[Authorize(Policy = AdminOnly)]` on 15 actions and on `AuditLogController` | API | – | Proposed |
+| R-005 | A non-admin calls an admin endpoint (user status, user link, audit log, delete) | E | 4 | 2 | **High (8)** | `Policies.cs:29`; `[Authorize(Policy = AdminOnly)]` on 15 actions and on `AuditLogController` | API | – | Proposed |
 | R-006 | A forged, expired, wrong-issuer or wrong-audience token is accepted | S | 4 | 2 | **High (8)** | `AuthenticationExtensions.cs:31-38` | API | – | Proposed |
 | R-007 | A deactivated account still gets data | E | 4 | 2 | **High (8)** | `UserSyncMiddleware.cs:17-24` | API | – | Proposed |
 | R-008 | An admin links a user to the wrong patient, giving them that patient's records | E, I | 4 | 2 | **High (8)** | `UserController.cs:52-54`; no confirmation or audit check known | API | – | Proposed |
-| R-009 | A doctor is double-booked in the same time slot | T | 3 | 3 | **High (9)** | `AppointmentService.cs:157-164` | Unit | – | Proposed |
-| R-010 | A doctor creates a medical record attributed to another doctor (`DoctorId` comes from the request body) | S, R | 3 | 3 | **High (9)** | `MedicalRecordService.cs:36, 45` — see Q-002 | API | – | Proposed |
-| R-011 | Any doctor can change any medical record, not only their own | T | 3 | 3 | **High (9)** | `MedicalRecordController.cs:65-67`; no author check in `MedicalRecordService.cs:62-81` — see Q-003 | API | – | Proposed |
+| R-009 | A doctor is double-booked in the same time slot | T | 3 | 3 | **High (9)** | `AppointmentService.cs:211-222` | Unit | – | Proposed |
+| R-010 | A doctor creates a medical record attributed to another doctor, or attaches it to another doctor's appointment | S, R | 3 | 3 | **High (9)** | Fixed in `7417a9e`: author from the caller's linked doctor (`MedicalRecordController.cs:60`); appointment must match patient and doctor (`MedicalRecordService.cs:69`) — Q-002 | API | – | Accepted |
+| R-011 | A change to a medical record cannot be traced to the doctor who made it, or the previous content is lost | T, R | 3 | 3 | **High (9)** | Fixed in `871484e`: every change stored as a revision with editor, in the same transaction (`MedicalRecordService.cs:114-121`); history at `GET /api/MedicalRecord/{id}/history` (`MedicalRecordController.cs:83-88`) — Q-003 | API | – | Accepted |
 | R-012 | Secrets are committed to the repository | I | 4 | 2 | **High (8)** | `.env` is git-ignored; no automated scan yet | CI | – | Proposed |
 | R-013 | A clinical or access change is not written to the audit log | R | 3 | 2 | Medium (6) | `AuditActions.cs`; `LogAsync` calls in `AppointmentService` and `MedicalRecordService` | Unit | – | Proposed |
-| R-014 | An appointment status is changed to an invalid state (e.g. `Completed` → `Scheduled`) through `PUT` | T | 3 | 2 | Medium (6) | `AppointmentService.cs:84-95` checks the slot but not the transition; only cancel checks state (`:106-107`) | Unit | – | Proposed |
-| R-015 | A user with a valid token but no hospital role reads doctors, departments and services | I | 2 | 3 | Medium (6) | Class-level `[Authorize]` only on `DoctorController`, `DepartmentController`, `ServiceController` — see Q-001 | API | – | Proposed |
+| R-014 | An appointment is put into an invalid state (e.g. `Completed` → `Scheduled`, completed before it starts, moved into the past) | T | 3 | 2 | Medium (6) | Fixed in `8f7079e`: lifecycle in `AppointmentService.cs:92` (final states), `:132-150` (transitions), `:119` (moved → Scheduled), `:161-163` (cancel) — Q-004; rules in `docs/API_ENDPOINTS.md` | Unit | – | Accepted |
+| R-015 | A user with a valid token but no hospital role gets any data | I, E | 2 | 3 | Medium (6) | Fixed in `cd15a5e`: `DefaultPolicy` and `FallbackPolicy` require a hospital role (`Policies.cs:22-27`); frontend shows "No access" (`AuthGate.tsx`) — Q-001 | API | – | Accepted |
 | R-016 | Over-posting on `POST/PUT /api/Service` creates or links unrelated data (entity bound directly, with `Patients` and `DoctorServices` collections) | T, E | 2 | 2 | Medium (4) | `ServiceController.cs:44, 56`; `Service.cs:9-16` | API | – | Proposed |
 | R-017 | An error response or log line exposes another patient's data, a stack trace or a token | I | 3 | 2 | Medium (6) | `DbUpdateExceptionHandler.cs`; `app.UseExceptionHandler()` in `Program.cs:47` | API | – | Proposed |
-| R-018 | An appointment is booked in the past | T | 2 | 3 | Medium (6) | `AppointmentService.cs:48-49` | Unit | – | Proposed |
+| R-018 | An appointment is booked or moved into the past | T | 2 | 3 | Medium (6) | `AppointmentService.cs:48-49, 108-109` | Unit | – | Proposed |
 | R-019 | Deleting a doctor, patient or department with linked data corrupts or orphans records instead of returning 409 | T | 2 | 2 | Medium (4) | `DbUpdateExceptionHandler.cs`; documented 409 in `docs/API_ENDPOINTS.md` | API | – | Proposed |
-| R-020 | An admin can read medical records (they must not: `Admin` is not in the class-level roles) | I | 3 | 1 | Low (3) | `MedicalRecordController.cs:18` | API | – | Proposed |
+| R-020 | An admin can read medical records or their history (they must not: `Admin` is not in the class-level roles) | I | 3 | 1 | Low (3) | `MedicalRecordController.cs:18, 84` | API | – | Proposed |
+| R-021 | A doctor whose account is not linked to a doctor profile cannot write records (blocked at work) | D | 2 | 3 | Medium (6) | 403 by design (`MedicalRecordController.cs:60-62, 75-77`); depends on admins linking accounts — A-005 | API | – | Proposed |
+| R-022 | An appointment wrongly set to a final status (e.g. `NoShow` by mistake) cannot be corrected | T | 2 | 2 | Medium (4) | Final states are strict (`AppointmentService.cs:92-98`) — Q-005 | Unit | – | Proposed |
+| R-023 | Script injection (XSS) in `frontend-web` steals the access token | I, E | 4 | 1 | Medium (4) | Tokens are kept in memory by keycloak-js, not in `localStorage` (`frontend-web/src/auth/keycloak.ts`); React escapes output; no CSP header yet | E2E | – | Proposed |
+| R-024 | A user with no hospital role still gets a local profile and a login audit entry | R | 1 | 3 | Low (3) | `UserSyncMiddleware` runs before authorization (`Program.cs:57-58`) | API | – | Proposed |
 
 ## 3. Assumptions
 
@@ -74,21 +80,23 @@ Things we treat as true without proof yet. Each has an owner and a date to re-ch
 | ID | Assumption | Why it matters | Owner | Re-check by | Status |
 |---|---|---|---|---|---|
 | A-001 | Keycloak puts realm roles in `realm_access.roles`, and the API copies them to `roles` | API test tokens copy this shape; if Keycloak config changes, API tests would pass while production fails. E2E covers the real token. | Test owner | 2027-01-31 | Open |
-| A-002 | `frontend-web` has no Keycloak login today | E2E uses the API request context until the frontend signs in through Keycloak | Test owner | When frontend auth is added | Open |
+| A-002 | `frontend-web` has no Keycloak login today | E2E uses the API request context until the frontend signs in through Keycloak | Test owner | When frontend auth is added | Closed 2026-11-15: login added in `d96bba1`; browser E2E journeys are possible |
 | A-003 | The legacy `AppDesktop/` and `GestionHopitalSQL/` projects are not deployed | They are out of scope; if deployed, their SQL Server access is untested | Test owner | 2027-01-31 | Open |
-| A-004 | Using `DateTime.UtcNow` directly in services is acceptable for now | Tests must use relative dates with margins; a `TimeProvider` would make time rules exact | Test owner | Phase 3 | Open |
+| A-004 | Using `DateTime.UtcNow` directly in services is acceptable for now | Tests must use relative dates with margins; a `TimeProvider` would make time rules exact. The appointment lifecycle (R-014) now depends on "has it started", so this matters more. | Test owner | Phase 3 | Open |
+| A-005 | Every Doctor account that writes records is linked to its doctor profile by an admin | Unlinked doctors get 403 on record writes (R-021) | Test owner | 2027-01-31 | Open |
 
 ## 4. Open questions
 
 Behavior the code shows but no document confirms. The test owner answers; the answer decides the expected
 result in the test.
 
-| ID | Question | Affects |
-|---|---|---|
-| Q-001 | Should a user with a valid token but **no hospital role** see doctors, departments and services? `docs/API_ENDPOINTS.md` says "Any" (any authenticated user). | R-015 |
-| Q-002 | Should a doctor be able to create a medical record with **another doctor's** `DoctorId`, or should the API take the doctor from the token? | R-010 |
-| Q-003 | Should a doctor be able to edit **any** medical record, or only records they authored? | R-011 |
-| Q-004 | Which appointment status transitions are allowed through `PUT /api/Appointment/{id}`? | R-014 |
+| ID | Question | Affects | Answer |
+|---|---|---|---|
+| Q-001 | Should a user with a valid token but **no hospital role** see doctors, departments and services? | R-015 | **No** — 403 on every endpoint, including `/api/User/me` (2026-11-15). |
+| Q-002 | Should a doctor be able to create a medical record with **another doctor's** `DoctorId`? | R-010 | **No** — the author comes from the caller's linked doctor profile (2026-11-15). |
+| Q-003 | Should a doctor be able to edit **any** medical record, or only records they authored? | R-011 | **Any record**, but every change must be traceable: full revision history with the editing doctor, readable by doctors and nurses (2026-11-15). |
+| Q-004 | Which appointment status transitions are allowed through `PUT /api/Appointment/{id}`? | R-014 | The lifecycle in `docs/API_ENDPOINTS.md` → *Appointment lifecycle* (2026-11-15). |
+| Q-005 | Who may correct an appointment that was set to a final status by mistake (e.g. `NoShow`), and does it need a reason? Today nobody can. | R-022 | Open |
 
 ## 5. Accepted risks
 
