@@ -172,6 +172,67 @@ public class MedicalRecordServiceTests : IDisposable
         Assert.Equal(new[] { "v1", "v2", "v3" }, history!.Select(r => r.Diagnosis).ToArray());
         Assert.Equal(new[] { 1, 2, 3 }, history.Select(r => r.Revision).ToArray());
         Assert.Equal(new[] { "Diagnosis" }, history[2].ChangedFields);
+        Assert.Empty(history[0].ChangedFields); // revision 1 changed nothing
         Assert.Null(await _service.GetHistoryAsync(999));
+    }
+
+    // ---------- Added after mutation testing (phase 5) ----------
+
+    [Fact]
+    [Trait("Risk", "R-001")]
+    public async Task List_FiltersByPatient_NewestFirst()
+    {
+        var first = (await _service.CreateAsync(new MedicalRecordCreateDto { PatientId = _patientId, Diagnosis = "first" }, _doctorA)).Value!.Id;
+        _clock.Advance(TimeSpan.FromHours(1));
+        var second = (await _service.CreateAsync(new MedicalRecordCreateDto { PatientId = _patientId, Diagnosis = "second" }, _doctorA)).Value!.Id;
+        _clock.Advance(TimeSpan.FromHours(1));
+        var other = (await _service.CreateAsync(new MedicalRecordCreateDto { PatientId = _otherPatientId, Diagnosis = "other" }, _doctorA)).Value!.Id;
+
+        Assert.Equal(new[] { second, first }, (await _service.GetAllAsync(_patientId)).Select(r => r.Id).ToArray());
+        Assert.Equal(new[] { other, second, first }, (await _service.GetAllAsync()).Select(r => r.Id).ToArray());
+    }
+
+    [Fact]
+    [Trait("Risk", "R-010")]
+    [Trait("Scenario", "F-08.3")]
+    public async Task Create_ForAnAppointmentIdThatDoesNotExist_IsInvalid_EvenIfThePairHasOtherAppointments()
+    {
+        var existing = new Appointment { PatientId = _patientId, DoctorId = _doctorA, ScheduledAt = Now.UtcDateTime.AddDays(-1) };
+        _db.Appointments.Add(existing);
+        await _db.SaveChangesAsync();
+
+        var result = await _service.CreateAsync(
+            new MedicalRecordCreateDto { PatientId = _patientId, AppointmentId = existing.Id + 1000, Diagnosis = "Flu" }, _doctorA);
+        var valid = await _service.CreateAsync(
+            new MedicalRecordCreateDto { PatientId = _patientId, AppointmentId = existing.Id, Diagnosis = "Flu" }, _doctorA);
+
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.True(valid.Success, valid.Error);
+        Assert.Equal(existing.Id, valid.Value!.AppointmentId);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-011")]
+    public async Task Update_AuditCarriesTheNewRevisionNumberAndEditor()
+    {
+        var id = (await _service.CreateAsync(new MedicalRecordCreateDto { PatientId = _patientId, Diagnosis = "Flu" }, _doctorA)).Value!.Id;
+
+        await _service.UpdateAsync(id, new MedicalRecordUpdateDto { Diagnosis = "Cold" }, _doctorB);
+
+        var details = _audit.Entries.Last().Details;
+        Assert.Contains("\"Revision\":2", details);
+        Assert.Contains($"\"EditedByDoctorId\":{_doctorB}", details);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-011")]
+    public async Task LastEditor_IsEmptyBeforeTheFirstEdit_AndNamedAfter()
+    {
+        var created = (await _service.CreateAsync(new MedicalRecordCreateDto { PatientId = _patientId, Diagnosis = "Flu" }, _doctorA)).Value!;
+        Assert.Null(created.LastEditedByDoctorName);
+
+        var edited = (await _service.UpdateAsync(created.Id, new MedicalRecordUpdateDto { Diagnosis = "Cold" }, _doctorB)).Value!;
+
+        Assert.Equal("Test B", edited.LastEditedByDoctorName);
     }
 }
