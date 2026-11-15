@@ -95,7 +95,11 @@ must produce the same shape, and the test host must trust only the test key.
 
 ## 6. Test data
 
-- **Synthetic only.** No real names, IDs or medical content. Use obviously fake values (`Test Patient A`).
+- **Synthetic only.** No real names, IDs or medical content. Use obviously fake values (`Test Patient A`),
+  following the synthetic data rules in [BUSINESS_FLOWS.md §4](BUSINESS_FLOWS.md#4-synthetic-data-rules).
+- **Scenarios come from the flows.** Every scenario in [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md) is covered at
+  the lowest level that can prove it; the test carries the scenario ID as a trait
+  (`[Trait("Scenario", "F-03.4")]`) next to the risk, and E2E scenarios carry it as a Gherkin tag (`@F-03.4`).
 - **Created by the test** through builders (`PatientBuilder`, `AppointmentBuilder`) or through the API
   as an authorized identity. The seed data (`Database:SeedOnStartup`) is not relied on by API tests.
 - **Isolation:** one PostgreSQL container per test run; each test class gets its own database, or the

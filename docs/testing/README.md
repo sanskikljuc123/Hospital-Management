@@ -14,10 +14,16 @@ agent were removed tomorrow, every test and every quality gate would still run t
 | **Reliability over speed** | No automatic retries, no `Thread.Sleep` / fixed waits, isolated test data. A flaky test is quarantined with an owner and a ticket — never silently skipped. |
 | **Evidence over assumptions** | A claim cites code (`file:line`), a test, or a test run. Anything unproven is recorded as an assumption with an owner and a review date. |
 
+**Operating principle: production-like, with synthetic data.** Everything is built, configured and tested
+as close to real life and production as possible — real-life flows, health-data security with no leakage,
+reliability, and every important scenario and edge case — while all data is fake. Details in
+[BUSINESS_FLOWS.md](BUSINESS_FLOWS.md#operating-principle).
+
 ## Documents
 
 | Document | Answers |
 |---|---|
+| [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md) | The real-life flows of each actor, their edge cases, the synthetic data rules and the leakage checklist. |
 | [TEST_STRATEGY.md](TEST_STRATEGY.md) | What we test at which level, with which tools, data and environments, and how tests are written. |
 | [RISK_REGISTER.md](RISK_REGISTER.md) | How risks are rated, the current risks, the open assumptions, and which test covers which risk. |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Who may call which endpoint, per-record access rules, token and leakage checks. |

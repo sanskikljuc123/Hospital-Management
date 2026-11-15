@@ -46,6 +46,10 @@ Ratings marked `Proposed` wait for the test owner. `Accepted` rows were decided 
 2026-11-15 when the related open question was answered; "Fixed in" names the commit that added the control.
 No row is `Covered` yet: the test projects arrive in phases 2–4. "Evidence" is where the current control is.
 
+**Ratings assume real patient data.** The system holds only synthetic data, but it is built and tested as if
+it were in production with real patients (Q-007, [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md#operating-principle)),
+so no rating is lowered because the data is fake.
+
 | ID | Risk | STRIDE | I | L | Severity | Evidence (current control) | Level | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|
 | R-001 | A patient reads another patient's medical record | I | 4 | 3 | **Critical (12)** | `MedicalRecordController.cs:49-51` | API | – | Proposed |
@@ -101,10 +105,27 @@ drill, failover). The order in which they are fixed is in [QUALITY_GATES.md](QUA
 | R-041 | The audit trail can be altered or lost: same database and user as the app, no retention; Keycloak keeps events 30 days | R | 3 | 2 | Medium (6) | `AuditService.cs`; realm `eventsExpiration: 2592000` | Ops | – | Proposed |
 | R-042 | Personal data in logs (email recipients), and email/SMS notifications are never actually sent | I | 2 | 3 | Medium (6) | `LoggingIntegrations.cs:18` | Unit | – | Proposed |
 | R-043 | "Forgot password" is offered but no SMTP server is configured, so it cannot work | D | 2 | 3 | Medium (6) | Fixed in `942cd37`: `resetPasswordAllowed: false` in the realm file until SMTP is configured | Config | – | Accepted |
-| R-044 | The patient model cannot hold real patients (phone is a number, no name or date of birth) and deletion is permanent | T | 2 | 2 | Medium (4) | `Patient.cs:8-12`; `PatientServiceImp.cs:107` — Q-007 | Unit | – | Proposed |
-| R-045 | No data retention, patient data export or consent rules for health data | I, R | 3 | 2 | Medium (6) | no document — Q-007 | Ops | – | Proposed |
+| R-044 | The patient model cannot hold realistic patients (phone is a number, no name or date of birth) and deletion is permanent, so real-life flows cannot be exercised | T | 3 | 3 | **High (9)** | `Patient.cs:8-12`; `PatientServiceImp.cs:107` — Q-007, BUSINESS_FLOWS F-02 | Unit | – | Proposed |
+| R-045 | No data retention, patient data export or consent mechanisms (the legal paperwork is out of scope with synthetic data; the mechanisms are not) | I, R | 3 | 2 | Medium (6) | no document — Q-007 | Ops | – | Proposed |
 | R-046 | Problems in production go unnoticed: telemetry is exported only if configured, no alerts, no central logs | R, D | 3 | 2 | Medium (6) | `HospitalManagement.ServiceDefaults/Extensions.cs:60-61` | Ops | – | Proposed |
 | R-047 | No runbooks for deploy, rollback, secret rotation and restore | D | 2 | 2 | Medium (4) | no document | Ops | – | Proposed |
+
+### 2.2 Business flows
+
+Gaps found while writing the real-life flows in [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md) on 2026-11-15. The
+flow scenario that exposes each one is named in the evidence column.
+
+| ID | Risk | STRIDE | I | L | Severity | Evidence (current state) | Level | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| R-048 | Two bookings for the same doctor and slot at the same moment both succeed | T | 3 | 2 | Medium (6) | Check-then-insert in `AppointmentService.cs:253-264`; the index on `(DoctorId, ScheduledAt)` is not unique and cannot express overlap (`ApplicationDbContext.cs:98`) — F-03.9 | API | – | Proposed |
+| R-049 | The same person is registered twice, splitting their history across two patient records | T | 3 | 3 | **High (9)** | No duplicate check in `PatientServiceImp.cs` — F-02.3 | Unit | – | Proposed |
+| R-050 | Appointments nobody closes stay `Scheduled`/`Confirmed` forever | T | 2 | 4 | **High (8)** | No job or rule closes past appointments — F-07.4 | Unit | – | Proposed |
+| R-051 | A local time sent without an offset is stored as if it were UTC, shifting the appointment by the time-zone difference | T | 3 | 3 | **High (9)** | `AppointmentService.cs:269` (`Unspecified` → `Utc`) — F-03.10 | API | – | Proposed |
+| R-052 | A role removed or changed in Keycloak keeps working until the access token expires | E | 3 | 2 | Medium (6) | `accessTokenLifespan: 900` in the realm file; roles read only from the token — F-01.7 | E2E | – | Proposed |
+| R-053 | A medical record can be attached to an appointment that never took place (future, cancelled, no-show) | T | 3 | 2 | Medium (6) | `MedicalRecordService.cs:69` checks patient and doctor, not status — F-08.4 | API | – | Proposed |
+| R-054 | Doctor and patient endpoints return database entities, exposing internal fields such as account links (`userId`) | I | 3 | 3 | **High (9)** | `IDoctorService.cs:13-14`, `IPatientService.cs:13-14` return entities; `DoctorController.cs:30, 42`, `PatientController.cs:30` — F-10.4 | API | – | Proposed |
+| R-055 | A deactivated doctor keeps future appointments; patients are not told | T, D | 3 | 2 | Medium (6) | Deactivation does not touch appointments (`UserService.cs`) — F-12.2 | Unit | – | Proposed |
+| R-056 | Two doctors amending the same record: the later save silently overwrites the earlier change | T | 3 | 2 | Medium (6) | No version check on `PUT /api/MedicalRecord/{id}` (`MedicalRecordService.cs:114-121`); history keeps both — F-09.3 | API | – | Proposed |
 
 ## 3. Assumptions
 
@@ -131,7 +152,7 @@ result in the test.
 | Q-004 | Which appointment status transitions are allowed through `PUT /api/Appointment/{id}`? | R-014 | The lifecycle in `docs/API_ENDPOINTS.md` → *Appointment lifecycle* (2026-11-15). |
 | Q-005 | Who may correct an appointment that was set to a final status by mistake (e.g. `NoShow`), and does it need a reason? | R-022 | **Admin only, with a mandatory reason**, through a separate endpoint; only NoShow ⇄ Completed and Cancelled → Scheduled before the start; audited (2026-11-15). |
 | Q-006 | Where will the system run: own server, a cloud provider (Azure, AWS) or Kubernetes? Which hostnames? | R-025, R-026, R-031 – R-034, R-046 | Open |
-| Q-007 | Will the system hold **real patient data**, or is it a demo / training project? Which law applies to the health data? | R-028, R-041 – R-045 (real data moves them to P0) | Open |
+| Q-007 | Will the system hold **real patient data**, or is it a demo / training project? Which law applies to the health data? | R-028, R-041 – R-045 | **Synthetic data only, but everything as close to real life and production as possible**: real-life flows, production-like configuration, health-data security (no leakage), reliability, and no important scenario or edge case missed. Ratings are not lowered for fake data; only the legal paperwork for real patients is out of scope (2026-11-15). See BUSINESS_FLOWS. |
 | Q-008 | One API instance or several? | R-038, R-039 | Open |
 | Q-009 | Should the legacy `AppDesktop/` and `GestionHopitalSQL/` projects be deleted from the repository, moved to an archive repository, or kept? | R-030, A-003 | **Delete** from the repository; git history keeps them (2026-11-15). |
 
