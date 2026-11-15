@@ -105,8 +105,10 @@ Use qe-reviewer to triage this failing test: <paste output>.
 ## Test projects
 
 ```
-backend/tests/HospitalManagement.UnitTests/   business rules in Services (fixed clock)          phase 2 ✅, more in phase 3
-backend/tests/HospitalManagement.ApiTests/    authorization matrix, tokens, BOLA, record author  phase 2 ✅ — real PostgreSQL
+backend/tests/HospitalManagement.UnitTests/   business rules of every service, access policy,    phase 2 ✅, phase 3 ✅
+                                               outbox delivery, architecture rules (fixed clock)
+backend/tests/HospitalManagement.ApiTests/    authorization matrix, tokens, BOLA, record author, phase 2 ✅ — real PostgreSQL
+                                               catalogue, transactions, outbox
 e2e/HospitalManagement.E2E/                    critical journeys — real Keycloak and full stack    phase 4
 ```
 
