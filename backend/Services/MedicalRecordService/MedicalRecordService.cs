@@ -13,12 +13,15 @@ namespace Services.MedicalRecordService
         private readonly ApplicationDbContext _context;
         private readonly IAuditService _audit;
         private readonly ICurrentUserContext _currentUser;
+        private readonly TimeProvider _time;
 
-        public MedicalRecordService(ApplicationDbContext context, IAuditService audit, ICurrentUserContext currentUser)
+        public MedicalRecordService(ApplicationDbContext context, IAuditService audit, ICurrentUserContext currentUser,
+            TimeProvider time)
         {
             _context = context;
             _audit = audit;
             _currentUser = currentUser;
+            _time = time;
         }
 
         public async Task<IReadOnlyList<MedicalRecordDto>> GetAllAsync(int? patientId = null, CancellationToken cancellationToken = default)
@@ -71,7 +74,7 @@ namespace Services.MedicalRecordService
                 return ServiceResult<MedicalRecordDto>.Invalid(
                     $"Appointment with ID {dto.AppointmentId} not found for this patient and doctor");
 
-            var now = DateTime.UtcNow;
+            var now = _time.GetUtcNow().UtcDateTime;
             var record = new MedicalRecord
             {
                 PatientId = dto.PatientId,
@@ -106,7 +109,7 @@ namespace Services.MedicalRecordService
             // Nothing changed: no new revision, no audit entry.
             if (changedFields.Count == 0) return ServiceResult<MedicalRecordDto>.Ok((await GetByIdAsync(id, cancellationToken))!);
 
-            var now = DateTime.UtcNow;
+            var now = _time.GetUtcNow().UtcDateTime;
             record.Diagnosis = dto.Diagnosis;
             record.Treatment = dto.Treatment;
             record.Notes = dto.Notes;

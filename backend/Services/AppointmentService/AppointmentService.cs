@@ -17,15 +17,20 @@ namespace Services.AppointmentService
         private readonly ICurrentUserContext _currentUser;
         private readonly IAuditService _audit;
         private readonly INotificationService _notifications;
+        private readonly TimeProvider _time;
 
         public AppointmentService(ApplicationDbContext context, ICurrentUserContext currentUser,
-            IAuditService audit, INotificationService notifications)
+            IAuditService audit, INotificationService notifications, TimeProvider time)
         {
             _context = context;
             _currentUser = currentUser;
             _audit = audit;
             _notifications = notifications;
+            _time = time;
         }
+
+        /// <summary>The current time; from <see cref="TimeProvider"/> so tests can fix it.</summary>
+        private DateTime UtcNow => _time.GetUtcNow().UtcDateTime;
 
         public async Task<IReadOnlyList<AppointmentDto>> GetAllAsync(int? patientId = null, int? doctorId = null,
             DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
@@ -45,7 +50,7 @@ namespace Services.AppointmentService
         public async Task<ServiceResult<AppointmentDto>> CreateAsync(AppointmentCreateDto dto, CancellationToken cancellationToken = default)
         {
             var scheduledAt = ToUtc(dto.ScheduledAt);
-            if (scheduledAt <= DateTime.UtcNow)
+            if (scheduledAt <= UtcNow)
                 return ServiceResult<AppointmentDto>.Invalid("An appointment must be scheduled in the future");
             if (!await _context.Patients.AnyAsync(p => p.Id == dto.PatientId, cancellationToken))
                 return ServiceResult<AppointmentDto>.Invalid($"Patient with ID {dto.PatientId} not found");
@@ -62,7 +67,7 @@ namespace Services.AppointmentService
                 DurationMinutes = dto.DurationMinutes,
                 Status = AppointmentStatus.Scheduled,
                 Reason = dto.Reason,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = UtcNow,
                 CreatedBy = _currentUser.Subject
             };
             _context.Appointments.Add(appointment);
@@ -81,7 +86,7 @@ namespace Services.AppointmentService
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
 
             var scheduledAt = ToUtc(dto.ScheduledAt);
-            var now = DateTime.UtcNow;
+            var now = UtcNow;
             var rescheduled = appointment.DoctorId != dto.DoctorId
                 || appointment.ServiceId != dto.ServiceId
                 || appointment.ScheduledAt != scheduledAt
@@ -175,7 +180,7 @@ namespace Services.AppointmentService
             if (dto.Status == AppointmentStatus.Scheduled)
             {
                 // Reopening a cancelled appointment is only possible while it can still take place.
-                if (appointment.ScheduledAt <= DateTime.UtcNow)
+                if (appointment.ScheduledAt <= UtcNow)
                     return ServiceResult<AppointmentDto>.Conflict("A cancelled appointment that has already started cannot be reopened");
                 var slotError = await ValidateSlotAsync(id, appointment.DoctorId, appointment.ServiceId,
                     appointment.ScheduledAt, appointment.DurationMinutes, cancellationToken);
@@ -183,7 +188,7 @@ namespace Services.AppointmentService
             }
 
             appointment.Status = dto.Status;
-            appointment.UpdatedAt = DateTime.UtcNow;
+            appointment.UpdatedAt = UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             await _audit.LogAsync(AuditActions.AppointmentStatusCorrected, nameof(Appointment), appointment.Id,
@@ -202,7 +207,7 @@ namespace Services.AppointmentService
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
             if (IsFinal(appointment.Status))
                 return ServiceResult<AppointmentDto>.Conflict($"A {appointment.Status} appointment cannot be cancelled");
-            if (appointment.ScheduledAt <= DateTime.UtcNow)
+            if (appointment.ScheduledAt <= UtcNow)
                 return ServiceResult<AppointmentDto>.Conflict(
                     "An appointment that has started cannot be cancelled; set it to Completed or NoShow");
 
@@ -226,7 +231,7 @@ namespace Services.AppointmentService
 
         private async Task<ServiceResult<AppointmentDto>> SaveUpdateAsync(Appointment appointment, object before, CancellationToken cancellationToken)
         {
-            appointment.UpdatedAt = DateTime.UtcNow;
+            appointment.UpdatedAt = UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             await _audit.LogAsync(AuditActions.AppointmentUpdated, nameof(Appointment), appointment.Id,
