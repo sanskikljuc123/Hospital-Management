@@ -32,6 +32,7 @@ deactivated accounts and for tokens without a hospital role (R-015: `DefaultPoli
 | `PUT /api/Appointment/{id}` | Yes | Yes | Yes | 403 | 403 | R-014 |
 | `PUT /api/Appointment/{id}` with `status: Completed` | 403 | Yes (once started) | 403 | 403 | 403 | R-014 |
 | `POST /api/Appointment/{id}/cancel` | Yes | Yes | Yes | Own | 403 | R-002, R-004 |
+| `POST /api/Appointment/{id}/correct-status` | Yes | 403 | 403 | 403 | 403 | R-005, R-022 |
 | `DELETE /api/Appointment/{id}` | Yes | 403 | 403 | 403 | 403 | R-005 |
 | `GET /api/AuditLog` | Yes | 403 | 403 | 403 | 403 | R-005 |
 | `GET /api/Department`, `GET /api/Department/{id}` | Yes | Yes | Yes | Yes | 403 | R-015 |

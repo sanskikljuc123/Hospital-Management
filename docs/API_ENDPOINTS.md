@@ -114,6 +114,7 @@ Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive versi
 | POST | `/api/Appointment` | Book an appointment. Must be in the future; 409 if the doctor is busy in that slot | Staff (any patient); Patient (self only) | `AppointmentCreateDto` | 201 + `AppointmentDto` |
 | PUT | `/api/Appointment/{id}` | Reschedule, reassign or change status, following the lifecycle below | Staff (`Completed`: Doctor only) | `AppointmentUpdateDto` | `AppointmentDto` |
 | POST | `/api/Appointment/{id}/cancel` | Cancel; only a Scheduled or Confirmed appointment that has not started (409 otherwise) | Staff; Patient (own only) | – | `AppointmentDto` |
+| POST | `/api/Appointment/{id}/correct-status` | Correct a final status set by mistake (see *Status corrections*) | Admin | `AppointmentStatusCorrectionDto` | `AppointmentDto` |
 | DELETE | `/api/Appointment/{id}` | Hard delete | Admin | – | 204 |
 
 Create, update, cancel and delete are audited. Create and update also notify the patient through `INotificationService`.
@@ -135,6 +136,26 @@ Create, update, cancel and delete are audited. Create and update also notify the
 | `NoShow` only once `scheduledAt` has passed. | 409 |
 | Changing `doctorId`, `serviceId`, `scheduledAt` or `durationMinutes` (moving) is allowed only while `Scheduled` or `Confirmed`, only into the future, and must not be combined with a final status. | 400 (past), 409 (with final status, or doctor busy) |
 | A moved appointment always goes back to `Scheduled` and has to be confirmed again. | – |
+
+### Status corrections
+
+A final status set by mistake is not changed with `PUT`. An admin corrects it with
+`POST /api/Appointment/{id}/correct-status` and a reason (10–500 characters, 400 otherwise):
+
+| From | To | Condition |
+|---|---|---|
+| `NoShow` | `Completed` | – (e.g. the patient arrived late and was seen) |
+| `Completed` | `NoShow` | – (e.g. the wrong appointment was marked as completed) |
+| `Cancelled` | `Scheduled` | The appointment has not started and the doctor is still free in that slot |
+
+Any other correction, or a correction of an appointment that is not final, returns 409. Each correction is
+audited as `Appointment.StatusCorrected` with the old status, the new status and the reason, and the
+patient is notified.
+
+```jsonc
+// AppointmentStatusCorrectionDto
+{ "status": "Completed", "reason": "Patient arrived 10 minutes late, examination was done" }
+```
 
 ```jsonc
 // AppointmentCreateDto
@@ -233,7 +254,8 @@ Status changes and links are audited.
 ```
 
 Actions: `User.Login`, `User.Provisioned`, `User.Activated`, `User.Deactivated`, `User.Linked`,
-`Appointment.Created`, `Appointment.Updated`, `Appointment.Deleted`, `MedicalRecord.Created`, `MedicalRecord.Updated`.
+`Appointment.Created`, `Appointment.Updated`, `Appointment.StatusCorrected`, `Appointment.Deleted`,
+`MedicalRecord.Created`, `MedicalRecord.Updated`.
 
 ## Role matrix
 
@@ -249,6 +271,7 @@ Actions: `User.Login`, `User.Provisioned`, `User.Activated`, `User.Deactivated`,
 | Appointments: update | ✔ | ✔ | ✔ | – |
 | Appointments: mark Completed | – | ✔ | – | – |
 | Appointments: cancel | ✔ | ✔ | ✔ | own |
+| Appointments: correct a final status | ✔ | – | – | – |
 | Appointments: delete | ✔ | – | – | – |
 | Medical records: read | – | ✔ | ✔ | own |
 | Medical records: write | – | ✔ (linked) | – | – |
