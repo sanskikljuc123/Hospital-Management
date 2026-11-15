@@ -5,7 +5,7 @@
   "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
-  "resetPasswordAllowed": true,
+  "resetPasswordAllowed": false,
   "bruteForceProtected": true,
   "accessTokenLifespan": 900,
   "ssoSessionIdleTimeout": 1800,
@@ -42,7 +42,7 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
+      "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:3000/*",
