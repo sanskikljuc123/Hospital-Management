@@ -84,10 +84,10 @@ drill, failover). The order in which they are fixed is in [QUALITY_GATES.md](QUA
 |---|---|---|---|---|---|---|---|---|---|
 | R-025 | Tokens and medical data travel unencrypted: no TLS on Keycloak, the API or the frontend | I, S | 4 | 3 | **Critical (12)** | `docker-compose.yml:37` (`start-dev`), `:49` (`KC_HTTP_ENABLED`), `:83` (`RequireHttpsMetadata: false`); API listens on HTTP 8080 (`backend/api/Dockerfile`) | Config | – | Proposed |
 | R-026 | Keycloak runs in development mode and imports the sample users with one shared password | S, E | 4 | 3 | **Critical (12)** | `docker-compose.yml:37`, `:52`; realm users in `keycloak/realms/HospitalRealm-realm.json` | Config | – | Proposed |
-| R-027 | The password grant on the public `hospital-web` client lets anyone script password guessing outside the login page | S | 3 | 3 | **High (9)** | realm: `hospital-web.directAccessGrantsEnabled: true` | Config | – | Proposed |
+| R-027 | The password grant on the public `hospital-web` client lets anyone script password guessing outside the login page | S | 3 | 3 | **High (9)** | Fixed in `942cd37`: `directAccessGrantsEnabled: false` on `hospital-web` in the realm file; no client in the realm allows the password grant | Config | – | Accepted |
 | R-028 | Staff with access to medical data sign in with a password only: no MFA, no password policy | S | 4 | 2 | **High (8)** | realm: no `passwordPolicy`, no OTP required action | Config | – | Proposed |
-| R-029 | The compose file marked `Production` seeds sample data and exposes Swagger | I, E | 3 | 3 | **High (9)** | `docker-compose.yml:79, 85, 86` | Config | – | Proposed |
-| R-030 | A hard-coded SQL Server `sa` password and 177 build-output files (`bin/`, `obj/`, `.vs/`) are in the public repository | I | 3 | 3 | **High (9)** | `GestionHopitalSQL/dao/ConnexionHopital.cs:12`; `git ls-files` — see R-012, A-003 | CI | – | Proposed |
+| R-029 | The compose file marked `Production` seeds sample data and exposes Swagger | I, E | 3 | 3 | **High (9)** | Fixed in `d7a7f4d`: off in `docker-compose.yml`; on only in `docker-compose.override.yml` for local development | Config | – | Accepted |
+| R-030 | A hard-coded SQL Server `sa` password and 177 build-output files (`bin/`, `obj/`, `.vs/`) are in the public repository | I | 3 | 3 | **High (9)** | Fixed in `619ef39`: legacy projects deleted, `bin/`, `obj/`, `.vs/` ignored. The password remains in git history — rotate it where still used; gitleaks in CI (wave 2) keeps new secrets out — see R-012 | CI | – | Accepted |
 | R-031 | The API and Keycloak use the same PostgreSQL superuser, so a flaw in either reaches all data | E, T | 4 | 2 | **High (8)** | `docker-compose.yml:18, 43, 80` | Config | – | Proposed |
 | R-032 | Data is lost for good: no backup, no tested restore, no RPO/RTO | D | 4 | 2 | **High (8)** | only the `postgres-data` volume (`docker-compose.yml:22`) | Ops | – | Proposed |
 | R-033 | The frontend image runs the Vite development server and is not part of the deployed stack | D, I | 3 | 3 | **High (9)** | `frontend-web/Dockerfile` (`CMD ["npm", "run", "dev"]`); not in root `docker-compose.yml` | Config | – | Proposed |
@@ -100,7 +100,7 @@ drill, failover). The order in which they are fixed is in [QUALITY_GATES.md](QUA
 | R-040 | Floating image tags and no dependency or image vulnerability scanning | T | 3 | 2 | Medium (6) | `postgres:17-alpine`, `keycloak:26.4` (`docker-compose.yml:16, 35`), `node:alpine` (`frontend-web/Dockerfile`) | CI | – | Proposed |
 | R-041 | The audit trail can be altered or lost: same database and user as the app, no retention; Keycloak keeps events 30 days | R | 3 | 2 | Medium (6) | `AuditService.cs`; realm `eventsExpiration: 2592000` | Ops | – | Proposed |
 | R-042 | Personal data in logs (email recipients), and email/SMS notifications are never actually sent | I | 2 | 3 | Medium (6) | `LoggingIntegrations.cs:18` | Unit | – | Proposed |
-| R-043 | "Forgot password" is offered but no SMTP server is configured, so it cannot work | D | 2 | 3 | Medium (6) | realm `resetPasswordAllowed: true`, no `smtpServer` | Config | – | Proposed |
+| R-043 | "Forgot password" is offered but no SMTP server is configured, so it cannot work | D | 2 | 3 | Medium (6) | Fixed in `942cd37`: `resetPasswordAllowed: false` in the realm file until SMTP is configured | Config | – | Accepted |
 | R-044 | The patient model cannot hold real patients (phone is a number, no name or date of birth) and deletion is permanent | T | 2 | 2 | Medium (4) | `Patient.cs:8-12`; `PatientServiceImp.cs:107` — Q-007 | Unit | – | Proposed |
 | R-045 | No data retention, patient data export or consent rules for health data | I, R | 3 | 2 | Medium (6) | no document — Q-007 | Ops | – | Proposed |
 | R-046 | Problems in production go unnoticed: telemetry is exported only if configured, no alerts, no central logs | R, D | 3 | 2 | Medium (6) | `HospitalManagement.ServiceDefaults/Extensions.cs:60-61` | Ops | – | Proposed |
@@ -114,7 +114,7 @@ Things we treat as true without proof yet. Each has an owner and a date to re-ch
 |---|---|---|---|---|---|
 | A-001 | Keycloak puts realm roles in `realm_access.roles`, and the API copies them to `roles` | API test tokens copy this shape; if Keycloak config changes, API tests would pass while production fails. E2E covers the real token. | Test owner | 2027-01-31 | Open |
 | A-002 | `frontend-web` has no Keycloak login today | E2E uses the API request context until the frontend signs in through Keycloak | Test owner | When frontend auth is added | Closed 2026-11-15: login added in `d96bba1`; browser E2E journeys are possible |
-| A-003 | The legacy `AppDesktop/` and `GestionHopitalSQL/` projects are not deployed | They are out of scope; if deployed, their SQL Server access is untested. They also hold a hard-coded password (R-030) — Q-009 | Test owner | 2027-01-31 | Open |
+| A-003 | The legacy `AppDesktop/` and `GestionHopitalSQL/` projects are not deployed | They were out of scope and held a hard-coded password (R-030) | Test owner | – | Closed 2026-11-15: both projects deleted in `619ef39` (Q-009) |
 | A-004 | Using `DateTime.UtcNow` directly in services is acceptable for now | Tests must use relative dates with margins; a `TimeProvider` would make time rules exact. The appointment lifecycle (R-014) now depends on "has it started", so this matters more. | Test owner | Phase 3 | Open |
 | A-005 | Every Doctor account that writes records is linked to its doctor profile by an admin | Unlinked doctors get 403 on record writes (R-021) | Test owner | 2027-01-31 | Open |
 
@@ -133,7 +133,7 @@ result in the test.
 | Q-006 | Where will the system run: own server, a cloud provider (Azure, AWS) or Kubernetes? Which hostnames? | R-025, R-026, R-031 – R-034, R-046 | Open |
 | Q-007 | Will the system hold **real patient data**, or is it a demo / training project? Which law applies to the health data? | R-028, R-041 – R-045 (real data moves them to P0) | Open |
 | Q-008 | One API instance or several? | R-038, R-039 | Open |
-| Q-009 | Should the legacy `AppDesktop/` and `GestionHopitalSQL/` projects be deleted from the repository, moved to an archive repository, or kept? | R-030, A-003 | Open |
+| Q-009 | Should the legacy `AppDesktop/` and `GestionHopitalSQL/` projects be deleted from the repository, moved to an archive repository, or kept? | R-030, A-003 | **Delete** from the repository; git history keeps them (2026-11-15). |
 
 ## 5. Accepted risks
 
