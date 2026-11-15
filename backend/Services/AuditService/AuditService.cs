@@ -11,15 +11,15 @@ namespace Services.AuditService
 {
     public class AuditService : IAuditService
     {
-        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ApplicationDbContext _context;
         private readonly ICurrentUserContext _currentUser;
-        private readonly ILogger<AuditService> _logger;
+        private readonly TimeProvider _time;
 
-        public AuditService(IServiceScopeFactory scopeFactory, ICurrentUserContext currentUser, ILogger<AuditService> logger)
+        public AuditService(ApplicationDbContext context, ICurrentUserContext currentUser, TimeProvider time)
         {
-            _scopeFactory = scopeFactory;
+            _context = context;
             _currentUser = currentUser;
-            _logger = logger;
+            _time = time;
         }
 
         public async Task LogAsync(string action, string? entityType = null, object? entityId = null,
@@ -27,7 +27,7 @@ namespace Services.AuditService
         {
             var entry = new AuditLog
             {
-                Timestamp = DateTime.UtcNow,
+                Timestamp = _time.GetUtcNow().UtcDateTime,
                 Action = action,
                 EntityType = entityType,
                 EntityId = entityId?.ToString(),
@@ -38,28 +38,16 @@ namespace Services.AuditService
                 Success = success
             };
 
-            try
-            {
-                // A dedicated context keeps the audit write independent of whatever the caller's
-                // context is tracking (including changes that just failed to save).
-                using var scope = _scopeFactory.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                context.AuditLogs.Add(entry);
-                await context.SaveChangesAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to write audit entry {Action} for {EntityType} {EntityId}",
-                    action, entityType, entry.EntityId);
-            }
+            // Same DbContext, so inside the request transaction (TransactionalWriteFilter) the entry commits or
+            // rolls back together with the change it describes. A failure is not swallowed: no change without
+            // its audit entry (decision D-8).
+            _context.AuditLogs.Add(entry);
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<IReadOnlyList<AuditLogDto>> QueryAsync(AuditLogQuery query, CancellationToken cancellationToken = default)
         {
-            using var scope = _scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-            var logs = context.AuditLogs.AsNoTracking();
+            var logs = _context.AuditLogs.AsNoTracking();
             if (!string.IsNullOrWhiteSpace(query.Action)) logs = logs.Where(a => a.Action == query.Action);
             if (!string.IsNullOrWhiteSpace(query.UserId)) logs = logs.Where(a => a.UserId == query.UserId);
             if (!string.IsNullOrWhiteSpace(query.EntityType)) logs = logs.Where(a => a.EntityType == query.EntityType);

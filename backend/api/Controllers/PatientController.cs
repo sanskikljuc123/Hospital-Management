@@ -4,84 +4,57 @@ using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services.PatientService;
-using Services.UserService;
 
 namespace api.Controllers
 {
+    /// <summary>Patient registry: staff manage it; a patient can read only their own record.</summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
     public class PatientController : HospitalControllerBase
     {
-        private readonly IPatientService _patientService;
-        private readonly IUserService _users;
+        private readonly IPatientService _patients;
+        private readonly IPatientAccessPolicy _access;
 
-        public PatientController(IPatientService patientService, IUserService users)
+        public PatientController(IPatientService patients, IPatientAccessPolicy access)
         {
-            _patientService = patientService;
-            _users = users;
+            _patients = patients;
+            _access = access;
         }
 
         [HttpGet]
         [Authorize(Policy = Policies.Staff)]
-        public async Task<IActionResult> GetAllPatients()
-        {
-            var patients = await _patientService.GetAllPatients();
-            return Ok(patients);
-        }
+        public async Task<IActionResult> GetAllPatients(CancellationToken cancellationToken) =>
+            Ok(await _patients.GetAllAsync(cancellationToken));
 
-        /// <summary>Staff can read any patient; a patient can only read their own record.</summary>
+        /// <summary>Staff can read any patient; a patient only their own (403 for any other id, existing or not).</summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetPatientById([FromRoute] int id, CancellationToken cancellationToken)
         {
-            if (!IsStaff && await _users.GetCurrentPatientIdAsync(cancellationToken) != id)
-            {
-                return Forbid();
-            }
-
-            var patient = await _patientService.GetPatientById(id);
-            if (patient == null)
-            {
-                return NotFound($"Patient with ID {id} not found");
-            }
-            return Ok(patient);
+            var patient = await _patients.GetByIdAsync(id, cancellationToken);
+            var decision = await _access.CheckAsync(patient?.Id, StaffScope.Staff, cancellationToken);
+            return decision == AccessDecision.Allow ? Ok(patient) : Denied(decision, $"Patient with ID {id} not found");
         }
 
         [HttpPost]
         [Authorize(Policy = Policies.Staff)]
-        public async Task<IActionResult> CreatePatient([FromBody] PatientCreationDto patientDto)
+        public async Task<IActionResult> CreatePatient([FromBody] PatientCreationDto dto, CancellationToken cancellationToken)
         {
-            var (newPatient, res) = await _patientService.CreatePatient(patientDto);
-            if (res)
-            {
-                return Ok(newPatient);
-            }
-            return BadRequest("Failed to create patient");
+            var result = await _patients.CreateAsync(dto, cancellationToken);
+            return result.Success
+                ? CreatedAtAction(nameof(GetPatientById), new { id = result.Value!.Id }, result.Value)
+                : FromResult(result);
         }
 
         [HttpPut("{id}")]
         [Authorize(Policy = Policies.Staff)]
-        public async Task<IActionResult> UpdatePatient([FromRoute] int id, [FromBody] PatientCreationDto patientDto)
-        {
-            var result = await _patientService.UpdatePatient(id, patientDto);
-            if (result)
-            {
-                return Ok(new { patientDto, id });
-            }
-            return NotFound($"Patient with ID {id} not found");
-        }
+        public async Task<IActionResult> UpdatePatient([FromRoute] int id, [FromBody] PatientCreationDto dto, CancellationToken cancellationToken) =>
+            FromResult(await _patients.UpdateAsync(id, dto, cancellationToken));
 
+        /// <summary>204 when deleted; 409 while the patient has appointments or medical records.</summary>
         [HttpDelete("{id}")]
         [Authorize(Policy = Policies.AdminOnly)]
-        public async Task<IActionResult> DeletePatient([FromRoute] int id)
-        {
-            var result = await _patientService.DeletePatient(id);
-            if (result)
-            {
-                return Ok($"Patient with ID {id} deleted successfully");
-            }
-            return NotFound($"Patient with ID {id} not found");
-        }
+        public async Task<IActionResult> DeletePatient([FromRoute] int id, CancellationToken cancellationToken) =>
+            await _patients.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound($"Patient with ID {id} not found");
     }
-
 }

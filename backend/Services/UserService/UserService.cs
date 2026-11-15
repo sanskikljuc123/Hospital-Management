@@ -169,12 +169,16 @@ namespace Services.UserService
             foreach (var p in await _context.Patients.Where(p => p.UserId == id).ToListAsync(cancellationToken))
                 p.UserId = null;
 
-            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            // Inside a write request the request transaction already covers both saves (TransactionalWriteFilter);
+            // only open one when called on its own.
+            await using var ownTransaction = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync(cancellationToken)
+                : null;
             await _context.SaveChangesAsync(cancellationToken);
             if (doctor != null) doctor.UserId = id;
             if (patient != null) patient.UserId = id;
             await _context.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
+            if (ownTransaction != null) await ownTransaction.CommitAsync(cancellationToken);
 
             await _audit.LogAsync(AuditActions.UserLinked, nameof(User), id,
                 new { link.DoctorId, link.PatientId }, cancellationToken: cancellationToken);

@@ -15,6 +15,7 @@ namespace Data
         public DbSet<Appointment> Appointments { get; set; }
         public DbSet<MedicalRecord> MedicalRecords { get; set; }
         public DbSet<MedicalRecordRevision> MedicalRecordRevisions { get; set; }
+        public DbSet<OutboxMessage> OutboxMessages { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
@@ -67,6 +68,9 @@ namespace Data
             modelBuilder.Entity<Patient>(e =>
             {
                 e.Property(p => p.Email).HasMaxLength(320);
+                // Deleting a service must never delete its patients (it used to cascade).
+                e.HasOne(p => p.Service).WithMany(s => s.Patients)
+                    .HasForeignKey(p => p.ServiceId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(p => p.User).WithMany()
                     .HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(p => p.UserId).IsUnique();
@@ -127,6 +131,15 @@ namespace Data
                 e.HasOne(r => r.EditedByDoctor).WithMany()
                     .HasForeignKey(r => r.EditedByDoctorId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(r => new { r.MedicalRecordId, r.Revision }).IsUnique();
+            });
+
+            modelBuilder.Entity<OutboxMessage>(e =>
+            {
+                e.Property(m => m.Type).HasMaxLength(100);
+                e.Property(m => m.Payload).HasColumnType("jsonb");
+                e.Property(m => m.LastError).HasMaxLength(500);
+                // The processor's query: undelivered, not failed, due.
+                e.HasIndex(m => new { m.ProcessedAt, m.FailedAt, m.NextAttemptAt });
             });
 
             modelBuilder.Entity<AuditLog>(e =>
