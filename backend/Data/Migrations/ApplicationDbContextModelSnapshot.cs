@@ -230,6 +230,9 @@ namespace Data.Migrations
                     b.Property<int>("DoctorId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("LastEditedByDoctorId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
@@ -250,9 +253,63 @@ namespace Data.Migrations
 
                     b.HasIndex("DoctorId");
 
+                    b.HasIndex("LastEditedByDoctorId");
+
                     b.HasIndex("PatientId");
 
                     b.ToTable("MedicalRecords");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MedicalRecordRevision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ChangedFields")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Diagnosis")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("EditedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EditedByDoctorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EditedByUserName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("MedicalRecordId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Treatment")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EditedByDoctorId");
+
+                    b.HasIndex("MedicalRecordId", "Revision")
+                        .IsUnique();
+
+                    b.ToTable("MedicalRecordRevisions");
                 });
 
             modelBuilder.Entity("Domain.Entities.Patient", b =>
@@ -441,6 +498,11 @@ namespace Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.Doctor", "LastEditedByDoctor")
+                        .WithMany()
+                        .HasForeignKey("LastEditedByDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Entities.Patient", "Patient")
                         .WithMany()
                         .HasForeignKey("PatientId")
@@ -451,7 +513,28 @@ namespace Data.Migrations
 
                     b.Navigation("Doctor");
 
+                    b.Navigation("LastEditedByDoctor");
+
                     b.Navigation("Patient");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MedicalRecordRevision", b =>
+                {
+                    b.HasOne("Domain.Entities.Doctor", "EditedByDoctor")
+                        .WithMany()
+                        .HasForeignKey("EditedByDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.MedicalRecord", "MedicalRecord")
+                        .WithMany("Revisions")
+                        .HasForeignKey("MedicalRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("EditedByDoctor");
+
+                    b.Navigation("MedicalRecord");
                 });
 
             modelBuilder.Entity("Domain.Entities.Patient", b =>
@@ -492,6 +575,11 @@ namespace Data.Migrations
             modelBuilder.Entity("Domain.Entities.Doctor", b =>
                 {
                     b.Navigation("DoctorServices");
+                });
+
+            modelBuilder.Entity("Domain.Entities.MedicalRecord", b =>
+                {
+                    b.Navigation("Revisions");
                 });
 
             modelBuilder.Entity("Domain.Entities.Service", b =>

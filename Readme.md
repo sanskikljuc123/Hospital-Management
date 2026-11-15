@@ -36,17 +36,18 @@ The backend is an ASP.NET Core API with PostgreSQL and Keycloak. See [ARCHITECTU
 
 **Option 1: Docker (everything in containers).** Requires Docker Desktop.
 
-1. From the repository root run `docker compose up --build`.
-2. Open Swagger at `http://localhost:5117/swagger` and click **Authorize** to sign in.
-3. Keycloak admin console: `http://localhost:8080` (user `admin`, password `admin_dev_password`).
+1. Copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD` and `DEV_USERS_PASSWORD`. No password is stored in the repository, and `.env` is git-ignored.
+2. From the repository root run `docker compose up --build`.
+3. Open Swagger at `http://localhost:5117/swagger` and click **Authorize** to sign in.
+4. Keycloak admin console: `http://localhost:8080` (user and password from `.env`).
 
-Development sign-ins: `admin.user` / `Admin123!`, `doctor.user` / `Doctor123!`, `nurse.user` / `Nurse123!`, `patient.user` / `Patient123!`.
-To change passwords or the API port, copy `.env.example` to `.env`.
+Sample sign-ins: `admin.user`, `doctor.user`, `nurse.user`, `patient.user`, all with the password you set in `DEV_USERS_PASSWORD`.
 
 **Option 2: .NET Aspire (API from source, with dashboard).** Requires Docker Desktop and the .NET 10 SDK.
 
-1. Run `dotnet run --project backend/HospitalManagement.AppHost`.
-2. Open the dashboard link printed in the console; the API is at `http://localhost:5117/swagger`.
+1. Set the sample users' password once: `dotnet user-secrets set "Parameters:dev-users-password" "<your password>" --project backend/HospitalManagement.AppHost`.
+2. Run `dotnet run --project backend/HospitalManagement.AppHost`.
+3. Open the dashboard link printed in the console; the API is at `http://localhost:5117/swagger`.
 
 Both options use port 8080 for Keycloak, so run one at a time. Migrations and sample data are applied automatically on startup.
 

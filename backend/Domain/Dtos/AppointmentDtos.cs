@@ -32,6 +32,15 @@ namespace Domain.Dtos
         public string? Notes { get; set; }
     }
 
+    /// <summary>Admin correction of a final status set by mistake (POST /api/Appointment/{id}/correct-status).</summary>
+    public class AppointmentStatusCorrectionDto
+    {
+        public AppointmentStatus Status { get; set; }
+        /// <summary>Why the status was wrong; stored in the audit log.</summary>
+        [Required, MinLength(10), MaxLength(500)]
+        public string Reason { get; set; } = string.Empty;
+    }
+
     public class AppointmentDto
     {
         public int Id { get; set; }

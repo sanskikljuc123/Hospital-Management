@@ -45,7 +45,8 @@ namespace api.Controllers
         public async Task<IActionResult> GetMedicalRecordById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var record = await _records.GetByIdAsync(id, cancellationToken);
-            if (record == null) return NotFound($"Medical record with ID {id} not found");
+            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
+            if (record == null) return IsClinicalStaff ? NotFound($"Medical record with ID {id} not found") : Forbid();
             if (!IsClinicalStaff && await _users.GetCurrentPatientIdAsync(cancellationToken) != record.PatientId)
                 return Forbid();
             return Ok(record);
@@ -55,15 +56,36 @@ namespace api.Controllers
         [Authorize(Policy = Policies.DoctorOnly)]
         public async Task<IActionResult> CreateMedicalRecord([FromBody] MedicalRecordCreateDto dto, CancellationToken cancellationToken)
         {
-            var result = await _records.CreateAsync(dto, cancellationToken);
+            // The author comes from the caller's account, so a doctor cannot sign as someone else.
+            var doctorId = await _users.GetCurrentDoctorIdAsync(cancellationToken);
+            if (doctorId == null)
+                return StatusCode(StatusCodes.Status403Forbidden, "This account is not linked to a doctor profile");
+
+            var result = await _records.CreateAsync(dto, doctorId.Value, cancellationToken);
             return result.Success
                 ? CreatedAtAction(nameof(GetMedicalRecordById), new { id = result.Value!.Id }, result.Value)
                 : FromResult(result);
         }
 
+        /// <summary>Any doctor may edit any record; every change is kept as a new revision with its editor.</summary>
         [HttpPut("{id}")]
         [Authorize(Policy = Policies.DoctorOnly)]
-        public async Task<IActionResult> UpdateMedicalRecord([FromRoute] int id, [FromBody] MedicalRecordUpdateDto dto, CancellationToken cancellationToken) =>
-            FromResult(await _records.UpdateAsync(id, dto, cancellationToken));
+        public async Task<IActionResult> UpdateMedicalRecord([FromRoute] int id, [FromBody] MedicalRecordUpdateDto dto, CancellationToken cancellationToken)
+        {
+            var doctorId = await _users.GetCurrentDoctorIdAsync(cancellationToken);
+            if (doctorId == null)
+                return StatusCode(StatusCodes.Status403Forbidden, "This account is not linked to a doctor profile");
+
+            return FromResult(await _records.UpdateAsync(id, dto, doctorId.Value, cancellationToken));
+        }
+
+        /// <summary>Every version of the record with who changed what and when. Doctors and nurses only.</summary>
+        [HttpGet("{id}/history")]
+        [Authorize(Policy = Policies.ClinicalStaff)]
+        public async Task<IActionResult> GetMedicalRecordHistory([FromRoute] int id, CancellationToken cancellationToken)
+        {
+            var history = await _records.GetHistoryAsync(id, cancellationToken);
+            return history == null ? NotFound($"Medical record with ID {id} not found") : Ok(history);
+        }
     }
 }

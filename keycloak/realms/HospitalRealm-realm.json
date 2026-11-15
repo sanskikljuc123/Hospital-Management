@@ -77,7 +77,7 @@
       "email": "admin@hospital.local",
       "firstName": "Alex",
       "lastName": "Admin",
-      "credentials": [{ "type": "password", "value": "Admin123!", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "${DEV_USERS_PASSWORD}", "temporary": false }],
       "realmRoles": ["Admin"]
     },
     {
@@ -87,7 +87,7 @@
       "email": "doctor@hospital.local",
       "firstName": "Dana",
       "lastName": "Doctor",
-      "credentials": [{ "type": "password", "value": "Doctor123!", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "${DEV_USERS_PASSWORD}", "temporary": false }],
       "realmRoles": ["Doctor"]
     },
     {
@@ -97,7 +97,7 @@
       "email": "nurse@hospital.local",
       "firstName": "Noel",
       "lastName": "Nurse",
-      "credentials": [{ "type": "password", "value": "Nurse123!", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "${DEV_USERS_PASSWORD}", "temporary": false }],
       "realmRoles": ["Nurse"]
     },
     {
@@ -107,7 +107,7 @@
       "email": "patient@hospital.local",
       "firstName": "Pat",
       "lastName": "Patient",
-      "credentials": [{ "type": "password", "value": "Patient123!", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "${DEV_USERS_PASSWORD}", "temporary": false }],
       "realmRoles": ["Patient"]
     }
   ]
