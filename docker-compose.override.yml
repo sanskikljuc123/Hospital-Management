@@ -1,0 +1,10 @@
+# Local development extras, loaded automatically by "docker compose up".
+# Never used for a real deployment: run "docker compose -f docker-compose.yml up" there instead.
+
+services:
+  api:
+    environment:
+      # Sample departments, services, doctors and patients on an empty database.
+      Database__SeedOnStartup: "true"
+      # Swagger UI at http://localhost:5117/swagger (signs in through Keycloak).
+      Swagger__Enabled: "true"

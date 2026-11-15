@@ -1,6 +1,6 @@
 ## Hospital Management System
 
-The Hospital Management System is a project developed for managing hospital operations efficiently. It consists of a backend API built with ASP.NET Core EF 8, following the principles of Clean Architecture, a web frontend developed using React TypeScript, and a desktop frontend built with Windows Forms .NET.
+The Hospital Management System is a project developed for managing hospital operations efficiently. It consists of a backend API built with ASP.NET Core EF 8, following the principles of Clean Architecture, and a web frontend developed using React TypeScript that signs in through Keycloak.
 
 ### Features
 
@@ -24,10 +24,6 @@ The Hospital Management System is a project developed for managing hospital oper
 - Redux Toolkit for state management
 - Ant Design (Antd) for UI components
 
-#### Frontend (Desktop)
-
-- Windows Forms .NET
-
 ## Getting Started
 
 #### Setting up the Backend:
@@ -37,7 +33,9 @@ The backend is an ASP.NET Core API with PostgreSQL and Keycloak. See [ARCHITECTU
 **Option 1: Docker (everything in containers).** Requires Docker Desktop.
 
 1. Copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD` and `DEV_USERS_PASSWORD`. No password is stored in the repository, and `.env` is git-ignored.
-2. From the repository root run `docker compose up --build`.
+2. From the repository root run `docker compose up --build`. This also loads `docker-compose.override.yml`,
+   which adds sample data and Swagger for local development. `docker compose -f docker-compose.yml up --build`
+   runs without them.
 3. Open Swagger at `http://localhost:5117/swagger` and click **Authorize** to sign in.
 4. Keycloak admin console: `http://localhost:8080` (user and password from `.env`).
 
@@ -54,17 +52,15 @@ Both options use port 8080 for Keycloak, so run one at a time. Migrations and sa
 #### Setting up the Frontend (Web):
 
 Open the frontend-web directory. `cd frontend-web`
+Optional: copy `.envExample` to `.env` to change the API or Keycloak address (`.env` is git-ignored; without
+it the defaults match docker-compose: API on 5117, Keycloak on 8080). Then sign in at `http://localhost:3000`
+with one of the sample users.
 Install dependencies:
 `npm install`
 Run the development server:
 `npm run dev`
 Or using docker:
 `docker compose up`
-
-#### Running the Desktop App:
-
-Open the AppDesktop directory.
-Run the application in Visual Studio.
 
 ## Contributing
 
