@@ -1,6 +1,6 @@
 ## Hospital Management System
 
-The Hospital Management System is a project developed for managing hospital operations efficiently. It consists of a backend API built with ASP.NET Core EF 8, following the principles of Clean Architecture, a web frontend developed using React TypeScript, and a desktop frontend built with Windows Forms .NET.
+The Hospital Management System is a project developed for managing hospital operations efficiently. It consists of a backend API built with ASP.NET Core EF 8, following the principles of Clean Architecture, and a web frontend developed using React TypeScript that signs in through Keycloak.
 
 ### Features
 
@@ -23,10 +23,6 @@ The Hospital Management System is a project developed for managing hospital oper
 - Axios for API requests
 - Redux Toolkit for state management
 - Ant Design (Antd) for UI components
-
-#### Frontend (Desktop)
-
-- Windows Forms .NET
 
 ## Getting Started
 
@@ -60,11 +56,6 @@ Run the development server:
 `npm run dev`
 Or using docker:
 `docker compose up`
-
-#### Running the Desktop App:
-
-Open the AppDesktop directory.
-Run the application in Visual Studio.
 
 ## Contributing
 
