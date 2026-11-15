@@ -151,6 +151,48 @@ namespace Services.AppointmentService
             };
         }
 
+        public async Task<ServiceResult<AppointmentDto>> CorrectStatusAsync(int id, AppointmentStatusCorrectionDto dto,
+            CancellationToken cancellationToken = default)
+        {
+            var appointment = await _context.Appointments.FindAsync(new object[] { id }, cancellationToken);
+            if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
+            if (!IsFinal(appointment.Status))
+                return ServiceResult<AppointmentDto>.Conflict(
+                    $"A {appointment.Status} appointment is not final; change it with PUT /api/Appointment/{{id}}");
+
+            var from = appointment.Status;
+            var allowed = (from, dto.Status) switch
+            {
+                (AppointmentStatus.NoShow, AppointmentStatus.Completed) => true,
+                (AppointmentStatus.Completed, AppointmentStatus.NoShow) => true,
+                (AppointmentStatus.Cancelled, AppointmentStatus.Scheduled) => true,
+                _ => false
+            };
+            if (!allowed)
+                return ServiceResult<AppointmentDto>.Conflict(
+                    $"A {from} appointment cannot be corrected to {dto.Status}");
+
+            if (dto.Status == AppointmentStatus.Scheduled)
+            {
+                // Reopening a cancelled appointment is only possible while it can still take place.
+                if (appointment.ScheduledAt <= DateTime.UtcNow)
+                    return ServiceResult<AppointmentDto>.Conflict("A cancelled appointment that has already started cannot be reopened");
+                var slotError = await ValidateSlotAsync(id, appointment.DoctorId, appointment.ServiceId,
+                    appointment.ScheduledAt, appointment.DurationMinutes, cancellationToken);
+                if (slotError != null) return slotError;
+            }
+
+            appointment.Status = dto.Status;
+            appointment.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await _audit.LogAsync(AuditActions.AppointmentStatusCorrected, nameof(Appointment), appointment.Id,
+                new { From = from.ToString(), To = dto.Status.ToString(), dto.Reason }, cancellationToken: cancellationToken);
+            await _notifications.NotifyAppointmentUpdatedAsync(appointment, cancellationToken);
+
+            return ServiceResult<AppointmentDto>.Ok((await GetByIdAsync(appointment.Id, cancellationToken))!);
+        }
+
         private static bool IsFinal(AppointmentStatus status) =>
             status is AppointmentStatus.Completed or AppointmentStatus.NoShow or AppointmentStatus.Cancelled;
 

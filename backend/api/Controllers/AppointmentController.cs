@@ -77,6 +77,13 @@ namespace api.Controllers
             return FromResult(await _appointments.CancelAsync(id, cancellationToken));
         }
 
+        /// <summary>Admin only: corrects a final status set by mistake, with a mandatory reason.</summary>
+        [HttpPost("{id}/correct-status")]
+        [Authorize(Policy = Policies.AdminOnly)]
+        public async Task<IActionResult> CorrectAppointmentStatus([FromRoute] int id,
+            [FromBody] AppointmentStatusCorrectionDto dto, CancellationToken cancellationToken) =>
+            FromResult(await _appointments.CorrectStatusAsync(id, dto, cancellationToken));
+
         [HttpDelete("{id}")]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteAppointment([FromRoute] int id, CancellationToken cancellationToken) =>
