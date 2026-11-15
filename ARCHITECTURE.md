@@ -36,11 +36,16 @@ only validates the tokens Keycloak issues.
 | `Services` | Business rules, audit logging, external integration abstractions. | Domain, Data |
 | `api` | HTTP: controllers, authentication, authorization policies, error handling, Swagger. | all of the above |
 | `HospitalManagement.ServiceDefaults` | OpenTelemetry, health checks, service discovery, HTTP resilience. | – |
-| `HospitalManagement.AppHost` | Aspire orchestration for development. Not deployed. | api |
+| `HospitalManagement.AppHost` | Aspire orchestration for development. Not deployed. Targets .NET 10. | api |
+| `tests/HospitalManagement.UnitTests`, `tests/HospitalManagement.ApiTests` | Automated tests (§10) | Services; api |
 
-Request path: `Controller → Service → DbContext`. Controllers decide *who may call*; services decide
-*whether the operation is valid* and write the audit trail, so an operation is audited no matter which
-controller triggers it.
+The web front end (`frontend-web/`, React + TypeScript + Redux Toolkit) is a separate application that
+signs in through Keycloak and calls the API with the access token (`frontend-web/src/auth/`).
+
+Request path: `Controller → Service → DbContext`. Controllers decide *who may call* (role attributes and
+ownership checks); services decide *whether the operation is valid* and write the audit trail. This holds
+for appointments, medical records and users. Departments use the same result type but write no audit
+entries; the older doctor, patient and service modules follow neither yet (§9).
 
 The `backend/Service` folder (`Servicest.csproj`) is leftover scaffolding that is not part of the solution.
 
@@ -97,15 +102,10 @@ user's last recorded one, the API writes a `User.Login` audit entry. Refreshing 
 session and does not create a new entry. Failed logins never reach the API; Keycloak records those in its
 own event log, which is enabled in the realm file.
 
-For scripts and manual testing, `hospital-web` also allows the password grant:
-
-```bash
-curl -X POST http://localhost:8080/realms/HospitalRealm/protocol/openid-connect/token \
-  -d grant_type=password -d client_id=hospital-web \
-  -d username=doctor.user -d "password=$DEV_USERS_PASSWORD"
-```
-
-Disable "Direct access grants" on the client before any real deployment.
+**No password grant.** No client in the realm allows direct access grants (`grant_type=password`): a
+password can only be entered on the Keycloak login page. Scripts and manual checks sign in through the
+browser (front end or Swagger UI); the automated API tests use their own signing key and never need a
+password (`docs/testing/TEST_STRATEGY.md` §5).
 
 ## 3. Authorization model
 
@@ -163,8 +163,10 @@ imported on first start by both docker-compose and Aspire. Keycloak requires the
 | Client `hospital-api` | Bearer-only. Represents the API as a token audience; cannot request tokens. |
 | Client `hospital-web` | Public, authorization code + PKCE (S256). Adds `aud: hospital-api` to access tokens. |
 | Redirect URIs | `http://localhost:3000/*` (front end), Swagger UI on ports 5117 and 7164 |
-| Events | Login, logout and admin events are recorded by Keycloak |
+| Events | Login, logout and admin events are recorded by Keycloak (kept 30 days) |
 | Brute-force protection | Enabled |
+| Direct access grants | Off on every client |
+| Password reset ("Forgot password") | Off until an SMTP server is configured |
 
 Sample users: `admin.user`, `doctor.user`, `nurse.user`, `patient.user`. The realm file holds no
 password: it contains the placeholder `${DEV_USERS_PASSWORD}`, which Keycloak replaces with the
@@ -219,8 +221,9 @@ flowchart TD
 | `hospital-api` | .NET project | `Database__MigrateOnStartup=true`, `Database__SeedOnStartup=true`, OTLP endpoint |
 
 - The API waits for the database and Keycloak to be healthy before it starts, and Aspire probes `/health`.
-- `AddServiceDefaults()` in the API enables service discovery for `HttpClient`, so a future outbound call
-  can use a logical address such as `http://keycloak`.
+- `AddServiceDefaults()` in the API enables service discovery and the standard resilience handler for
+  `HttpClient`. The API makes **no outbound HTTP call of its own today** (JWKS is fetched by the JWT
+  handler), so these are unused until a real provider (e-mail, SMS) is connected.
 - Keycloak runs over plain HTTP on port 8080 (Aspire's default would be HTTPS with the dev certificate), so
   the token issuer is the same as in docker-compose and one realm file serves both.
 
@@ -257,9 +260,14 @@ erDiagram
     Doctors ||--o{ Appointments : ""
     Services |o--o{ Appointments : ""
     Patients ||--o{ MedicalRecords : ""
-    Doctors ||--o{ MedicalRecords : ""
+    Doctors ||--o{ MedicalRecords : "author"
+    Doctors |o--o{ MedicalRecords : "last edited by"
     Appointments |o--o{ MedicalRecords : ""
+    MedicalRecords ||--|{ MedicalRecordRevisions : "versions"
+    Doctors ||--o{ MedicalRecordRevisions : "edited by"
 ```
+
+`AuditLogs` stands alone on purpose: it has no foreign keys (see the table below).
 
 | Table | Purpose | Notes |
 |---|---|---|
@@ -267,7 +275,8 @@ erDiagram
 | `Departments` | Organisational unit grouping doctors and services | Unique name |
 | `Users` | Local mirror of a Keycloak identity | Unique `KeycloakId`; `IsActive`; last login and session |
 | `Appointments` | Patient–doctor booking | Status stored as text; index on (`DoctorId`, `ScheduledAt`) |
-| `MedicalRecords` | Diagnosis, treatment, notes | Optional link to the appointment it came from |
+| `MedicalRecords` | Current diagnosis, treatment, notes | Optional link to the appointment it came from (same patient and doctor); `LastEditedByDoctorId` |
+| `MedicalRecordRevisions` | Every version of a record: content, changed fields, editing doctor, time | Unique (`MedicalRecordId`, `Revision`); revision 1 is the record as created; never updated or deleted |
 | `AuditLogs` | Append-only audit trail | No foreign keys, so entries survive deletion of what they describe |
 
 Rules enforced by the schema:
@@ -289,8 +298,15 @@ dotnet ef migrations add <Name> --project backend/Data --startup-project backend
 
 ### Audit logging
 
-`IAuditService` writes to `AuditLogs` through its own `DbContext`, so an audit write is independent of the
-business transaction and a failure to audit is logged without failing the request.
+Two trails exist, with different guarantees:
+
+| Trail | Written | Guarantee | Readers |
+|---|---|---|---|
+| `MedicalRecordRevisions` | In the **same transaction** as the record change | A record change cannot exist without its revision | Doctors, nurses (`GET /api/MedicalRecord/{id}/history`) |
+| `AuditLogs` | Through `IAuditService` with its **own `DbContext`, after** the business commit | Best effort: a failure to audit is logged, the request still succeeds; a crash between the two loses the entry | Admins (`GET /api/AuditLog`) |
+
+The clinical content lives only in the revisions; the audit log records who did what, never the content.
+Making the audit log as strong as the revisions (an outbox in the same transaction) is open decision D-8.
 
 | Event | Action | Recorded details |
 |---|---|---|
@@ -298,17 +314,14 @@ business transaction and a failure to audit is logged without failing the reques
 | First sign-in | `User.Provisioned` | User name, role |
 | Appointment creation | `Appointment.Created` | Patient, doctor, time |
 | Appointment update, cancel | `Appointment.Updated` | Doctor, time and status before and after |
+| Admin status correction | `Appointment.StatusCorrected` | Old status, new status, reason |
 | Appointment deletion | `Appointment.Deleted` | Patient, doctor, time |
 | Medical record creation | `MedicalRecord.Created` | Patient, doctor |
-| Medical record update | `MedicalRecord.Updated` | Patient, names of changed fields (never the content) |
+| Medical record update | `MedicalRecord.Updated` | Patient, revision number, names of changed fields, editing doctor (never the content) |
 | User management | `User.Activated`, `User.Deactivated`, `User.Linked` | Target user, linked records |
 
 Every entry also stores the timestamp, the acting user's Keycloak subject and user name, and the client IP.
-Admins read the trail through `GET /api/AuditLog`.
-
-Known limits: the audit write is not in the same transaction as the business change, so a crash between
-the two loses the entry; and behind a reverse proxy the IP is the proxy's until forwarded headers are
-configured.
+Behind a reverse proxy the IP is the proxy's until forwarded headers are configured.
 
 ## 7. External integration points
 
@@ -336,39 +349,74 @@ Other integration points: Keycloak (OIDC discovery and JWKS over HTTP) and an Op
 | `ConnectionStrings:hospitaldb` | PostgreSQL connection string | none (required) |
 | `Keycloak:*` | See section 4 | `Authority` required |
 | `Database:MigrateOnStartup` | Apply migrations at startup | `false` (`true` in Development, compose, Aspire) |
-| `Database:SeedOnStartup` | Insert sample data when tables are empty | `false` (`true` in compose, Aspire) |
+| `Database:SeedOnStartup` | Insert sample data when tables are empty | `false` (`true` in `docker-compose.override.yml` and Aspire) |
 | `Cors:AllowedOrigins` | Browser origins allowed to call the API | `http://localhost:3000` |
-| `Swagger:Enabled` | Serve Swagger outside Development | `false` (`true` in compose) |
+| `Swagger:Enabled` | Serve Swagger outside Development | `false` (`true` in `docker-compose.override.yml`) |
+
+**Compose files.** `docker-compose.yml` holds the safe defaults: no sample data, no Swagger.
+`docker-compose.override.yml` turns both on for local development and is loaded automatically by
+`docker compose up`; `docker compose -f docker-compose.yml up` runs without it.
 
 docker-compose reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`,
 `DEV_USERS_PASSWORD` and `API_PORT` from `.env`; see [.env.example](.env.example). The three passwords
 have no default: the repository contains no credentials and compose refuses to start without them.
 
-## 9. Gaps before production
+The web front end reads `VITE_API_URL` and `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`,
+`VITE_KEYCLOAK_CLIENT_ID` from `frontend-web/.env` (git-ignored, template `frontend-web/.envExample`); without
+it the defaults match docker-compose.
 
-- Keycloak runs in `start-dev` mode over HTTP. Production needs `start`, TLS and a real hostname.
-- Secrets are plain environment variables read from `.env`. Use a secret store.
-- The front end (`frontend-web`) does not sign in through Keycloak yet, so its API calls return 401.
-- `Patient.Phone` is an integer, which loses leading zeros and country codes.
-- `ServiceController` accepts the EF entity as its request body; it should use a DTO like the newer endpoints.
-- Doctors and nurses are not restricted to their own patients or department.
-- No rate limiting, and the audit log has no retention policy.
+## 9. Known architecture gaps
 
-## 10. Future testing opportunities
+The production-readiness gaps (TLS, Keycloak production mode, secrets, backups, telemetry, …) are tracked
+with ratings and a fix order in [docs/testing/RISK_REGISTER.md](docs/testing/RISK_REGISTER.md) §2.1–2.2 and
+[docs/testing/QUALITY_GATES.md](docs/testing/QUALITY_GATES.md) §7. The structural gaps in the code itself:
 
-No automated tests exist yet. The structure was chosen so they can be added without refactoring:
-
-| Level | Target | Approach |
+| Gap | Where | Direction |
 |---|---|---|
-| Unit | `AppointmentService` slot validation, `UserService` login detection and linking, `MedicalRecordService` changed-field audit | Services depend on interfaces (`ICurrentUserContext`, `IAuditService`, `INotificationService`), so fakes are trivial; use EF Core with SQLite in-memory or Testcontainers for the `DbContext` |
-| Unit | Role flattening from `realm_access` | Extract `AddRealmRoles` and feed it sample claims |
-| Integration | Every endpoint × every role (the role matrix) | `WebApplicationFactory<Program>` with a test authentication handler that issues the four roles; PostgreSQL via Testcontainers |
-| Integration | Constraint handling (409 on delete with history, duplicate department) | Same host, real PostgreSQL |
-| Integration | Token validation: wrong issuer, wrong audience, expired token | Keycloak Testcontainer importing the realm file |
-| Contract | Stability of request and response shapes | Snapshot the generated OpenAPI document and diff it in CI |
-| End-to-end | Login → book → update → record → audit trail | `Aspire.Hosting.Testing` to start the AppHost, or docker-compose in CI; Playwright for the browser login once the front end is integrated |
-| Security | Unauthenticated and cross-patient access | Automated checks that every route returns 401 without a token and 403 across patients |
-| Non-functional | Health endpoints, migration from an empty database, startup when the database is late | Compose-based smoke test in CI |
+| **Two service patterns.** Doctors, patients and services return EF entities and `(T, bool)` tuples, swallow exceptions and write no audit entries; the newer modules use DTOs, `ServiceResult<T>`, cancellation and audit | `Services/DoctorService`, `Services/PatientService`, `Services/ServiceService`, `ServiceController` (binds the entity) | Move them to the newer pattern |
+| **Ownership checks are written per controller** (`CanAccessPatientAsync`, inline checks) | `AppointmentController`, `PatientController`, `MedicalRecordController` | One resource-based authorization policy that controllers call |
+| **Side effects in the request.** Notifications run inline; the audit write is a separate transaction after the business commit (§6) | `NotificationService`, `AuditService` | Transactional outbox and a background worker |
+| **Mixed error contract.** ProblemDetails for validation and 409, plain text elsewhere, empty 403 bodies | Controllers, `HospitalControllerBase` | ProblemDetails everywhere |
+| **Every `DbUpdateException` becomes 409** | `DbUpdateExceptionHandler` | Map only unique and foreign-key violations to 409 |
+| **No optimistic concurrency**, no database constraint against overlapping bookings | Appointments, medical records | Concurrency token; exclusion constraint |
+| **Instance-local state.** User-sync cache in memory; migrations and seed at startup | `UserService`, `DatabaseInitializer` | Decide single vs. multiple instances first (D-6) |
+| **Domain model.** `Patient` requires a `Service`, has no identity fields, `Phone` is an integer; entities hold no behavior | `Domain/Entities` | Remodel `Patient`; move state transitions into the entities |
+| **No paging** on list endpoints | All `GET` lists | One paging convention |
+| **Leftover project** `backend/Service` (`Servicest.csproj`) | – | Delete |
+| Doctors and nurses see all patients (no department or care-team restriction) | Authorization model (§3) | A product decision before it is a technical one |
 
-The manual checks run while building this (token issuance for all four roles, role and ownership rules,
-double-booking, audit entries, deactivation) are the natural first candidates to automate.
+## 10. Testing and CI
+
+How the system is tested is described in [docs/testing/](docs/testing/README.md); this section only
+records what the architecture provides for it.
+
+| Test project | Uses from the architecture |
+|---|---|
+| `backend/tests/HospitalManagement.UnitTests` | Services depend on interfaces (`ICurrentUserContext`, `IAuditService`, `INotificationService`) and on `TimeProvider`, so business rules run with fakes and a fixed clock |
+| `backend/tests/HospitalManagement.ApiTests` | `public partial class Program` lets `WebApplicationFactory<Program>` host the real pipeline; only the JWT signing key is replaced, so issuer, audience, lifetime and role mapping are the production code; PostgreSQL through Testcontainers |
+
+`.github/workflows/ci.yml` builds the solution and the front end and runs both test projects (the API tests
+on .NET 8 and .NET 10), the risk-coverage check and a secret scan on every pull request.
+
+## 11. Decision log
+
+Decisions already taken, so they are not reopened by accident, and decisions still open. Each open one
+blocks the gap named next to it.
+
+| ID | Decision | Status |
+|---|---|---|
+| D-1 | Modular monolith: one API, layered `Domain → Data → Services → api`; no microservices | Taken |
+| D-2 | Keycloak owns identities, credentials and roles; the API is a resource server and mirrors users locally | Taken |
+| D-3 | Every endpoint requires a hospital role unless it opts out with `[AllowAnonymous]` | Taken (`cd15a5e`) |
+| D-4 | Medical records keep every version, saved in the same transaction as the edit | Taken (`871484e`) |
+| D-5 | Synthetic data only, but everything built and tested as in production (`docs/testing/BUSINESS_FLOWS.md`) | Taken (Q-007) |
+| D-6 | One API instance or several | **Open** (Q-008) — blocks the instance-local state gap (§9) |
+| D-7 | Deployment target and reference topology (compose vs. Aspire publish vs. Kubernetes) | **Open** (Q-006) |
+| D-8 | Which side effects must be atomic with the business change (audit, notifications) | **Open** — blocks the outbox (§9) |
+| D-9 | Where authorization decisions live: controller attributes for roles, one policy for ownership, services for business invariants | **Open** — proposed in §9 |
+| D-10 | Error contract: ProblemDetails only | **Open** |
+| D-11 | API contracts: where DTOs live, versioning, how the front end gets its types | **Open** |
+| D-12 | Concurrency control mechanism | **Open** |
+| D-13 | Time-zone contract of the API (offsets required?) | **Open** (R-051) |
+| D-14 | Data lifecycle: soft or hard delete of patients, retention of audit log and revisions | **Open** |
+| D-15 | Reference runtime: .NET 8 (API, container) vs. .NET 10 (AppHost) and the upgrade path | **Open** |
