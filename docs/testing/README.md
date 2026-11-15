@@ -68,7 +68,7 @@ The reviewer also validates the analyst's and the test designer's output, so no 
 1. **Agents are read-only.** They read code and documents. They never edit files, commit, push, approve a
    pull request, change a risk rating or run in CI.
 2. **People decide.** A person accepts every risk rating, every test and every merge. Code owners approve
-   pull requests ([.github/CODEOWNERS](../../.github/CODEOWNERS) once added).
+   pull requests ([.github/CODEOWNERS](../../.github/CODEOWNERS)).
 3. **Agent output is a proposal.** Every statement is labelled *Fact* (with a citation), *Assumption* or
    *Question*. Uncited statements are not used.
 4. **Agents never weaken a test.** They never propose retries, skips, longer timeouts, broader assertions
@@ -102,12 +102,22 @@ Use qe-reviewer to triage this failing test: <paste output>.
 | Author | Whoever changes code | Writes or updates the tests for the risks their change touches. |
 | Code owner | Listed in CODEOWNERS | Approves pull requests. Cannot be an agent. |
 
-## Test projects (planned, phase 2–4)
+## Test projects
 
 ```
-backend/tests/HospitalManagement.UnitTests/   business rules in Services
-backend/tests/HospitalManagement.ApiTests/    HTTP contract, authorization matrix, BOLA — real PostgreSQL
-e2e/HospitalManagement.E2E/                    a few critical journeys — real Keycloak and full stack
+backend/tests/HospitalManagement.UnitTests/   business rules in Services (fixed clock)          phase 2 ✅, more in phase 3
+backend/tests/HospitalManagement.ApiTests/    authorization matrix, tokens, BOLA, record author  phase 2 ✅ — real PostgreSQL
+e2e/HospitalManagement.E2E/                    critical journeys — real Keycloak and full stack    phase 4
 ```
 
-See [TEST_STRATEGY.md](TEST_STRATEGY.md) for what belongs where.
+Run them (Docker must be running for the API tests):
+
+```bash
+dotnet test backend/tests/HospitalManagement.UnitTests
+dotnet test backend/tests/HospitalManagement.ApiTests -f net10.0
+python3 scripts/check_test_gates.py
+```
+
+`-f net10.0` is for machines with only the .NET 10 runtime; CI also runs `net8.0`, the runtime the API ships
+on. CI: [.github/workflows/ci.yml](../../.github/workflows/ci.yml). See [TEST_STRATEGY.md](TEST_STRATEGY.md)
+for what belongs where.

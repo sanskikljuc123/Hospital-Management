@@ -1,0 +1,8 @@
+# Every change needs the approval of a code owner (QUALITY_GATES G8). An agent is never a code owner.
+*                       @sanskikljuc123
+
+# Security-relevant areas: listed separately so a future team can add security reviewers here.
+/backend/api/Auth/      @sanskikljuc123
+/keycloak/              @sanskikljuc123
+/docs/testing/          @sanskikljuc123
+/.github/               @sanskikljuc123
