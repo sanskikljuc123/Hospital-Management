@@ -69,14 +69,8 @@ export const updatePatient = createAsyncThunk<Patient, Patient, { state: RootSta
       api
         .put("/Patient/" + updatedPatient.id, updatedPatient)
         .then((response) => {
-          var newPatient: Patient = {
-            id: response.data.id,
-            userName: response.data.patientDto.userName,
-            phone: response.data.patientDto.phone,
-            serviceId: response.data.patientDto.serviceId,
-          };
-
-          resolve(newPatient);
+          // The API returns the updated patient (PatientDto).
+          resolve(response.data as Patient);
         })
         .catch((error) => {
           reject(error);

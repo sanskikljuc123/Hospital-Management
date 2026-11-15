@@ -1,20 +1,18 @@
-﻿using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Domain.Dtos;
+using Services.Common;
 
 namespace Services.ServiceService
 {
     public interface IServiceService
     {
-        Task<IEnumerable<Service>> GetAllServices();
-        Task<Service> GetServiceById(int id);
-        Task<bool> ServiceExists(int id);
-        Task<(Service service, bool success)> CreateService(Service service);
-        Task<bool> UpdateService(int id, Service service);
-        Task<bool> DeleteService(int id);
-        Task<bool> SaveService();
+        Task<IReadOnlyList<ServiceDto>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<ServiceDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+        Task<ServiceResult<ServiceDto>> CreateAsync(ServiceDto dto, CancellationToken cancellationToken = default);
+        Task<ServiceResult<ServiceDto>> UpdateAsync(int id, ServiceDto dto, CancellationToken cancellationToken = default);
+        /// <summary>
+        /// NotFound when missing; Conflict while patients or doctors still use the service (deleting it must
+        /// never delete or orphan them).
+        /// </summary>
+        Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken cancellationToken = default);
     }
 }

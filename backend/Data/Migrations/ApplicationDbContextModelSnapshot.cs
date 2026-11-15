@@ -542,7 +542,7 @@ namespace Data.Migrations
                     b.HasOne("Domain.Entities.Service", "Service")
                         .WithMany("Patients")
                         .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.User", "User")

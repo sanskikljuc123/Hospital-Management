@@ -43,9 +43,14 @@ The web front end (`frontend-web/`, React + TypeScript + Redux Toolkit) is a sep
 signs in through Keycloak and calls the API with the access token (`frontend-web/src/auth/`).
 
 Request path: `Controller → Service → DbContext`. Controllers decide *who may call* (role attributes and
-ownership checks); services decide *whether the operation is valid* and write the audit trail. This holds
-for appointments, medical records and users. Departments use the same result type but write no audit
-entries; the older doctor, patient and service modules follow neither yet (§9).
+ownership checks); services decide *whether the operation is valid* and write the audit trail.
+
+**One service contract for every module** (decision D-16): a service takes and returns DTOs from
+`Domain/Dtos` (never EF entities), returns `ServiceResult<T>` for operations that can fail
+(`Ok`, `NotFound`, `Invalid`, `Conflict`, `Forbidden`, mapped to HTTP by `HospitalControllerBase.FromResult`),
+accepts a `CancellationToken`, validates references instead of ignoring them, does not swallow exceptions,
+and writes an audit entry for every change (ids and field names, never personal or clinical content).
+Controllers return 201 with the created DTO and 204 for deletes.
 
 The `backend/Service` folder (`Servicest.csproj`) is leftover scaffolding that is not part of the solution.
 
@@ -283,7 +288,10 @@ Rules enforced by the schema:
 
 - A user can be linked to at most one doctor and one patient (unique indexes on `UserId`).
 - A doctor or patient with appointments or medical records cannot be deleted (`RESTRICT`); the API returns 409.
-- Deleting a department, service or user clears the reference instead of deleting dependants (`SET NULL`).
+- A service still used by patients cannot be deleted (`RESTRICT`, migration `PatientServiceRestrictDelete`;
+  it used to cascade and delete the patients); the API also refuses while doctors offer it, with 409.
+- Deleting a department or user clears the reference instead of deleting dependants (`SET NULL`); deleting a
+  service clears it from appointments.
 - All timestamps are `timestamp with time zone` in UTC; a model-wide converter normalises incoming values.
 
 **Migrations.** `Data/Migrations` holds `InitialPostgres` (the earlier SQL Server migration was replaced)
@@ -319,6 +327,10 @@ Making the audit log as strong as the revisions (an outbox in the same transacti
 | Medical record creation | `MedicalRecord.Created` | Patient, doctor |
 | Medical record update | `MedicalRecord.Updated` | Patient, revision number, names of changed fields, editing doctor (never the content) |
 | User management | `User.Activated`, `User.Deactivated`, `User.Linked` | Target user, linked records |
+| Patient registry | `Patient.Created`, `Patient.Updated`, `Patient.Deleted` | Service id; names of changed fields (no personal data) |
+| Doctor directory | `Doctor.Created`, `Doctor.Updated`, `Doctor.Deleted` | Department, service ids |
+| Service catalogue | `Service.Created`, `Service.Updated`, `Service.Deleted` | Name, department |
+| Departments | `Department.Created`, `Department.Updated`, `Department.Deleted` | Name |
 
 Every entry also stores the timestamp, the acting user's Keycloak subject and user name, and the client IP.
 Behind a reverse proxy the IP is the proxy's until forwarded headers are configured.
@@ -373,7 +385,6 @@ with ratings and a fix order in [docs/testing/RISK_REGISTER.md](docs/testing/RIS
 
 | Gap | Where | Direction |
 |---|---|---|
-| **Two service patterns.** Doctors, patients and services return EF entities and `(T, bool)` tuples, swallow exceptions and write no audit entries; the newer modules use DTOs, `ServiceResult<T>`, cancellation and audit | `Services/DoctorService`, `Services/PatientService`, `Services/ServiceService`, `ServiceController` (binds the entity) | Move them to the newer pattern |
 | **Ownership checks are written per controller** (`CanAccessPatientAsync`, inline checks) | `AppointmentController`, `PatientController`, `MedicalRecordController` | One resource-based authorization policy that controllers call |
 | **Side effects in the request.** Notifications run inline; the audit write is a separate transaction after the business commit (§6) | `NotificationService`, `AuditService` | Transactional outbox and a background worker |
 | **Mixed error contract.** ProblemDetails for validation and 409, plain text elsewhere, empty 403 bodies | Controllers, `HospitalControllerBase` | ProblemDetails everywhere |
@@ -420,3 +431,4 @@ blocks the gap named next to it.
 | D-13 | Time-zone contract of the API (offsets required?) | **Open** (R-051) |
 | D-14 | Data lifecycle: soft or hard delete of patients, retention of audit log and revisions | **Open** |
 | D-15 | Reference runtime: .NET 8 (API, container) vs. .NET 10 (AppHost) and the upgrade path | **Open** |
+| D-16 | One service contract for every module: DTOs in and out, `ServiceResult<T>`, cancellation, audit of every change (§1) | Taken (architecture review C-2) |

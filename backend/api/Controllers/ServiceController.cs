@@ -1,78 +1,56 @@
-﻿using Data;
-using Domain.Entities;
-using api.Auth;
+﻿using api.Auth;
+using api.Infrastructure;
+using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Services.ServiceService;
 
 namespace api.Controllers
 {
+    /// <summary>Medical services catalogue: readable by every hospital role, maintained by administrators.</summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
-    public class ServiceController : ControllerBase
+    public class ServiceController : HospitalControllerBase
     {
-        private readonly IServiceService _serviceService;
+        private readonly IServiceService _services;
 
-        public ServiceController(IServiceService serviceService)
-        {
-            _serviceService = serviceService;
-        }
+        public ServiceController(IServiceService services) => _services = services;
 
         [HttpGet]
-        public async Task<IActionResult> GetAllServices()
-        {
-            var services = await _serviceService.GetAllServices();
-            return Ok(services);
-        }
+        public async Task<IActionResult> GetAllServices(CancellationToken cancellationToken) =>
+            Ok(await _services.GetAllAsync(cancellationToken));
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetServiceById([FromRoute] int id)
+        public async Task<IActionResult> GetServiceById([FromRoute] int id, CancellationToken cancellationToken)
         {
-            var service = await _serviceService.GetServiceById(id);
-            if (service == null)
-            {
-                return NotFound($"Service with ID {id} not found");
-            }
-            return Ok(service);
+            var service = await _services.GetByIdAsync(id, cancellationToken);
+            return service == null ? NotFound($"Service with ID {id} not found") : Ok(service);
         }
 
+        /// <summary>Binds a DTO, not the entity: extra fields such as patients or doctors are ignored.</summary>
         [HttpPost]
         [Authorize(Policy = Policies.AdminOnly)]
-        public async Task<IActionResult> CreateService([FromBody] Service service)
+        public async Task<IActionResult> CreateService([FromBody] ServiceDto dto, CancellationToken cancellationToken)
         {
-            var (nawService, res) = await _serviceService.CreateService(service);
-            if (res)
-            {
-                return Ok(nawService);
-            }
-            return BadRequest("Failed to create service");
+            var result = await _services.CreateAsync(dto, cancellationToken);
+            return result.Success
+                ? CreatedAtAction(nameof(GetServiceById), new { id = result.Value!.Id }, result.Value)
+                : FromResult(result);
         }
 
         [HttpPut("{id}")]
         [Authorize(Policy = Policies.AdminOnly)]
-        public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] Service service)
-        {
-            var result = await _serviceService.UpdateService(id, service);
-            if (result)
-            {
-                return Ok(service);
-            }
-            return NotFound($"Service with ID {id} not found");
-        }
+        public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] ServiceDto dto, CancellationToken cancellationToken) =>
+            FromResult(await _services.UpdateAsync(id, dto, cancellationToken));
 
+        /// <summary>204 when deleted; 409 while patients or doctors still use the service.</summary>
         [HttpDelete("{id}")]
         [Authorize(Policy = Policies.AdminOnly)]
-        public async Task<IActionResult> DeleteService([FromRoute] int id)
+        public async Task<IActionResult> DeleteService([FromRoute] int id, CancellationToken cancellationToken)
         {
-            var result = await _serviceService.DeleteService(id);
-            if (result)
-            {
-                return Ok($"Service with ID {id} deleted successfully");
-            }
-            return NotFound($"Service with ID {id} not found");
+            var result = await _services.DeleteAsync(id, cancellationToken);
+            return result.Success ? NoContent() : FromResult(result);
         }
     }
 }
