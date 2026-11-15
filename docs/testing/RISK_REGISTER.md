@@ -52,10 +52,10 @@ so no rating is lowered because the data is fake.
 
 | ID | Risk | STRIDE | I | L | Severity | Evidence (current control) | Level | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| R-001 | A patient reads another patient's medical record | I | 4 | 3 | **Critical (12)** | `MedicalRecordController.cs:49-51` | API | `BolaTests` | Proposed |
-| R-002 | A patient reads or cancels another patient's appointment, or books one for another patient | I, T | 4 | 3 | **Critical (12)** | `AppointmentController.cs:32, 46-47, 55, 74-75` | API | `BolaTests` | Proposed |
-| R-003 | A patient reads another patient's profile | I | 4 | 3 | **Critical (12)** | `PatientController.cs:37-39` | API | `BolaTests` | Proposed |
-| R-004 | A patient learns which record IDs exist (404 for missing vs 403 for someone else's) | I | 3 | 3 | **High (9)** | `AppointmentController.cs:46, 74`; `MedicalRecordController.cs:49` | API | `BolaTests` | Proposed |
+| R-001 | A patient reads another patient's medical record | I | 4 | 3 | **Critical (12)** | `IPatientAccessPolicy` (`api/Auth/PatientAccessPolicy.cs`), scope `ClinicalStaff`, used by `MedicalRecordController`; controllers may not decide ownership themselves (architecture test) | API | `BolaTests`, `PatientAccessPolicyTests`, `ArchitectureRulesTests` | Proposed |
+| R-002 | A patient reads or cancels another patient's appointment, or books one for another patient | I, T | 4 | 3 | **Critical (12)** | `IPatientAccessPolicy`, scope `Staff`, used by `AppointmentController` for list, read, book and cancel | API | `BolaTests`, `PatientAccessPolicyTests`, `ArchitectureRulesTests` | Proposed |
+| R-003 | A patient reads another patient's profile | I | 4 | 3 | **Critical (12)** | `IPatientAccessPolicy`, scope `Staff`, used by `PatientController` | API | `BolaTests`, `PatientAccessPolicyTests`, `ArchitectureRulesTests` | Proposed |
+| R-004 | A patient learns which record IDs exist (404 for missing vs 403 for someone else's) | I | 3 | 3 | **High (9)** | `PatientAccessPolicy.CheckAsync`: a missing resource is `NotFound` for staff and `Forbidden` for everyone else | API | `BolaTests`, `PatientAccessPolicyTests` | Proposed |
 | R-005 | A non-admin calls an admin endpoint (user status, user link, audit log, delete) | E | 4 | 2 | **High (8)** | `Policies.cs:29`; `[Authorize(Policy = AdminOnly)]` on 15 actions and on `AuditLogController` | API | `AuthorizationMatrixTests` | Proposed |
 | R-006 | A forged, expired, wrong-issuer or wrong-audience token is accepted | S | 4 | 2 | **High (8)** | `AuthenticationExtensions.cs:31-38` | API | `TokenValidationTests` | Proposed |
 | R-007 | A deactivated account still gets data | E | 4 | 2 | **High (8)** | `UserSyncMiddleware.cs:17-24` | API | `AccountStateTests` | Proposed |

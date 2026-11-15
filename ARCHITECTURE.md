@@ -118,7 +118,7 @@ Roles are Keycloak **realm roles**: `Admin`, `Doctor`, `Nurse`, `Patient`. Keycl
 nested claim `realm_access.roles`; the API flattens them into one `roles` claim each so standard
 ASP.NET Core role checks work.
 
-Three layers, from coarse to fine:
+Four layers, from coarse to fine. Each kind of decision has exactly one home (decision D-9):
 
 1. **Default and fallback policy.** Every endpoint with a bare `[Authorize]` or with no rule at all requires
    an authenticated user **with one of the hospital roles**. A token without a hospital role gets 403
@@ -133,9 +133,19 @@ Three layers, from coarse to fine:
    | `ClinicalStaff` | Doctor, Nurse | Medical record history |
    | `DoctorOnly` | Doctor | Writing medical records |
 
-3. **Ownership checks** in controllers. A caller who is only a `Patient` can reach just the patient
-   record linked to their account, and only appointments and medical records of that patient. A doctor
-   writes records as the doctor profile linked to their account; the author is never taken from the request.
+3. **Ownership: `IPatientAccessPolicy`** (`api/Auth/PatientAccessPolicy.cs`). The only place that decides
+   *which patient's data* a caller may reach. Staff in the resource's scope (`Staff` = Admin, Doctor, Nurse;
+   `ClinicalStaff` = Doctor, Nurse) reach every patient; anyone else reaches only the patient record linked to
+   their account, and gets 403 both for someone else's id and for an id that does not exist.
+
+   | Controller asks | Policy answers | Controller returns |
+   |---|---|---|
+   | `ListScopeAsync(scope)` | all patients / only patient *n* / nobody | the list filtered accordingly (empty for nobody) |
+   | `CheckAsync(patientIdOfResource or null, scope)` | `Allow` / `NotFound` / `Forbidden` | the resource / 404 / 403 (`HospitalControllerBase.Denied`) |
+
+   Controllers never resolve ownership themselves: an architecture test (`ArchitectureRulesTests`) fails the
+   build if a controller calls `GetCurrentPatientIdAsync`, `IsInRole` or `IsStaff`. A doctor writes records
+   as the doctor profile linked to their account; the author is never taken from the request.
 
 4. **Business rules** in services. The appointment lifecycle (only a doctor marks `Completed`, final states
    cannot change) is enforced in `AppointmentService`; see *Appointment lifecycle* in
@@ -385,7 +395,6 @@ with ratings and a fix order in [docs/testing/RISK_REGISTER.md](docs/testing/RIS
 
 | Gap | Where | Direction |
 |---|---|---|
-| **Ownership checks are written per controller** (`CanAccessPatientAsync`, inline checks) | `AppointmentController`, `PatientController`, `MedicalRecordController` | One resource-based authorization policy that controllers call |
 | **Side effects in the request.** Notifications run inline; the audit write is a separate transaction after the business commit (§6) | `NotificationService`, `AuditService` | Transactional outbox and a background worker |
 | **Mixed error contract.** ProblemDetails for validation and 409, plain text elsewhere, empty 403 bodies | Controllers, `HospitalControllerBase` | ProblemDetails everywhere |
 | **Every `DbUpdateException` becomes 409** | `DbUpdateExceptionHandler` | Map only unique and foreign-key violations to 409 |
@@ -424,7 +433,7 @@ blocks the gap named next to it.
 | D-6 | One API instance or several | **Open** (Q-008) — blocks the instance-local state gap (§9) |
 | D-7 | Deployment target and reference topology (compose vs. Aspire publish vs. Kubernetes) | **Open** (Q-006) |
 | D-8 | Which side effects must be atomic with the business change (audit, notifications) | **Open** — blocks the outbox (§9) |
-| D-9 | Where authorization decisions live: controller attributes for roles, one policy for ownership, services for business invariants | **Open** — proposed in §9 |
+| D-9 | Where authorization decisions live: role attributes and policies for *which endpoints*, `IPatientAccessPolicy` for *which patient's data*, services for business invariants (§3); enforced by an architecture test | Taken (architecture review C-3) |
 | D-10 | Error contract: ProblemDetails only | **Open** |
 | D-11 | API contracts: where DTOs live, versioning, how the front end gets its types | **Open** |
 | D-12 | Concurrency control mechanism | **Open** |

@@ -1,4 +1,4 @@
-using Domain.Constants;
+using api.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.Common;
@@ -7,10 +7,6 @@ namespace api.Infrastructure
 {
     public abstract class HospitalControllerBase : ControllerBase
     {
-        /// <summary>True for Admin, Doctor and Nurse; false for callers who are only patients.</summary>
-        protected bool IsStaff =>
-            User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Doctor) || User.IsInRole(Roles.Nurse);
-
         protected IActionResult FromResult<T>(ServiceResult<T> result) => result.Status switch
         {
             ResultStatus.Ok => Ok(result.Value),
@@ -19,5 +15,9 @@ namespace api.Infrastructure
             ResultStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, result.Error),
             _ => BadRequest(result.Error)
         };
+
+        /// <summary>The response for a refused <see cref="IPatientAccessPolicy"/> decision.</summary>
+        protected IActionResult Denied(AccessDecision decision, string notFoundMessage) =>
+            decision == AccessDecision.NotFound ? NotFound(notFoundMessage) : Forbid();
     }
 }

@@ -22,6 +22,8 @@ builder.Services.AddTransient<Seed>();
 // Business services, audit logging and external integration abstractions.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
+// The one place that decides which patient's data a caller may reach (ARCHITECTURE.md §3).
+builder.Services.AddScoped<IPatientAccessPolicy, PatientAccessPolicy>();
 builder.Services.AddHospitalServices();
 
 // Keycloak JWT authentication and role-based authorization policies.

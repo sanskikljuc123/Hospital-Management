@@ -4,7 +4,6 @@ using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services.PatientService;
-using Services.UserService;
 
 namespace api.Controllers
 {
@@ -15,12 +14,12 @@ namespace api.Controllers
     public class PatientController : HospitalControllerBase
     {
         private readonly IPatientService _patients;
-        private readonly IUserService _users;
+        private readonly IPatientAccessPolicy _access;
 
-        public PatientController(IPatientService patients, IUserService users)
+        public PatientController(IPatientService patients, IPatientAccessPolicy access)
         {
             _patients = patients;
-            _users = users;
+            _access = access;
         }
 
         [HttpGet]
@@ -32,11 +31,9 @@ namespace api.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetPatientById([FromRoute] int id, CancellationToken cancellationToken)
         {
-            if (!IsStaff && await _users.GetCurrentPatientIdAsync(cancellationToken) != id)
-                return Forbid();
-
             var patient = await _patients.GetByIdAsync(id, cancellationToken);
-            return patient == null ? NotFound($"Patient with ID {id} not found") : Ok(patient);
+            var decision = await _access.CheckAsync(patient?.Id, StaffScope.Staff, cancellationToken);
+            return decision == AccessDecision.Allow ? Ok(patient) : Denied(decision, $"Patient with ID {id} not found");
         }
 
         [HttpPost]
