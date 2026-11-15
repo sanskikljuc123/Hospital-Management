@@ -99,3 +99,29 @@ deleting the test.
 **Resolution:** <fix PR / revert / environment change>
 **Follow-up:** <missing test, register update>
 ```
+
+## 7. Production readiness
+
+### Release gate
+
+The system may hold real patient data only when **every Critical and High risk** in
+[RISK_REGISTER.md §2.1](RISK_REGISTER.md#21-production-readiness) is `Covered` or `Closed` — proven by a test,
+a CI check of the deployment configuration (level *Config*) or a rehearsed procedure (level *Ops*). Accepting
+such a risk instead needs the test owner's written reason and an end date in RISK_REGISTER §5. Medium risks
+in §2.1 follow the normal rule: covered when the related code or configuration changes.
+
+### Proposed order
+
+Waves are ordered by "public exposure today" first, then by what each wave unblocks. Waves 1 and 2 need no
+decision; wave 3 needs Q-006 and Q-008; wave 4 needs Q-007.
+
+| Wave | Goal | Risks | Needs |
+|---|---|---|---|
+| **1 — Clean the repository and the dev defaults** | Nothing secret or dev-only is public or on by default | R-030 (remove the legacy password, stop tracking build output; rotate the password if it is used anywhere), R-027 (password grant off on `hospital-web`; a separate dev-only test client if scripts need it), R-029 (split compose into a dev file and a production override: no seed, no Swagger), R-043 (password reset off until SMTP exists) | Q-009 for the legacy projects |
+| **2 — Phase 2: tests and CI** | Every change is checked automatically | R-035 (API and unit test projects, GitHub Actions with gates G1–G6), R-012 (gitleaks), R-040 (pinned image tags, dependency and image scanning) | – |
+| **3 — Production deployment** | A deployable, encrypted, least-privilege stack | R-025 (TLS everywhere, HSTS), R-026 (Keycloak `start` with a production realm, no sample users), R-033 (static frontend image behind a web server), R-034 (hostnames, issuer, CORS and redirect URIs from configuration), R-031 (separate database users, least privilege), R-032 (backups and a restore drill), R-036 (security headers, rate limiting), R-038 (migrations as a release step), R-039 (shared cache or short expiry) | Q-006, Q-008 |
+| **4 — Real patient data** | Fit for health data under the applicable law | R-028 (MFA and password policy for staff), R-041 (append-only audit store, retention), R-042 (no personal data in logs, real notification provider), R-044 (patient model), R-045 (retention, export, consent) | Q-007 |
+| **5 — Operate** | Problems are seen and handled | R-046 (telemetry export, alerts, central logs including Keycloak events), R-047 (runbooks for deploy, rollback, secret rotation, restore), R-037 (paging) | Wave 3 |
+
+Wave 1 is small enough to do before phase 2. Phase 2 (wave 2) is the foundation for the others: from then on
+every fix in waves 3–5 lands with the test or configuration check that proves it.
