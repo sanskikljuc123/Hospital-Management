@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Services.AppointmentService;
 using Services.AuditService;
 using Services.DepartmentService;
@@ -20,6 +21,8 @@ namespace Services
         public static IServiceCollection AddHospitalServices(this IServiceCollection services)
         {
             services.AddMemoryCache();
+            // The clock used by business rules ("has the appointment started?"); tests replace it.
+            services.TryAddSingleton(TimeProvider.System);
 
             services.AddScoped<IServiceService, ServiceServiceImp>();
             services.AddScoped<IPatientService, PatientServiceImp>();

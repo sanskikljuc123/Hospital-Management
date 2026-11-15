@@ -61,3 +61,6 @@ app.MapControllers();
 app.MapDefaultEndpoints();
 
 app.Run();
+
+// Lets WebApplicationFactory<Program> in the API tests reference the entry point.
+public partial class Program { }
