@@ -17,8 +17,14 @@ namespace HospitalManagement.ApiTests.Infrastructure;
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _connectionString;
+    private readonly Action<IServiceCollection>? _replaceServices;
 
-    public ApiFactory(string connectionString) => _connectionString = connectionString;
+    /// <param name="replaceServices">Test doubles for one test class (e.g. a failing audit service).</param>
+    public ApiFactory(string connectionString, Action<IServiceCollection>? replaceServices = null)
+    {
+        _connectionString = connectionString;
+        _replaceServices = replaceServices;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -31,6 +37,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Database:SeedOnStartup", "false");
         builder.UseSetting("Swagger:Enabled", "false");
+        // Tests drive the outbox processor themselves, so no background delivery races with assertions.
+        builder.UseSetting("Outbox:Enabled", "false");
 
         builder.ConfigureTestServices(services =>
         {
@@ -41,6 +49,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 options.Configuration = configuration;
                 options.ConfigurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
             });
+            _replaceServices?.Invoke(services);
         });
     }
 

@@ -15,6 +15,7 @@ namespace Data
         public DbSet<Appointment> Appointments { get; set; }
         public DbSet<MedicalRecord> MedicalRecords { get; set; }
         public DbSet<MedicalRecordRevision> MedicalRecordRevisions { get; set; }
+        public DbSet<OutboxMessage> OutboxMessages { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
@@ -130,6 +131,15 @@ namespace Data
                 e.HasOne(r => r.EditedByDoctor).WithMany()
                     .HasForeignKey(r => r.EditedByDoctorId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(r => new { r.MedicalRecordId, r.Revision }).IsUnique();
+            });
+
+            modelBuilder.Entity<OutboxMessage>(e =>
+            {
+                e.Property(m => m.Type).HasMaxLength(100);
+                e.Property(m => m.Payload).HasColumnType("jsonb");
+                e.Property(m => m.LastError).HasMaxLength(500);
+                // The processor's query: undelivered, not failed, due.
+                e.HasIndex(m => new { m.ProcessedAt, m.FailedAt, m.NextAttemptAt });
             });
 
             modelBuilder.Entity<AuditLog>(e =>
