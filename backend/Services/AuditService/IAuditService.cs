@@ -17,8 +17,8 @@ namespace Services.AuditService
     public interface IAuditService
     {
         /// <summary>
-        /// Records an audit entry for the current user. Never throws: a failure to audit is logged
-        /// and must not break the business operation that triggered it.
+        /// Records an audit entry for the current user through the request's DbContext. In a write request it
+        /// is part of the same transaction as the change; if it fails, the change is rolled back.
         /// </summary>
         /// <param name="details">Serialised to JSON. Do not pass clinical content.</param>
         Task LogAsync(string action, string? entityType = null, object? entityId = null,

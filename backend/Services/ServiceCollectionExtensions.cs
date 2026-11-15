@@ -37,7 +37,12 @@ namespace Services
             // External integrations. Swap these registrations for real providers.
             services.AddScoped<IEmailService, LoggingEmailService>();
             services.AddScoped<ISmsService, LoggingSmsService>();
+
+            // Outbox: side effects are recorded with the change and delivered afterwards (D-8).
+            services.AddScoped<Outbox.IOutbox, Outbox.Outbox>();
+            services.AddScoped<Outbox.OutboxProcessor>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<Outbox.IOutboxHandler, AppointmentNotificationHandler>();
 
             return services;
         }

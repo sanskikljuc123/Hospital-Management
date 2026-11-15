@@ -29,7 +29,13 @@ builder.Services.AddHospitalServices();
 // Keycloak JWT authentication and role-based authorization policies.
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
 
-builder.Services.AddControllers()
+// Delivers outbox messages (patient notifications) after the change commits.
+if (builder.Configuration.GetValue("Outbox:Enabled", true))
+    builder.Services.AddHostedService<OutboxDispatcher>();
+
+// Every write request runs in one database transaction (change + audit + revisions + outbox).
+builder.Services.AddScoped<TransactionalWriteFilter>();
+builder.Services.AddControllers(options => options.Filters.AddService<TransactionalWriteFilter>())
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DbUpdateExceptionHandler>();

@@ -15,6 +15,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public ApiFactory Factory { get; private set; } = null!;
 
+    /// <summary>For a test class that needs its own host with test doubles, on the same database.</summary>
+    public string ConnectionString => _container.GetConnectionString();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();

@@ -61,6 +61,8 @@ The `backend/Service` folder (`Servicest.csproj`) is leftover scaffolding that i
 | Authentication | `api/Auth/AuthenticationExtensions.cs` | JWT bearer against Keycloak |
 | Authorization | `api/Auth/Policies.cs` + `[Authorize]` on controllers | Default and fallback policy: everything needs a token with a hospital role |
 | User mirroring, login audit | `api/Auth/UserSyncMiddleware.cs` → `UserService` | Runs after authentication |
+| Write transactions | `api/Infrastructure/TransactionalWriteFilter.cs` | One database transaction per POST/PUT/PATCH/DELETE: change, audit entry, record revision and outbox messages commit together (D-8) |
+| Side effects | `Services/Outbox`, `api/Infrastructure/OutboxDispatcher.cs` | Recorded in the outbox with the change, delivered afterwards with retries (§7) |
 | Errors | `api/Infrastructure/DbUpdateExceptionHandler.cs` | Constraint violations → 409 problem details |
 | Health | `/health` (readiness, includes database), `/alive` (liveness) | Anonymous |
 | Telemetry | ServiceDefaults | OTLP export when `OTEL_EXPORTER_OTLP_ENDPOINT` is set |
@@ -316,15 +318,16 @@ dotnet ef migrations add <Name> --project backend/Data --startup-project backend
 
 ### Audit logging
 
-Two trails exist, with different guarantees:
+Two trails exist, both written **in the same transaction as the change** (decision D-8):
 
 | Trail | Written | Guarantee | Readers |
 |---|---|---|---|
-| `MedicalRecordRevisions` | In the **same transaction** as the record change | A record change cannot exist without its revision | Doctors, nurses (`GET /api/MedicalRecord/{id}/history`) |
-| `AuditLogs` | Through `IAuditService` with its **own `DbContext`, after** the business commit | Best effort: a failure to audit is logged, the request still succeeds; a crash between the two loses the entry | Admins (`GET /api/AuditLog`) |
+| `MedicalRecordRevisions` | By `MedicalRecordService`, same `DbContext` and transaction as the record change | A record change cannot exist without its revision | Doctors, nurses (`GET /api/MedicalRecord/{id}/history`) |
+| `AuditLogs` | By `IAuditService` through the request's `DbContext`, inside the write transaction (`TransactionalWriteFilter`) | A change cannot exist without its audit entry. **Fail closed:** if the audit write fails, the change is rolled back and the request gets 500 | Admins (`GET /api/AuditLog`) |
 
 The clinical content lives only in the revisions; the audit log records who did what, never the content.
-Making the audit log as strong as the revisions (an outbox in the same transaction) is open decision D-8.
+Sign-in events (`User.Login`, `User.Provisioned`) are written by the user sync before any action runs, in
+their own short transaction.
 
 | Event | Action | Recorded details |
 |---|---|---|
@@ -352,14 +355,30 @@ Abstractions live in `Services/Integrations` and are registered in
 
 | Interface | Role | Current implementation |
 |---|---|---|
-| `INotificationService` | Decides who is told what, over which channel | `NotificationService`: e-mail and SMS to the patient on appointment create and update |
+| `INotificationService` | Records that a patient must be told something | `NotificationService`: writes an `AppointmentNotification` to the outbox on appointment create and update |
+| `IOutbox` | Records a side effect with the current change | `Outbox`: a row in `OutboxMessages`, same transaction |
+| `IOutboxHandler` | Delivers one type of outbox message | `AppointmentNotificationHandler`: looks up the patient's contact details and sends e-mail and SMS |
 | `IEmailService` | E-mail gateway | `LoggingEmailService`: logs recipient and subject, sends nothing |
 | `ISmsService` | SMS gateway | `LoggingSmsService`: logs the number, sends nothing |
-| `IAuditService` | Audit trail | `AuditService`: writes to PostgreSQL |
+| `IAuditService` | Audit trail | `AuditService`: writes to PostgreSQL in the request transaction |
+
+**Outbox.** A booking never waits for, or fails because of, an e-mail or SMS provider:
+
+```
+request transaction:  appointment row  +  audit entry  +  OutboxMessages row   → commit (or none of them)
+background:           OutboxDispatcher → OutboxProcessor → handler → IEmailService / ISmsService
+```
+
+- The payload holds ids and status only; contact details are read at delivery time, so the outbox never
+  stores personal data.
+- `OutboxDispatcher` (a hosted service in the API) runs the processor every `Outbox:PollIntervalSeconds`.
+  Each batch is claimed with `FOR UPDATE SKIP LOCKED`, so several API instances can run it safely.
+- A failed delivery is retried with exponential back-off (1, 2, 4, 8 minutes); after 5 attempts the message is
+  marked `FailedAt` and kept for inspection. `LastError` holds the exception type and message only.
+- Delivery is **at least once**: a crash after sending but before marking the message processed sends it
+  again. Real providers should be given the message id as an idempotency key.
 
 To connect a real provider, implement `IEmailService` or `ISmsService` and change one registration line.
-Notifications are best effort: a provider failure is logged and does not fail the booking. Before real
-traffic, move delivery to a background queue (outbox) so slow providers do not slow down requests.
 
 Other integration points: Keycloak (OIDC discovery and JWKS over HTTP) and an OpenTelemetry collector
 (OTLP, optional).
@@ -374,6 +393,8 @@ Other integration points: Keycloak (OIDC discovery and JWKS over HTTP) and an Op
 | `Database:SeedOnStartup` | Insert sample data when tables are empty | `false` (`true` in `docker-compose.override.yml` and Aspire) |
 | `Cors:AllowedOrigins` | Browser origins allowed to call the API | `http://localhost:3000` |
 | `Swagger:Enabled` | Serve Swagger outside Development | `false` (`true` in `docker-compose.override.yml`) |
+| `Outbox:Enabled` | Run the background outbox dispatcher in this instance | `true` |
+| `Outbox:PollIntervalSeconds` | How often the dispatcher looks for due messages | `5` |
 
 **Compose files.** `docker-compose.yml` holds the safe defaults: no sample data, no Swagger.
 `docker-compose.override.yml` turns both on for local development and is loaded automatically by
@@ -395,7 +416,7 @@ with ratings and a fix order in [docs/testing/RISK_REGISTER.md](docs/testing/RIS
 
 | Gap | Where | Direction |
 |---|---|---|
-| **Side effects in the request.** Notifications run inline; the audit write is a separate transaction after the business commit (§6) | `NotificationService`, `AuditService` | Transactional outbox and a background worker |
+| **Failed outbox messages are only visible in the database** (`OutboxMessages.FailedAt`) | Outbox | An admin endpoint or a metric and alert (R-046) |
 | **Mixed error contract.** ProblemDetails for validation and 409, plain text elsewhere, empty 403 bodies | Controllers, `HospitalControllerBase` | ProblemDetails everywhere |
 | **Every `DbUpdateException` becomes 409** | `DbUpdateExceptionHandler` | Map only unique and foreign-key violations to 409 |
 | **No optimistic concurrency**, no database constraint against overlapping bookings | Appointments, medical records | Concurrency token; exclusion constraint |
@@ -432,7 +453,7 @@ blocks the gap named next to it.
 | D-5 | Synthetic data only, but everything built and tested as in production (`docs/testing/BUSINESS_FLOWS.md`) | Taken (Q-007) |
 | D-6 | One API instance or several | **Open** (Q-008) — blocks the instance-local state gap (§9) |
 | D-7 | Deployment target and reference topology (compose vs. Aspire publish vs. Kubernetes) | **Open** (Q-006) |
-| D-8 | Which side effects must be atomic with the business change (audit, notifications) | **Open** — blocks the outbox (§9) |
+| D-8 | Atomic with the change: the audit entry, the record revision and the outbox messages (one transaction per write request; audit fails closed). Delivered afterwards, at least once: notifications | Taken (architecture review C-4) |
 | D-9 | Where authorization decisions live: role attributes and policies for *which endpoints*, `IPatientAccessPolicy` for *which patient's data*, services for business invariants (§3); enforced by an architecture test | Taken (architecture review C-3) |
 | D-10 | Error contract: ProblemDetails only | **Open** |
 | D-11 | API contracts: where DTOs live, versioning, how the front end gets its types | **Open** |
