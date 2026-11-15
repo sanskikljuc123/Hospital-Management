@@ -5,7 +5,6 @@ using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services.AppointmentService;
-using Services.UserService;
 
 namespace api.Controllers
 {
@@ -16,12 +15,12 @@ namespace api.Controllers
     public class AppointmentController : HospitalControllerBase
     {
         private readonly IAppointmentService _appointments;
-        private readonly IUserService _users;
+        private readonly IPatientAccessPolicy _access;
 
-        public AppointmentController(IAppointmentService appointments, IUserService users)
+        public AppointmentController(IAppointmentService appointments, IPatientAccessPolicy access)
         {
             _appointments = appointments;
-            _users = users;
+            _access = access;
         }
 
         /// <summary>Staff see all appointments (optionally filtered); patients only see their own.</summary>
@@ -29,11 +28,9 @@ namespace api.Controllers
         public async Task<IActionResult> GetAppointments([FromQuery] int? patientId, [FromQuery] int? doctorId,
             [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken cancellationToken)
         {
-            if (!IsStaff)
-            {
-                patientId = await _users.GetCurrentPatientIdAsync(cancellationToken);
-                if (patientId == null) return Ok(Array.Empty<AppointmentDto>());
-            }
+            var scope = await _access.ListScopeAsync(StaffScope.Staff, cancellationToken);
+            if (scope.IsEmpty) return Ok(Array.Empty<AppointmentDto>());
+            if (!scope.AllPatients) patientId = scope.OnlyPatientId;
 
             return Ok(await _appointments.GetAllAsync(patientId, doctorId, from, to, cancellationToken));
         }
@@ -42,17 +39,17 @@ namespace api.Controllers
         public async Task<IActionResult> GetAppointmentById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
-            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
-            if (appointment == null) return IsStaff ? NotFound($"Appointment with ID {id} not found") : Forbid();
-            if (!await CanAccessPatientAsync(appointment.PatientId, cancellationToken)) return Forbid();
-            return Ok(appointment);
+            var decision = await _access.CheckAsync(appointment?.PatientId, StaffScope.Staff, cancellationToken);
+            return decision == AccessDecision.Allow ? Ok(appointment) : Denied(decision, $"Appointment with ID {id} not found");
         }
 
         /// <summary>Staff can book for any patient; a patient can only book for themselves.</summary>
         [HttpPost]
         public async Task<IActionResult> CreateAppointment([FromBody] AppointmentCreateDto dto, CancellationToken cancellationToken)
         {
-            if (!await CanAccessPatientAsync(dto.PatientId, cancellationToken)) return Forbid();
+            // The patient id comes from the request: a patient may only name their own record.
+            var decision = await _access.CheckAsync(dto.PatientId, StaffScope.Staff, cancellationToken);
+            if (decision != AccessDecision.Allow) return Forbid();
 
             var result = await _appointments.CreateAsync(dto, cancellationToken);
             return result.Success
@@ -70,9 +67,8 @@ namespace api.Controllers
         public async Task<IActionResult> CancelAppointment([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
-            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
-            if (appointment == null) return IsStaff ? NotFound($"Appointment with ID {id} not found") : Forbid();
-            if (!await CanAccessPatientAsync(appointment.PatientId, cancellationToken)) return Forbid();
+            var decision = await _access.CheckAsync(appointment?.PatientId, StaffScope.Staff, cancellationToken);
+            if (decision != AccessDecision.Allow) return Denied(decision, $"Appointment with ID {id} not found");
 
             return FromResult(await _appointments.CancelAsync(id, cancellationToken));
         }
@@ -90,8 +86,5 @@ namespace api.Controllers
             await _appointments.DeleteAsync(id, cancellationToken)
                 ? NoContent()
                 : NotFound($"Appointment with ID {id} not found");
-
-        private async Task<bool> CanAccessPatientAsync(int patientId, CancellationToken cancellationToken) =>
-            IsStaff || await _users.GetCurrentPatientIdAsync(cancellationToken) == patientId;
     }
 }

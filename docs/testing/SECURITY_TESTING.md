@@ -61,6 +61,14 @@ cannot silently fall behind the controllers.
 
 ## 3. Object-level access (BOLA)
 
+Every **Own** decision is made by one component, `IPatientAccessPolicy` (ARCHITECTURE.md §3). It is tested on
+three levels:
+
+- **Rules:** `PatientAccessPolicyTests` (unit) — each role and scope against own, foreign and missing ids.
+- **Use:** `ArchitectureRulesTests` (unit) — fails when a controller decides ownership itself instead of asking
+  the policy.
+- **Behavior:** `BolaTests` (API) — the cases below, end to end.
+
 For every endpoint marked **Own**, test with two linked patients A and B and one unlinked patient:
 
 | Case | Expected |
