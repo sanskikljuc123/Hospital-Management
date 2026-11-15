@@ -130,6 +130,24 @@ public class OutboxProcessorTests : IDisposable
     }
 
     [Fact]
+    public async Task LongError_IsCutTo500Characters_ShortErrorIsKeptWhole()
+    {
+        _handler.FailuresLeft = 1;
+        _handler.ErrorMessage = new string('x', 900);
+        var longId = await EnqueueAsync();
+        await Processor.ProcessPendingAsync();
+
+        Assert.Equal(500, (await LoadAsync(longId)).LastError!.Length);
+
+        _handler.FailuresLeft = 1;
+        _handler.ErrorMessage = "short";
+        var shortId = await EnqueueAsync();
+        await Processor.ProcessPendingAsync();
+
+        Assert.Equal("InvalidOperationException: short", (await LoadAsync(shortId)).LastError);
+    }
+
+    [Fact]
     public async Task UnknownType_IsTreatedAsAFailure_NotDropped()
     {
         var id = await EnqueueAsync(type: "NoSuchHandler");
@@ -155,6 +173,7 @@ public class OutboxProcessorTests : IDisposable
     {
         public const string HandledType = "Test";
         public int FailuresLeft { get; set; }
+        public string ErrorMessage { get; set; } = "Provider unavailable";
         public List<string> Delivered { get; } = new();
         public string Type => HandledType;
 
@@ -163,7 +182,7 @@ public class OutboxProcessorTests : IDisposable
             if (FailuresLeft > 0)
             {
                 FailuresLeft--;
-                throw new InvalidOperationException("Provider unavailable");
+                throw new InvalidOperationException(ErrorMessage);
             }
             Delivered.Add(payload);
             return Task.CompletedTask;

@@ -176,6 +176,117 @@ public class UserServiceTests : IDisposable
         Assert.Equal(ResultStatus.Invalid, (await Service.LinkAsync(user.Id, new UserLinkDto { PatientId = 999 })).Status);
     }
 
+    // ---------- Added after mutation testing (phase 5) ----------
+
+    [Fact]
+    [Trait("Risk", "R-013")]
+    public async Task NewSession_OnTheSameInstance_IsANewLogin()
+    {
+        await Service.SyncCurrentUserAsync();
+        _audit.Entries.Clear();
+        _caller.SessionId = "session-2";
+
+        await Service.SyncCurrentUserAsync(); // same cache, different session
+
+        Assert.Equal(new[] { AuditActions.UserLogin }, _audit.Actions.ToArray());
+    }
+
+    /// <summary>
+    /// By design a known session is not re-read from the database for a few minutes (ARCHITECTURE §3); deactivation
+    /// through the API evicts it on this instance (tested above). Other instances keep it: R-039.
+    /// </summary>
+    [Fact]
+    [Trait("Risk", "R-039")]
+    public async Task KnownSession_IsServedFromTheCache()
+    {
+        await Service.SyncCurrentUserAsync();
+        (await _db.Users.SingleAsync()).IsActive = false; // changed behind the service's back
+        await _db.SaveChangesAsync();
+
+        Assert.True(await Service.SyncCurrentUserAsync());
+    }
+
+    [Fact]
+    [Trait("Risk", "R-015")]
+    [Trait("Risk", "R-024")]
+    public async Task TokenWithoutHospitalRole_GetsAProfileWithoutRole()
+    {
+        _caller.RoleSet.Clear();
+        _caller.RoleSet.Add("offline_access");
+
+        Assert.True(await Service.SyncCurrentUserAsync());
+        Assert.Null((await _db.Users.SingleAsync()).Role);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-007")]
+    [Trait("Risk", "R-013")]
+    public async Task Reactivate_IsAuditedAsActivation()
+    {
+        var user = _db.AddUser("sub-x", "x.user", isActive: false);
+
+        var result = await Service.SetActiveAsync(user.Id, true);
+
+        Assert.True(result.Value!.IsActive);
+        Assert.Equal(new[] { AuditActions.UserActivated }, _audit.Actions.ToArray());
+    }
+
+    [Fact]
+    [Trait("Risk", "R-008")]
+    [Trait("Scenario", "F-01.5")]
+    public async Task Link_ReplacesThePreviousDoctorLink_AndTheProfileShowsIt()
+    {
+        var first = _db.AddDoctor("First");
+        var second = _db.AddDoctor("Second");
+        var user = _db.AddUser("sub-d", "doctor.user");
+
+        await Service.LinkAsync(user.Id, new UserLinkDto { DoctorId = first.Id });
+        var result = await Service.LinkAsync(user.Id, new UserLinkDto { DoctorId = second.Id });
+
+        Assert.Equal(second.Id, result.Value!.DoctorId);
+        Assert.Null((await _db.Doctors.SingleAsync(d => d.Id == first.Id)).UserId);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-001")]
+    [Trait("Risk", "R-010")]
+    public async Task CurrentIds_BelongToTheCaller_NotToAnyLinkedUser()
+    {
+        var serviceId = _db.AddService().Id;
+        var someoneElse = _db.AddUser("sub-else", "else.user");
+        var me = _db.AddUser(_caller.Subject!, _caller.UserName!);
+        var theirDoctor = _db.AddDoctor("Theirs");
+        var theirPatient = _db.AddPatient(serviceId, "Theirs");
+        var myDoctor = _db.AddDoctor("Mine");
+        var myPatient = _db.AddPatient(serviceId, "Mine");
+        await Service.LinkAsync(someoneElse.Id, new UserLinkDto { DoctorId = theirDoctor.Id, PatientId = theirPatient.Id });
+        await Service.LinkAsync(me.Id, new UserLinkDto { DoctorId = myDoctor.Id, PatientId = myPatient.Id });
+
+        Assert.Equal(myDoctor.Id, await Service.GetCurrentDoctorIdAsync());
+        Assert.Equal(myPatient.Id, await Service.GetCurrentPatientIdAsync());
+    }
+
+    [Fact]
+    public async Task RequestWithoutSubject_IsLetThrough_WithoutCreatingAProfile()
+    {
+        _caller.Subject = null;
+
+        Assert.True(await Service.SyncCurrentUserAsync());
+        Assert.Empty(_db.Users);
+        Assert.Empty(_audit.Entries);
+    }
+
+    [Fact]
+    public async Task CurrentProfileAndUserList()
+    {
+        Assert.Null(await Service.GetCurrentAsync());
+        _db.AddUser("sub-b", "b.user");
+        _db.AddUser(_caller.Subject!, "a.user");
+
+        Assert.Equal("a.user", (await Service.GetCurrentAsync())!.UserName);
+        Assert.Equal(new[] { "a.user", "b.user" }, (await Service.GetAllAsync()).Select(u => u.UserName).ToArray());
+    }
+
     [Fact]
     [Trait("Risk", "R-021")]
     public async Task CurrentDoctorAndPatientIds_FollowTheLink()

@@ -22,6 +22,7 @@ public sealed class AppointmentTestBed : IDisposable
     public FakeTimeProvider Clock { get; } = new(Now);
     public FakeUser User { get; } = new();
     public RecordingAudit Audit { get; } = new();
+    public RecordingNotifications Notifications { get; } = new();
     public ApplicationDbContext Db { get; }
     public Services.AppointmentService.AppointmentService Service { get; }
     public int PatientId { get; }
@@ -43,7 +44,7 @@ public sealed class AppointmentTestBed : IDisposable
         Db.SaveChanges();
         (PatientId, DoctorId, OtherDoctorId) = (patient.Id, doctor.Id, other.Id);
 
-        Service = new Services.AppointmentService.AppointmentService(Db, User, Audit, new NoNotifications(), Clock);
+        Service = new Services.AppointmentService.AppointmentService(Db, User, Audit, Notifications, Clock);
     }
 
     /// <summary>Today's date at the given UTC hour, relative to <see cref="Now"/>.</summary>
@@ -107,5 +108,23 @@ public sealed class AppointmentTestBed : IDisposable
     {
         public Task NotifyAppointmentScheduledAsync(Appointment appointment, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task NotifyAppointmentUpdatedAsync(Appointment appointment, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    /// <summary>Records which notifications the service asked for, as (kind, appointment id, status).</summary>
+    public sealed class RecordingNotifications : INotificationService
+    {
+        public List<(string Kind, int AppointmentId, AppointmentStatus Status)> Sent { get; } = new();
+
+        public Task NotifyAppointmentScheduledAsync(Appointment appointment, CancellationToken cancellationToken = default)
+        {
+            Sent.Add(("Scheduled", appointment.Id, appointment.Status));
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyAppointmentUpdatedAsync(Appointment appointment, CancellationToken cancellationToken = default)
+        {
+            Sent.Add(("Updated", appointment.Id, appointment.Status));
+            return Task.CompletedTask;
+        }
     }
 }
