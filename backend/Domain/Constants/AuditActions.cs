@@ -10,6 +10,7 @@ namespace Domain.Constants
         public const string AppointmentCreated = "Appointment.Created";
         public const string AppointmentUpdated = "Appointment.Updated";
         public const string AppointmentDeleted = "Appointment.Deleted";
+        public const string AppointmentStatusCorrected = "Appointment.StatusCorrected";
         public const string MedicalRecordCreated = "MedicalRecord.Created";
         public const string MedicalRecordUpdated = "MedicalRecord.Updated";
     }
