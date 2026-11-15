@@ -1,4 +1,5 @@
 using Domain.Constants;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.Common;
 
@@ -15,6 +16,7 @@ namespace api.Infrastructure
             ResultStatus.Ok => Ok(result.Value),
             ResultStatus.NotFound => NotFound(result.Error),
             ResultStatus.Conflict => Conflict(result.Error),
+            ResultStatus.Forbidden => StatusCode(StatusCodes.Status403Forbidden, result.Error),
             _ => BadRequest(result.Error)
         };
     }

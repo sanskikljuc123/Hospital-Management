@@ -49,7 +49,7 @@ The `backend/Service` folder (`Servicest.csproj`) is leftover scaffolding that i
 | Concern | Where | Notes |
 |---|---|---|
 | Authentication | `api/Auth/AuthenticationExtensions.cs` | JWT bearer against Keycloak |
-| Authorization | `api/Auth/Policies.cs` + `[Authorize]` on controllers | Fallback policy: everything needs a token |
+| Authorization | `api/Auth/Policies.cs` + `[Authorize]` on controllers | Default and fallback policy: everything needs a token with a hospital role |
 | User mirroring, login audit | `api/Auth/UserSyncMiddleware.cs` → `UserService` | Runs after authentication |
 | Errors | `api/Infrastructure/DbUpdateExceptionHandler.cs` | Constraint violations → 409 problem details |
 | Health | `/health` (readiness, includes database), `/alive` (liveness) | Anonymous |
@@ -102,7 +102,7 @@ For scripts and manual testing, `hospital-web` also allows the password grant:
 ```bash
 curl -X POST http://localhost:8080/realms/HospitalRealm/protocol/openid-connect/token \
   -d grant_type=password -d client_id=hospital-web \
-  -d username=doctor.user -d 'password=Doctor123!'
+  -d username=doctor.user -d "password=$DEV_USERS_PASSWORD"
 ```
 
 Disable "Direct access grants" on the client before any real deployment.
@@ -115,23 +115,34 @@ ASP.NET Core role checks work.
 
 Three layers, from coarse to fine:
 
-1. **Fallback policy.** Any endpoint without an explicit rule requires an authenticated user. A new
-   controller is therefore protected by default; anonymous access must be opted into with `[AllowAnonymous]`.
+1. **Default and fallback policy.** Every endpoint with a bare `[Authorize]` or with no rule at all requires
+   an authenticated user **with one of the hospital roles**. A token without a hospital role gets 403
+   everywhere. A new controller is therefore protected by default; anonymous access must be opted into with
+   `[AllowAnonymous]` (only `/health` and `/alive` do).
 2. **Role policies** (`api/Auth/Policies.cs`).
 
    | Policy | Roles | Used for |
    |---|---|---|
    | `AdminOnly` | Admin | Master data writes, user management, audit log, hard deletes |
    | `Staff` | Admin, Doctor, Nurse | Patient administration, appointment updates |
-   | `ClinicalStaff` | Doctor, Nurse | Reserved for clinical read endpoints |
+   | `ClinicalStaff` | Doctor, Nurse | Medical record history |
    | `DoctorOnly` | Doctor | Writing medical records |
 
 3. **Ownership checks** in controllers. A caller who is only a `Patient` can reach just the patient
-   record linked to their account, and only appointments and medical records of that patient.
+   record linked to their account, and only appointments and medical records of that patient. A doctor
+   writes records as the doctor profile linked to their account; the author is never taken from the request.
+
+4. **Business rules** in services. The appointment lifecycle (only a doctor marks `Completed`, final states
+   cannot change) is enforced in `AppointmentService`; see *Appointment lifecycle* in
+   [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md).
 
 Design decisions worth knowing:
 
 - **Admins cannot read medical records.** Administration and clinical access are separate duties.
+- **Medical records keep every version.** Any doctor may edit any record, but each change is stored as a
+  new revision (`MedicalRecordRevisions`) with the editing doctor, in the same transaction as the edit.
+- **The web frontend signs in through Keycloak** (`frontend-web/src/auth/`, keycloak-js, Authorization Code
+  + PKCE). Tokens stay in memory, are refreshed before each API call, and logout ends the Keycloak session.
 - **Doctors and nurses see all patients.** There is no per-department or per-care-team restriction yet.
 - **Deactivation is local.** `PUT /api/User/{id}/status` blocks a user in this API within the same
   instance immediately. Other API instances honour it within 5 minutes (per-instance cache). The Keycloak
@@ -155,9 +166,11 @@ imported on first start by both docker-compose and Aspire. Keycloak requires the
 | Events | Login, logout and admin events are recorded by Keycloak |
 | Brute-force protection | Enabled |
 
-Development users (password in brackets): `admin.user` (`Admin123!`), `doctor.user` (`Doctor123!`),
-`nurse.user` (`Nurse123!`), `patient.user` (`Patient123!`). These exist for local use only; remove them
-from the realm file for any shared environment.
+Sample users: `admin.user`, `doctor.user`, `nurse.user`, `patient.user`. The realm file holds no
+password: it contains the placeholder `${DEV_USERS_PASSWORD}`, which Keycloak replaces with the
+environment variable of that name when it first imports the realm. docker-compose takes the value from
+`.env`; Aspire takes it from the `dev-users-password` parameter (user secrets). These users exist for
+local use only; remove them from the realm file for any shared environment.
 
 API configuration (`Keycloak` section, overridable with `Keycloak__*` environment variables):
 
@@ -327,13 +340,14 @@ Other integration points: Keycloak (OIDC discovery and JWKS over HTTP) and an Op
 | `Cors:AllowedOrigins` | Browser origins allowed to call the API | `http://localhost:3000` |
 | `Swagger:Enabled` | Serve Swagger outside Development | `false` (`true` in compose) |
 
-docker-compose reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` and
-`API_PORT` from `.env`; see [.env.example](.env.example). The built-in defaults are for local use only.
+docker-compose reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD`,
+`DEV_USERS_PASSWORD` and `API_PORT` from `.env`; see [.env.example](.env.example). The three passwords
+have no default: the repository contains no credentials and compose refuses to start without them.
 
 ## 9. Gaps before production
 
 - Keycloak runs in `start-dev` mode over HTTP. Production needs `start`, TLS and a real hostname.
-- Secrets are environment variables with development defaults. Use a secret store.
+- Secrets are plain environment variables read from `.env`. Use a secret store.
 - The front end (`frontend-web`) does not sign in through Keycloak yet, so its API calls return 401.
 - `Patient.Phone` is an integer, which loses leading zeros and country codes.
 - `ServiceController` accepts the EF entity as its request body; it should use a DTO like the newer endpoints.

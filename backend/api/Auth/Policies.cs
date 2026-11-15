@@ -16,8 +16,15 @@ namespace api.Auth
 
         public static void Configure(AuthorizationOptions options)
         {
-            // Every endpoint requires a valid token unless it explicitly opts out with [AllowAnonymous].
-            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            // A valid token alone is not enough: the caller must hold one of the hospital roles.
+            // DefaultPolicy applies to every bare [Authorize]; FallbackPolicy to endpoints without any
+            // authorization attribute. Only [AllowAnonymous] endpoints (/health, /alive) opt out.
+            var hospitalUser = new AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .RequireRole(Roles.All)
+                .Build();
+            options.DefaultPolicy = hospitalUser;
+            options.FallbackPolicy = hospitalUser;
 
             options.AddPolicy(AdminOnly, p => p.RequireRole(Roles.Admin));
             options.AddPolicy(Staff, p => p.RequireRole(Roles.Admin, Roles.Doctor, Roles.Nurse));
