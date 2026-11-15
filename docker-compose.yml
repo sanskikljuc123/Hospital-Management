@@ -8,6 +8,11 @@
 #
 # No password is stored in this repository. The stack refuses to start until
 # POSTGRES_PASSWORD, KEYCLOAK_ADMIN_PASSWORD and DEV_USERS_PASSWORD are set in .env (git-ignored).
+#
+# This file holds the safe defaults: no sample data, no Swagger. "docker compose up" also loads
+# docker-compose.override.yml, which turns both on for local development. To run without the
+# development extras:   docker compose -f docker-compose.yml up --build
+# Still not production-ready: no TLS and Keycloak in dev mode (see docs/testing/QUALITY_GATES.md §7).
 
 name: hospitalmanagement
 
@@ -82,8 +87,8 @@ services:
       Keycloak__Issuer: http://localhost:8080/realms/HospitalRealm
       Keycloak__RequireHttpsMetadata: "false"
       Database__MigrateOnStartup: "true"
-      Database__SeedOnStartup: "true"
-      Swagger__Enabled: "true"
+      Database__SeedOnStartup: "false"
+      Swagger__Enabled: "false"
       Cors__AllowedOrigins__0: http://localhost:3000
     ports:
       - "127.0.0.1:${API_PORT:-5117}:8080"

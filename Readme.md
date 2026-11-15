@@ -33,7 +33,9 @@ The backend is an ASP.NET Core API with PostgreSQL and Keycloak. See [ARCHITECTU
 **Option 1: Docker (everything in containers).** Requires Docker Desktop.
 
 1. Copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD` and `DEV_USERS_PASSWORD`. No password is stored in the repository, and `.env` is git-ignored.
-2. From the repository root run `docker compose up --build`.
+2. From the repository root run `docker compose up --build`. This also loads `docker-compose.override.yml`,
+   which adds sample data and Swagger for local development. `docker compose -f docker-compose.yml up --build`
+   runs without them.
 3. Open Swagger at `http://localhost:5117/swagger` and click **Authorize** to sign in.
 4. Keycloak admin console: `http://localhost:8080` (user and password from `.env`).
 
