@@ -1,0 +1,93 @@
+# Quality gates G1–G6 (docs/testing/QUALITY_GATES.md §1). No step calls an AI agent.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend build and tests (G1, G2, G3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # .NET 8: the runtime the API ships on. .NET 10: the Aspire AppHost and the second test target.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore backend/backend.sln
+
+      - name: Build (G1)
+        run: dotnet build backend/backend.sln --no-restore -c Release
+
+      - name: Unit tests (G2)
+        run: >
+          dotnet test backend/tests/HospitalManagement.UnitTests --no-build -c Release
+          --logger "trx;LogFileName=unit.trx" --results-directory test-results
+
+      # Real PostgreSQL through Testcontainers (Docker is available on the runner). No retries.
+      - name: API tests on .NET 8 and .NET 10 (G3)
+        run: >
+          dotnet test backend/tests/HospitalManagement.ApiTests --no-build -c Release
+          --logger "trx" --results-directory test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          retention-days: 14
+
+  frontend:
+    name: Frontend build (G1)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend-web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  gates:
+    name: Risk coverage and skips (G4, G5)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check_test_gates.py
+
+  secrets:
+    name: Secret scan (G6)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Scans the checked-out files. Old commits still hold the removed legacy password (R-030); scanning
+      # them would fail every run, so history is out of scope here and new secrets are caught on arrival.
+      - name: gitleaks
+        run: >
+          docker run --rm -v "${{ github.workspace }}:/repo:ro" zricethezav/gitleaks:v8.21.2
+          detect --no-git --source /repo --redact --no-banner -v

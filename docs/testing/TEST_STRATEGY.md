@@ -68,6 +68,8 @@ Rules for every test:
 
 1. **Name:** `Method_or_Endpoint_Condition_ExpectedResult`, e.g. `GetMedicalRecord_OtherPatientsRecord_Returns403`.
 2. **Traceability:** at least one `[Trait("Risk", "R-xxx")]`. Use `[Trait("Category", "Security")]` for security tests.
+   A test for a risk that is still open is skipped as a known gap (`Skip = "Known gap R-xxx"` plus
+   `[Trait("KnownGap", "R-xxx")]`) and asserts the correct behavior — see [QUALITY_GATES.md](QUALITY_GATES.md#1-gates).
 3. **One behavior per test.** Arrange – Act – Assert, with the assertion on the outcome the risk is about
    (status code **and** that no other patient's data is in the body).
 4. **Exact assertions.** Assert the exact status code, not "not 200". Never `Assert.True(true)`.
@@ -100,13 +102,14 @@ must produce the same shape, and the test host must trust only the test key.
 - **Scenarios come from the flows.** Every scenario in [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md) is covered at
   the lowest level that can prove it; the test carries the scenario ID as a trait
   (`[Trait("Scenario", "F-03.4")]`) next to the risk, and E2E scenarios carry it as a Gherkin tag (`@F-03.4`).
-- **Created by the test** through builders (`PatientBuilder`, `AppointmentBuilder`) or through the API
-  as an authorized identity. The seed data (`Database:SeedOnStartup`) is not relied on by API tests.
-- **Isolation:** one PostgreSQL container per test run; each test class gets its own database, or the
-  database is reset between classes. Tests never depend on IDs created by another test.
-- **Time:** appointment rules compare with `DateTime.UtcNow` (`backend/Services/AppointmentService/AppointmentService.cs:48`).
-  Tests use dates relative to now with a safe margin (e.g. `+7 days`), never fixed calendar dates.
-  Introducing `TimeProvider` in the services is a recommended code change, tracked as A-004.
+- **Created by the test** through the API as an authorized identity (`TestData` in the API tests) or
+  directly in an in-memory database (unit tests). The seed data (`Database:SeedOnStartup`) is not relied on.
+- **Isolation by data:** one PostgreSQL container and one API host per test run; every test creates its own
+  users, patients, doctors and appointments with unique values and asserts only on what it created. Tests
+  never depend on IDs or rows created by another test.
+- **Time:** the services read the clock from an injected `TimeProvider` (A-004). Unit tests fix it with
+  `FakeTimeProvider` and move it explicitly ("before / after the start" is exact). API tests use dates
+  relative to now with a safe margin (e.g. `+7 days`), never fixed calendar dates.
 
 ## 7. Environments
 
