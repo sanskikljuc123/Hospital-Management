@@ -7,7 +7,7 @@ conventions. Principles are in [README.md](README.md); risks in [RISK_REGISTER.m
 
 | In scope | Out of scope (for now) |
 |---|---|
-| Backend API in `backend/` (.NET 8, ASP.NET Core, EF Core, PostgreSQL) | Legacy `AppDesktop/` and `GestionHopitalSQL/` (WinForms / SQL Server) |
+| Backend API in `backend/` (.NET 8, ASP.NET Core, EF Core, PostgreSQL) | Keycloak configuration beyond the realm file |
 | Authentication and authorization with Keycloak (`HospitalRealm`) | Keycloak itself, PostgreSQL itself, Aspire itself |
 | Business rules in `backend/Services/` | Performance and load testing |
 | A few end-to-end journeys through the full stack | Visual / layout testing of `frontend-web/` |
@@ -128,7 +128,8 @@ must produce the same shape, and the test host must trust only the test key.
 - **The frontend signs in through Keycloak** (`frontend-web/src/auth/`, since `d96bba1`; A-002 closed).
   Browser journeys start at `http://localhost:3000`, are redirected to the real Keycloak login page and
   sign in as a sample user. Journeys that the frontend does not offer yet (appointments, medical records)
-  use the Playwright API request context with real Keycloak tokens.
+  use the Playwright API request context with the real Keycloak token obtained by signing in through the
+  browser first. The realm allows no password grant (R-027), so tokens cannot be requested with a password.
 - **Login journeys to cover:** each role signs in and sees its name; a user without a hospital role sees
   "No access"; logout returns to the Keycloak login page.
 
