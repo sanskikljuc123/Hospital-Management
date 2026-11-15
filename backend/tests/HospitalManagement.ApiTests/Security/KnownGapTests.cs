@@ -21,24 +21,6 @@ public class KnownGapTests
         _data = new TestData(_factory);
     }
 
-    [Theory(Skip = "Known gap R-054")]
-    [InlineData("/api/Doctor")]
-    [InlineData("/api/Patient")]
-    [Trait("Risk", "R-054")]
-    [Trait("KnownGap", "R-054")]
-    [Trait("Scenario", "F-10.4")]
-    public async Task DoctorAndPatientLists_DoNotExposeAccountLinks(string path)
-    {
-        await _data.LinkedDoctorAsync();
-        await _data.LinkedPatientAsync();
-        using var client = _factory.ClientFor(TestUser.Nurse());
-
-        var items = await client.GetFromJsonAsync<JsonElement>(path, TestData.Json);
-
-        Assert.All(items.EnumerateArray(), item => Assert.False(item.TryGetProperty("userId", out _),
-            $"{path} exposes the internal account link 'userId'"));
-    }
-
     [Fact(Skip = "Known gap R-051")]
     [Trait("Risk", "R-051")]
     [Trait("KnownGap", "R-051")]

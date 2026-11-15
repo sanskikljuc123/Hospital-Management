@@ -67,6 +67,9 @@ namespace Data
             modelBuilder.Entity<Patient>(e =>
             {
                 e.Property(p => p.Email).HasMaxLength(320);
+                // Deleting a service must never delete its patients (it used to cascade).
+                e.HasOne(p => p.Service).WithMany(s => s.Patients)
+                    .HasForeignKey(p => p.ServiceId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(p => p.User).WithMany()
                     .HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(p => p.UserId).IsUnique();

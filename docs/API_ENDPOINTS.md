@@ -39,55 +39,61 @@ Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive versi
 
 | Method | Path | Purpose | Roles | Input | Output |
 |---|---|---|---|---|---|
-| GET | `/api/Doctor` | List doctors | Any | – | `Doctor[]` |
-| GET | `/api/Doctor/{id}` | Get one doctor | Any | – | `Doctor` |
-| POST | `/api/Doctor` | Create a doctor and assign services | Admin | `DoctorCreationDto` | `DoctorCreationDto` (with `id`) |
-| PUT | `/api/Doctor/{id}` | Update a doctor and replace their services | Admin | `DoctorCreationDto` | `DoctorCreationDto` |
-| DELETE | `/api/Doctor/{id}` | Delete a doctor (409 if they have appointments or records) | Admin | – | the deleted `id` |
+| GET | `/api/Doctor` | List doctors | Any | – | `DoctorDto[]` |
+| GET | `/api/Doctor/{id}` | Get one doctor | Any | – | `DoctorDto` |
+| POST | `/api/Doctor` | Create a doctor and assign services (400 for an unknown department or service) | Admin | `DoctorCreationDto` | 201 + `DoctorDto` |
+| PUT | `/api/Doctor/{id}` | Update a doctor and replace their services | Admin | `DoctorCreationDto` | `DoctorDto` |
+| DELETE | `/api/Doctor/{id}` | Delete a doctor (409 if they have appointments or records) | Admin | – | 204 |
+
+Create, update and delete are audited (`Doctor.*`).
 
 ```jsonc
-// DoctorCreationDto
-{ "id": 1, "firstName": "John", "lastName": "Doe", "birthday": "1980-01-01",
+// DoctorCreationDto (id is ignored; firstName and lastName are required)
+{ "firstName": "John", "lastName": "Doe", "birthday": "1980-01-01",
   "address": "123 Main St", "departmentId": 1, "serviceIds": [1, 2] }
 
-// Doctor
+// DoctorDto
 { "id": 1, "firstName": "John", "lastName": "Doe", "birthday": "1980-01-01T00:00:00Z",
-  "address": "123 Main St", "departmentId": 1, "userId": null, "doctorServices": null }
+  "address": "123 Main St", "departmentId": 1, "serviceIds": [1, 2] }
 ```
 
 ## Patients — `/api/Patient`
 
 | Method | Path | Purpose | Roles | Input | Output |
 |---|---|---|---|---|---|
-| GET | `/api/Patient` | List patients | Staff | – | `Patient[]` |
-| GET | `/api/Patient/{id}` | Get one patient | Staff; Patient (own record only) | – | `Patient` |
-| POST | `/api/Patient` | Register a patient | Staff | `PatientCreationDto` | `Patient` |
-| PUT | `/api/Patient/{id}` | Update a patient | Staff | `PatientCreationDto` | `{ "patientDto": PatientCreationDto, "id": number }` |
-| DELETE | `/api/Patient/{id}` | Delete a patient (409 if they have appointments or records) | Admin | – | confirmation text |
+| GET | `/api/Patient` | List patients | Staff | – | `PatientDto[]` |
+| GET | `/api/Patient/{id}` | Get one patient | Staff; Patient (own record only) | – | `PatientDto` |
+| POST | `/api/Patient` | Register a patient (400 for an unknown service) | Staff | `PatientCreationDto` | 201 + `PatientDto` |
+| PUT | `/api/Patient/{id}` | Update a patient | Staff | `PatientCreationDto` | `PatientDto` |
+| DELETE | `/api/Patient/{id}` | Delete a patient (409 if they have appointments or records) | Admin | – | 204 |
+
+Create, update and delete are audited (`Patient.*`) with ids and changed field names only, never personal data.
 
 ```jsonc
-// PatientCreationDto
+// PatientCreationDto (userName and serviceId are required)
 { "userName": "patient1", "phone": 12345678, "email": "patient1@hospital.local", "serviceId": 1 }
 
-// Patient
+// PatientDto
 { "id": 1, "userName": "patient1", "phone": 12345678, "email": "patient1@hospital.local",
-  "serviceId": 1, "service": null, "userId": null }
+  "serviceId": 1, "serviceName": "Cardiac consultation" }
 ```
 
 ## Services — `/api/Service`
 
 | Method | Path | Purpose | Roles | Input | Output |
 |---|---|---|---|---|---|
-| GET | `/api/Service` | List medical services | Any | – | `Service[]` |
-| GET | `/api/Service/{id}` | Get one service | Any | – | `Service` |
-| POST | `/api/Service` | Create a service | Admin | `Service` | `Service` |
-| PUT | `/api/Service/{id}` | Update a service (the route id wins over the body id) | Admin | `Service` | `Service` |
-| DELETE | `/api/Service/{id}` | Delete a service | Admin | – | confirmation text |
+| GET | `/api/Service` | List medical services | Any | – | `ServiceDto[]` |
+| GET | `/api/Service/{id}` | Get one service | Any | – | `ServiceDto` |
+| POST | `/api/Service` | Create a service (400 for an unknown department) | Admin | `ServiceDto` | 201 + `ServiceDto` |
+| PUT | `/api/Service/{id}` | Update a service (the route id wins over the body id) | Admin | `ServiceDto` | `ServiceDto` |
+| DELETE | `/api/Service/{id}` | Delete a service; **409 while patients or doctors still use it** (it never deletes them) | Admin | – | 204 |
+
+Only `name`, `description` and `departmentId` can be set; any other field in the body is ignored.
+Create, update and delete are audited (`Service.*`).
 
 ```jsonc
-// Service
-{ "id": 1, "name": "Cardiac consultation", "description": "...", "departmentId": 1,
-  "doctorServices": null, "patients": null }
+// ServiceDto (id is ignored on input; name is required)
+{ "id": 1, "name": "Cardiac consultation", "description": "...", "departmentId": 1 }
 ```
 
 ## Departments — `/api/Department`
@@ -255,7 +261,9 @@ Status changes and links are audited.
 
 Actions: `User.Login`, `User.Provisioned`, `User.Activated`, `User.Deactivated`, `User.Linked`,
 `Appointment.Created`, `Appointment.Updated`, `Appointment.StatusCorrected`, `Appointment.Deleted`,
-`MedicalRecord.Created`, `MedicalRecord.Updated`.
+`MedicalRecord.Created`, `MedicalRecord.Updated`, `Patient.Created`, `Patient.Updated`, `Patient.Deleted`,
+`Doctor.Created`, `Doctor.Updated`, `Doctor.Deleted`, `Service.Created`, `Service.Updated`, `Service.Deleted`,
+`Department.Created`, `Department.Updated`, `Department.Deleted`.
 
 ## Role matrix
 

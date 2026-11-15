@@ -1,182 +1,108 @@
 ﻿using Data;
+using Domain.Constants;
 using Domain.Dtos;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+using Services.AuditService;
+using Services.Common;
 
 namespace Services.DoctorService
 {
     public class DoctorServiceImp : IDoctorService
     {
-        readonly ApplicationDbContext _context;
+        private readonly ApplicationDbContext _context;
+        private readonly IAuditService _audit;
 
-        public DoctorServiceImp(ApplicationDbContext context)
+        public DoctorServiceImp(ApplicationDbContext context, IAuditService audit)
         {
             _context = context;
-        }
-        public async Task<IEnumerable<Doctor>> GetAllDoctors()
-        {
-            return await _context.Doctors.ToListAsync();
-        }
-        public async Task<Doctor> GetDoctorById(int id)
-        {
-            return await _context.Doctors.FirstOrDefaultAsync(d => d.Id == id);
+            _audit = audit;
         }
 
-        public async Task<bool> DoctorExists(int id)
+        public async Task<IReadOnlyList<DoctorDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            await Project(_context.Doctors.AsNoTracking().OrderBy(d => d.LastName).ThenBy(d => d.FirstName))
+                .ToListAsync(cancellationToken);
+
+        public async Task<DoctorDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+            await Project(_context.Doctors.AsNoTracking().Where(d => d.Id == id)).FirstOrDefaultAsync(cancellationToken);
+
+        public async Task<ServiceResult<DoctorDto>> CreateAsync(DoctorCreationDto dto, CancellationToken cancellationToken = default)
         {
-            return await _context.Doctors.AnyAsync(d => d.Id == id);
+            var error = await ValidateReferencesAsync(dto, cancellationToken);
+            if (error != null) return error;
+
+            var doctor = new Doctor { DoctorServices = new List<Domain.Entities.DoctorService>() };
+            Apply(doctor, dto);
+            _context.Doctors.Add(doctor);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await _audit.LogAsync(AuditActions.DoctorCreated, nameof(Doctor), doctor.Id,
+                new { doctor.DepartmentId, ServiceIds = dto.ServiceIds.Distinct().ToArray() }, cancellationToken: cancellationToken);
+            return ServiceResult<DoctorDto>.Ok((await GetByIdAsync(doctor.Id, cancellationToken))!);
         }
 
-        public async Task<(DoctorCreationDto doctor, bool success)> CreateDoctor(DoctorCreationDto doctorDto)
+        public async Task<ServiceResult<DoctorDto>> UpdateAsync(int id, DoctorCreationDto dto, CancellationToken cancellationToken = default)
         {
-            // Map DoctorCreationDto to Doctor entity
-            var newDoctor = new Doctor
-            {
-                FirstName = doctorDto.FirstName,
-                LastName = doctorDto.LastName,
-                Birthday = doctorDto.Birthday,
-                Address = doctorDto.Address,
-                DepartmentId = doctorDto.DepartmentId,
-                DoctorServices = new List<Domain.Entities.DoctorService>() // Initialize DoctorServices collection
-            };
+            var doctor = await _context.Doctors.Include(d => d.DoctorServices).FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+            if (doctor == null) return ServiceResult<DoctorDto>.NotFound($"Doctor with ID {id} not found");
+            var error = await ValidateReferencesAsync(dto, cancellationToken);
+            if (error != null) return error;
 
-            try
-            {
-                // Convert array of service IDs to HashSet for efficient lookup
-                var serviceIdsHashSet = new HashSet<int>(doctorDto.ServiceIds);
+            _context.DoctorServices.RemoveRange(doctor.DoctorServices);
+            doctor.DoctorServices.Clear();
+            Apply(doctor, dto);
+            await _context.SaveChangesAsync(cancellationToken);
 
-                // Retrieve services based on the provided serviceIds
-                var services = await _context.Services.Where(s => serviceIdsHashSet.Contains(s.Id)).ToListAsync();
-
-                // Associate the retrieved services with the doctor
-                foreach (var service in services)
-                {
-                    newDoctor.DoctorServices.Add(new Domain.Entities.DoctorService { Doctor = newDoctor, Service = service });
-                }
-
-                // Add the doctor to the context
-                _context.Doctors.Add(newDoctor);
-
-                // Save changes
-                await _context.SaveChangesAsync();
-                var resNewDoctor = new DoctorCreationDto
-                {
-                    Id = newDoctor.Id,
-                    FirstName = newDoctor.FirstName,
-                    LastName = newDoctor.LastName,
-                    Birthday = newDoctor.Birthday,
-                    Address = newDoctor.Address,
-                    DepartmentId = newDoctor.DepartmentId,
-                    ServiceIds= doctorDto.ServiceIds,
-                };
-                return (doctor: resNewDoctor, success: true);
-            }
-            catch (Exception ex)
-            {
-                return (null, success: false);
-            }
-
+            await _audit.LogAsync(AuditActions.DoctorUpdated, nameof(Doctor), doctor.Id,
+                new { doctor.DepartmentId, ServiceIds = dto.ServiceIds.Distinct().ToArray() }, cancellationToken: cancellationToken);
+            return ServiceResult<DoctorDto>.Ok((await GetByIdAsync(id, cancellationToken))!);
         }
 
-        public async Task<(DoctorCreationDto doctor, bool success)> UpdateDoctor(int id, DoctorCreationDto doctorDto)
+        public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
         {
-            var existingDoctor = await _context.Doctors
-                   .Include(d => d.DoctorServices)
-                   .FirstOrDefaultAsync(d => d.Id == id);
-            if (existingDoctor == null)
-            {
-                return (null, success: false); // Doctor not found
-            }
-
-            // Map DoctorCreationDto to existing Doctor entity
-            existingDoctor.FirstName = doctorDto.FirstName;
-            existingDoctor.LastName = doctorDto.LastName;
-            existingDoctor.Birthday = doctorDto.Birthday;
-            existingDoctor.Address = doctorDto.Address;
-            existingDoctor.DepartmentId = doctorDto.DepartmentId;
-
-            // Clear existing doctor services
-
-
-            try
-            {
-                /*   if (existingDoctor.DoctorServices != null)
-                   {
-                       existingDoctor.DoctorServices.Clear();
-                   }
-                   else
-                   {
-                       existingDoctor.DoctorServices = new List<Domain.Entities.DoctorService>();
-                   }*/
-                _context.DoctorServices.RemoveRange(existingDoctor.DoctorServices);
-                // Convert array of service IDs to HashSet for efficient lookup
-                var serviceIdsHashSet = new HashSet<int>(doctorDto.ServiceIds);
-
-                // Retrieve services based on the provided serviceIds
-                var services = await _context.Services.Where(s => serviceIdsHashSet.Contains(s.Id)).ToListAsync();
-
-                // Associate the retrieved services with the doctor
-                foreach (var service in services)
-                {
-                    existingDoctor.DoctorServices.Add(new Domain.Entities.DoctorService { Doctor = existingDoctor, Service = service });
-                }
-
-                // Add the doctor to the context
-
-                _context.Update(existingDoctor);
-
-                // Save changes
-                await _context.SaveChangesAsync();
-                var resUpdatedDoctor = new DoctorCreationDto
-                {
-                    Id = id,
-                    FirstName = existingDoctor.FirstName,
-                    LastName = existingDoctor.LastName,
-                    Birthday = existingDoctor.Birthday,
-                    Address = existingDoctor.Address,
-                    DepartmentId = existingDoctor.DepartmentId,
-                    ServiceIds = doctorDto.ServiceIds,
-                };
-                return (doctor: resUpdatedDoctor, success: true);
-            }
-            catch (Exception ex)
-            {
-                // Log or handle the exception
-                Console.WriteLine($"Error Updating doctor: {ex.Message}");
-                return (null, success: false);
-            }
-        }
-
-        public async Task<bool> DeleteDoctor(int id)
-        {
-            var doctor = await _context.Doctors.FindAsync(id);
-            if (doctor == null)
-            {
-                return false;
-            }
+            var doctor = await _context.Doctors.FindAsync(new object[] { id }, cancellationToken);
+            if (doctor == null) return false;
 
             _context.Doctors.Remove(doctor);
-            return await Save();
+            await _context.SaveChangesAsync(cancellationToken);
+            await _audit.LogAsync(AuditActions.DoctorDeleted, nameof(Doctor), id, cancellationToken: cancellationToken);
+            return true;
         }
 
-        public async Task<bool> Save()
+        /// <summary>Unknown department or service ids are refused instead of being silently dropped.</summary>
+        private async Task<ServiceResult<DoctorDto>?> ValidateReferencesAsync(DoctorCreationDto dto, CancellationToken cancellationToken)
         {
-            try
-            {
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                // Handle concurrency exception
-                return false;
-            }
+            if (dto.DepartmentId.HasValue && !await _context.Departments.AnyAsync(d => d.Id == dto.DepartmentId.Value, cancellationToken))
+                return ServiceResult<DoctorDto>.Invalid($"Department with ID {dto.DepartmentId} not found");
+
+            var serviceIds = dto.ServiceIds.Distinct().ToArray();
+            var known = await _context.Services.CountAsync(s => serviceIds.Contains(s.Id), cancellationToken);
+            return known == serviceIds.Length
+                ? null
+                : ServiceResult<DoctorDto>.Invalid("One or more service IDs do not exist");
         }
+
+        private static void Apply(Doctor doctor, DoctorCreationDto dto)
+        {
+            doctor.FirstName = dto.FirstName;
+            doctor.LastName = dto.LastName;
+            doctor.Birthday = dto.Birthday;
+            doctor.Address = dto.Address;
+            doctor.DepartmentId = dto.DepartmentId;
+            foreach (var serviceId in dto.ServiceIds.Distinct())
+                doctor.DoctorServices.Add(new Domain.Entities.DoctorService { Doctor = doctor, ServiceId = serviceId });
+        }
+
+        private static IQueryable<DoctorDto> Project(IQueryable<Doctor> query) =>
+            query.Select(d => new DoctorDto
+            {
+                Id = d.Id,
+                FirstName = d.FirstName,
+                LastName = d.LastName,
+                Birthday = d.Birthday,
+                Address = d.Address,
+                DepartmentId = d.DepartmentId,
+                ServiceIds = d.DoctorServices.Select(ds => ds.ServiceId).ToArray()
+            });
     }
 }

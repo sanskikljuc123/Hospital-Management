@@ -1,7 +1,9 @@
 using Data;
+using Domain.Constants;
 using Domain.Dtos;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Services.AuditService;
 using Services.Common;
 
 namespace Services.DepartmentService
@@ -18,8 +20,13 @@ namespace Services.DepartmentService
     public class DepartmentService : IDepartmentService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IAuditService _audit;
 
-        public DepartmentService(ApplicationDbContext context) => _context = context;
+        public DepartmentService(ApplicationDbContext context, IAuditService audit)
+        {
+            _context = context;
+            _audit = audit;
+        }
 
         public async Task<IReadOnlyList<DepartmentDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
             await _context.Departments.AsNoTracking().OrderBy(d => d.Name)
@@ -39,6 +46,8 @@ namespace Services.DepartmentService
             var department = new Department { Name = dto.Name, Description = dto.Description };
             _context.Departments.Add(department);
             await _context.SaveChangesAsync(cancellationToken);
+            await _audit.LogAsync(AuditActions.DepartmentCreated, nameof(Department), department.Id,
+                new { department.Name }, cancellationToken: cancellationToken);
             return ServiceResult<DepartmentDto>.Ok(new DepartmentDto { Id = department.Id, Name = department.Name, Description = department.Description });
         }
 
@@ -52,6 +61,8 @@ namespace Services.DepartmentService
             department.Name = dto.Name;
             department.Description = dto.Description;
             await _context.SaveChangesAsync(cancellationToken);
+            await _audit.LogAsync(AuditActions.DepartmentUpdated, nameof(Department), department.Id,
+                new { department.Name }, cancellationToken: cancellationToken);
             return ServiceResult<DepartmentDto>.Ok(new DepartmentDto { Id = department.Id, Name = department.Name, Description = department.Description });
         }
 
@@ -62,6 +73,7 @@ namespace Services.DepartmentService
 
             _context.Departments.Remove(department);
             await _context.SaveChangesAsync(cancellationToken);
+            await _audit.LogAsync(AuditActions.DepartmentDeleted, nameof(Department), id, cancellationToken: cancellationToken);
             return true;
         }
     }
