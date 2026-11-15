@@ -44,7 +44,7 @@ level cannot see it.
 | Test tokens | `System.IdentityModel.Tokens.Jwt` with an RSA key generated per test run |
 | E2E scenarios | Reqnroll (Gherkin) |
 | E2E driver | Playwright for .NET: browser for user journeys through `frontend-web`, API request context for API-only journeys |
-| Mutation testing (optional, phase 5) | Stryker.NET on `AppointmentService` and `MedicalRecordService` |
+| Mutation testing (phase 5) | Stryker.NET on `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` (§11) |
 | Secret scanning | gitleaks in CI |
 
 ## 4. Project layout and conventions
@@ -167,3 +167,34 @@ How they run:
 A test is done when it is tagged with its risk, fails when the behavior is broken (checked once by breaking
 the code or by mutation), passes reliably, and the risk's row in [RISK_REGISTER.md](RISK_REGISTER.md)
 names it.
+
+## 11. Mutation testing
+
+Stryker.NET changes the code in small ways (`<=` to `<`, a removed call, a flipped condition) and checks that
+some unit test fails. A change that no test notices is a test that is missing.
+
+| | |
+|---|---|
+| Scope | `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` — the business, access-identity and reliability rules |
+| Config | `backend/tests/HospitalManagement.UnitTests/stryker-config.json`; tool pinned in `dotnet-tools.json` |
+| Run locally | `dotnet tool restore`, then `dotnet tool run dotnet-stryker --concurrency 2` in that folder (about 25 minutes; report in `StrykerOutput/`) |
+| CI | `.github/workflows/mutation.yml`: weekly (Monday 03:00 UTC) and on demand; HTML report as an artifact. Not on every pull request — too slow |
+| Threshold | The run fails below **90 %** (`break`) |
+
+**Not mutated, on purpose:** error-message strings (the text is not a business rule) and logging calls (they do
+not change behavior).
+
+**History.** First run 67.19 %: survivors showed missing tests for start-time boundaries (`<=` vs `<`), list
+filters and ordering, notifications, unknown references, deletes, audit details, session and cache handling,
+role-less users and error truncation. 25 tests were added (`AppointmentBoundaryTests` and additions to the
+service tests). Second full run: **95.32 %**.
+
+**Accepted survivors** (reviewed; a test cannot or should not kill them):
+
+| Location | Mutation | Why it is accepted |
+|---|---|---|
+| `AppointmentService` slot query, `ScheduledAt > windowStart` → `>=` | Boundary of the database pre-filter | Equivalent: an appointment starting exactly at the window start with the maximum duration ends exactly when the new one starts, which the in-memory overlap check already treats as free |
+| `AppointmentService.ToUtc`, unspecified kind → `ToUniversalTime()` | Treats a time without offset as local instead of UTC | That is the open decision D-13 / risk R-051 (known-gap test in the API tests); the expected behavior is not decided yet |
+| `OutboxProcessor` and `UserService.LinkAsync` transaction handling | Begin/commit removed or forced | Equivalent on the in-memory database (it has no transactions); the real transactional behavior is covered by the API tests on PostgreSQL (`OutboxTests`, `TransactionalWriteTests`, linking in every API test) |
+| `OutboxProcessor.Truncate`, `<=` → `<` | Cut at exactly 500 characters | Equivalent: cutting a 500-character string to 500 characters returns the same string |
+| `UserService` concurrent first sign-in (`DbUpdateException` branch) | Not covered | Needs two requests racing on the unique index of a real database; not reachable on the in-memory database |
