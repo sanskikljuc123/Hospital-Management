@@ -22,12 +22,20 @@ builder.Services.AddTransient<Seed>();
 // Business services, audit logging and external integration abstractions.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
+// The one place that decides which patient's data a caller may reach (ARCHITECTURE.md §3).
+builder.Services.AddScoped<IPatientAccessPolicy, PatientAccessPolicy>();
 builder.Services.AddHospitalServices();
 
 // Keycloak JWT authentication and role-based authorization policies.
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
 
-builder.Services.AddControllers()
+// Delivers outbox messages (patient notifications) after the change commits.
+if (builder.Configuration.GetValue("Outbox:Enabled", true))
+    builder.Services.AddHostedService<OutboxDispatcher>();
+
+// Every write request runs in one database transaction (change + audit + revisions + outbox).
+builder.Services.AddScoped<TransactionalWriteFilter>();
+builder.Services.AddControllers(options => options.Filters.AddService<TransactionalWriteFilter>())
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<DbUpdateExceptionHandler>();
@@ -61,3 +69,6 @@ app.MapControllers();
 app.MapDefaultEndpoints();
 
 app.Run();
+
+// Lets WebApplicationFactory<Program> in the API tests reference the entry point.
+public partial class Program { }

@@ -1,21 +1,15 @@
 ﻿using Domain.Dtos;
-using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Services.Common;
 
 namespace Services.PatientService
 {
     public interface IPatientService
     {
-        Task<IEnumerable<Patient>> GetAllPatients();
-        Task<Patient> GetPatientById(int id);
-        Task<bool> PatientExists(int id);
-        Task<(Patient? patient, bool success)> CreatePatient(PatientCreationDto patientDto);
-        Task<bool> UpdatePatient(int id, PatientCreationDto patientDto);
-        Task<bool> DeletePatient(int id);
-        Task<bool> SavePatient();
+        Task<IReadOnlyList<PatientDto>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<PatientDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+        Task<ServiceResult<PatientDto>> CreateAsync(PatientCreationDto dto, CancellationToken cancellationToken = default);
+        Task<ServiceResult<PatientDto>> UpdateAsync(int id, PatientCreationDto dto, CancellationToken cancellationToken = default);
+        /// <summary>False when the patient does not exist; a patient with history is refused by the database (409).</summary>
+        Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default);
     }
 }

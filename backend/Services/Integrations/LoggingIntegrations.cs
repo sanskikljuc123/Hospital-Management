@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Data;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Services.Outbox;
 
 namespace Services.Integrations
 {
@@ -34,50 +36,68 @@ namespace Services.Integrations
         }
     }
 
+    /// <summary>
+    /// Records appointment notifications in the outbox, in the same transaction as the appointment change. They are
+    /// delivered later by <see cref="AppointmentNotificationHandler"/>, so a slow or failing provider never slows
+    /// down or loses a booking (decision D-8).
+    /// </summary>
     public class NotificationService : INotificationService
+    {
+        public const string MessageType = "AppointmentNotification";
+
+        private readonly IOutbox _outbox;
+
+        public NotificationService(IOutbox outbox) => _outbox = outbox;
+
+        public Task NotifyAppointmentScheduledAsync(Appointment appointment, CancellationToken cancellationToken = default) =>
+            Enqueue(appointment, "Scheduled", cancellationToken);
+
+        public Task NotifyAppointmentUpdatedAsync(Appointment appointment, CancellationToken cancellationToken = default) =>
+            Enqueue(appointment, "Updated", cancellationToken);
+
+        // Ids and the state at the time of the change; no contact details in the outbox.
+        private Task Enqueue(Appointment appointment, string kind, CancellationToken cancellationToken) =>
+            _outbox.EnqueueAsync(MessageType, new AppointmentNotification(
+                appointment.Id, appointment.PatientId, kind, appointment.ScheduledAt, appointment.Status.ToString()), cancellationToken);
+    }
+
+    public sealed record AppointmentNotification(int AppointmentId, int PatientId, string Kind, DateTime ScheduledAt, string Status);
+
+    /// <summary>Delivers an appointment notification to the patient by e-mail and SMS.</summary>
+    public class AppointmentNotificationHandler : IOutboxHandler
     {
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _email;
         private readonly ISmsService _sms;
-        private readonly ILogger<NotificationService> _logger;
 
-        public NotificationService(ApplicationDbContext context, IEmailService email, ISmsService sms, ILogger<NotificationService> logger)
+        public AppointmentNotificationHandler(ApplicationDbContext context, IEmailService email, ISmsService sms)
         {
             _context = context;
             _email = email;
             _sms = sms;
-            _logger = logger;
         }
 
-        public Task NotifyAppointmentScheduledAsync(Appointment appointment, CancellationToken cancellationToken = default) =>
-            NotifyPatientAsync(appointment, "Appointment scheduled",
-                $"Your appointment is scheduled for {appointment.ScheduledAt:u}.", cancellationToken);
+        public string Type => NotificationService.MessageType;
 
-        public Task NotifyAppointmentUpdatedAsync(Appointment appointment, CancellationToken cancellationToken = default) =>
-            NotifyPatientAsync(appointment, "Appointment updated",
-                $"Your appointment on {appointment.ScheduledAt:u} is now {appointment.Status}.", cancellationToken);
-
-        private async Task NotifyPatientAsync(Appointment appointment, string subject, string message, CancellationToken cancellationToken)
+        public async Task HandleAsync(string payload, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var patient = await _context.Patients.AsNoTracking()
-                    .Where(p => p.Id == appointment.PatientId)
-                    .Select(p => new { p.Email, p.Phone })
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (patient == null) return;
+            var notification = JsonSerializer.Deserialize<AppointmentNotification>(payload)
+                ?? throw new InvalidOperationException("Empty appointment notification");
 
-                if (!string.IsNullOrWhiteSpace(patient.Email))
-                    await _email.SendAsync(patient.Email, subject, message, cancellationToken);
-                if (patient.Phone > 0)
-                    await _sms.SendAsync(patient.Phone.ToString(), message, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                // Notifications are best effort; the appointment itself is already saved.
-                _logger.LogWarning(ex, "Failed to notify patient {PatientId} about appointment {AppointmentId}",
-                    appointment.PatientId, appointment.Id);
-            }
+            var patient = await _context.Patients.AsNoTracking()
+                .Where(p => p.Id == notification.PatientId)
+                .Select(p => new { p.Email, p.Phone })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (patient == null) return; // the patient no longer exists: nothing to deliver
+
+            var (subject, message) = notification.Kind == "Scheduled"
+                ? ("Appointment scheduled", $"Your appointment is scheduled for {notification.ScheduledAt:u}.")
+                : ("Appointment updated", $"Your appointment on {notification.ScheduledAt:u} is now {notification.Status}.");
+
+            if (!string.IsNullOrWhiteSpace(patient.Email))
+                await _email.SendAsync(patient.Email, subject, message, cancellationToken);
+            if (patient.Phone > 0)
+                await _sms.SendAsync(patient.Phone.ToString(), message, cancellationToken);
         }
     }
 }

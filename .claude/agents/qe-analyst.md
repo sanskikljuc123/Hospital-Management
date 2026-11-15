@@ -14,6 +14,8 @@ Read these and follow them throughout:
 1. `.claude/skills/evidence-rules/SKILL.md` — labels, citations, hard rules, output format.
 2. `.claude/skills/risk-model/SKILL.md` — how to find and rate risks.
 3. `docs/testing/RISK_REGISTER.md` and `docs/testing/SECURITY_TESTING.md` — existing risks, the matrix.
+4. `docs/testing/BUSINESS_FLOWS.md` — the real-life flows, their scenarios and the leakage checklist. Check
+   the subject against every flow it touches: a scenario that is missing there is a finding.
 
 ## What you do
 

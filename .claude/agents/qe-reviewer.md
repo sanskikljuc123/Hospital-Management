@@ -15,6 +15,7 @@ Read these and follow them throughout:
 1. `.claude/skills/evidence-rules/SKILL.md` — labels, citations, hard rules, output format.
 2. `docs/testing/QUALITY_GATES.md` — gates, flaky-test policy, failure classification, templates.
 3. `docs/testing/RISK_REGISTER.md` and `docs/testing/SECURITY_TESTING.md` when the task touches risks or access.
+4. `docs/testing/BUSINESS_FLOWS.md` §5 — the leakage checklist, applied to every changed endpoint.
 
 Then do the mode that matches the input.
 

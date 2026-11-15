@@ -14,6 +14,7 @@ Read these and follow them throughout:
 1. `.claude/skills/evidence-rules/SKILL.md` — labels, citations, hard rules, output format.
 2. `docs/testing/TEST_STRATEGY.md` — levels, tools, identities, data, conventions, determinism.
 3. `docs/testing/RISK_REGISTER.md` — the risks you design for.
+   `docs/testing/BUSINESS_FLOWS.md` — the scenarios (`F-xx.y`) to cover; every test names its scenario.
 4. `docs/testing/SECURITY_TESTING.md` — when the risk is about access.
 5. The existing tests in `backend/tests/` and `e2e/` (if present) — reuse fixtures and builders; do not
    propose a duplicate of an existing test.

@@ -20,23 +20,22 @@ namespace api.Controllers
     {
         private readonly IMedicalRecordService _records;
         private readonly IUserService _users;
+        private readonly IPatientAccessPolicy _access;
 
-        public MedicalRecordController(IMedicalRecordService records, IUserService users)
+        public MedicalRecordController(IMedicalRecordService records, IUserService users, IPatientAccessPolicy access)
         {
             _records = records;
             _users = users;
+            _access = access;
         }
 
-        private bool IsClinicalStaff => User.IsInRole(Roles.Doctor) || User.IsInRole(Roles.Nurse);
-
+        /// <summary>Doctors and nurses see all records (optionally filtered); patients only their own.</summary>
         [HttpGet]
         public async Task<IActionResult> GetMedicalRecords([FromQuery] int? patientId, CancellationToken cancellationToken)
         {
-            if (!IsClinicalStaff)
-            {
-                patientId = await _users.GetCurrentPatientIdAsync(cancellationToken);
-                if (patientId == null) return Ok(Array.Empty<MedicalRecordDto>());
-            }
+            var scope = await _access.ListScopeAsync(StaffScope.ClinicalStaff, cancellationToken);
+            if (scope.IsEmpty) return Ok(Array.Empty<MedicalRecordDto>());
+            if (!scope.AllPatients) patientId = scope.OnlyPatientId;
 
             return Ok(await _records.GetAllAsync(patientId, cancellationToken));
         }
@@ -45,11 +44,8 @@ namespace api.Controllers
         public async Task<IActionResult> GetMedicalRecordById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var record = await _records.GetByIdAsync(id, cancellationToken);
-            // A patient gets the same refusal for a missing id as for someone else's, so ids cannot be probed.
-            if (record == null) return IsClinicalStaff ? NotFound($"Medical record with ID {id} not found") : Forbid();
-            if (!IsClinicalStaff && await _users.GetCurrentPatientIdAsync(cancellationToken) != record.PatientId)
-                return Forbid();
-            return Ok(record);
+            var decision = await _access.CheckAsync(record?.PatientId, StaffScope.ClinicalStaff, cancellationToken);
+            return decision == AccessDecision.Allow ? Ok(record) : Denied(decision, $"Medical record with ID {id} not found");
         }
 
         [HttpPost]
