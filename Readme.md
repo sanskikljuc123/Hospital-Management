@@ -52,6 +52,9 @@ Both options use port 8080 for Keycloak, so run one at a time. Migrations and sa
 #### Setting up the Frontend (Web):
 
 Open the frontend-web directory. `cd frontend-web`
+Optional: copy `.envExample` to `.env` to change the API or Keycloak address (`.env` is git-ignored; without
+it the defaults match docker-compose: API on 5117, Keycloak on 8080). Then sign in at `http://localhost:3000`
+with one of the sample users.
 Install dependencies:
 `npm install`
 Run the development server:
