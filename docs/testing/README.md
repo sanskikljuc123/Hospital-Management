@@ -113,6 +113,9 @@ e2e/HospitalManagement.E2E/                    sign-in and clinical journeys —
                                                API, PostgreSQL and the production frontend build
 ```
 
+Mutation testing (phase 5 ✅) checks that the unit tests notice broken rules: Stryker.NET, weekly in CI,
+score 95.32 %, fails below 90 % — see [TEST_STRATEGY.md §11](TEST_STRATEGY.md#11-mutation-testing).
+
 Run the E2E journeys against a running stack (`docker compose up -d --build`, then
 `npm run build` and `npx vite preview --port 3000` in `frontend-web`), with the passwords from `.env`:
 

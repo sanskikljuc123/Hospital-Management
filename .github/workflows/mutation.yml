@@ -1,0 +1,45 @@
+# Phase 5 (docs/testing/TEST_STRATEGY.md §3, QUALITY_GATES §1): mutation testing with Stryker.NET on the services
+# that carry the core business and reliability rules. It measures whether the unit tests would notice a broken
+# rule. Slow, so it runs weekly and on demand, not on every pull request. It fails when the mutation score drops
+# below the "break" threshold in backend/tests/HospitalManagement.UnitTests/stryker-config.json.
+name: Mutation
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    name: Stryker.NET mutation score
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run Stryker
+        working-directory: backend/tests/HospitalManagement.UnitTests
+        env:
+          # Stryker starts several vstest hosts; on a busy runner the default 90 s connection timeout is too short.
+          VSTEST_CONNECTION_TIMEOUT: "300"
+        run: dotnet tool run dotnet-stryker --concurrency 2
+
+      - name: Upload the mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: backend/tests/HospitalManagement.UnitTests/StrykerOutput/**/reports
+          retention-days: 30

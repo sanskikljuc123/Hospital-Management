@@ -39,6 +39,10 @@ known-gap test never asserts the current, wrong behavior. It does not count for 
 
 **What does not gate:** coverage percentage, number of tests, test duration (tracked, not gated).
 
+**Mutation score (weekly, not per pull request):** `.github/workflows/mutation.yml` fails when the Stryker score
+of the core services drops below 90 % (TEST_STRATEGY §11). A failure there means tests stopped noticing broken
+rules; it is handled like a failure on `master` (§4).
+
 ## 2. Pull request checklist
 
 The PR template asks the author:

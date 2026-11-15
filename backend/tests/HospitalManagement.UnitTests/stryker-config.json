@@ -1,0 +1,17 @@
+{
+  "stryker-config": {
+    "project": "Services.csproj",
+    "test-projects": [ "HospitalManagement.UnitTests.csproj" ],
+    "mutate": [
+      "**/AppointmentService/AppointmentService.cs",
+      "**/MedicalRecordService/MedicalRecordService.cs",
+      "**/Outbox/OutboxProcessor.cs",
+      "**/UserService/UserService.cs"
+    ],
+    "ignore-mutations": [ "string" ],
+    "ignore-methods": [ "*.LogInformation", "*.LogWarning", "*.LogError" ],
+    "reporters": [ "progress", "html", "json" ],
+    "thresholds": { "high": 95, "low": 90, "break": 90 },
+    "concurrency": 4
+  }
+}
