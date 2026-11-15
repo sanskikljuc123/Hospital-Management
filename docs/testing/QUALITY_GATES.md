@@ -10,14 +10,32 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds | CI log |
 | G2 | Unit tests | every PR | all pass; none skipped without a ticket (G5) | test results (TRX) |
 | G3 | API tests | every PR | all pass against real PostgreSQL; none skipped without a ticket | test results (TRX) |
-| G4 | Risk coverage | every PR | every `Critical` and `High` risk in [RISK_REGISTER.md](RISK_REGISTER.md) is either named by at least one test through `[Trait("Risk", "R-xxx")]` or listed under *Accepted risks* with an unexpired date | script output |
-| G5 | No silent skips | every PR | every `Skip = "…"` contains a ticket reference (`#123`) | script output |
+| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`); (b) every `Risk` trait names a risk that exists. The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
+| G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing | gitleaks report |
 | G7 | E2E | merge to `master`, nightly, PR label `e2e` | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 
-G4 and G5 are small scripts in `scripts/` (phase 2). They read the register and the test source; they
-do not judge test quality — that is G8.
+G4 and G5 are small scripts in `scripts/`. They read the register and the test source; they do not judge
+test quality — that is G8.
+
+**G4 is a ratchet.** A risk enters the gate when the test owner sets it to `Covered` after its tests pass;
+from then on it can never lose its tests unnoticed. Risks of level *Config* and *Ops* join the gate in wave 3
+(QUALITY_GATES §7), when their checks exist. The list of uncovered Critical/High risks is printed on every
+run so the gap stays visible without keeping CI permanently red.
+
+**Known gaps.** A test for a risk that is still open is written now, for the *correct* behavior, and skipped
+until the fix lands:
+
+```csharp
+[Fact(Skip = "Known gap R-054")]
+[Trait("Risk", "R-054")]
+[Trait("KnownGap", "R-054")]
+public async Task GetDoctor_DoesNotExposeAccountLink() { ... }
+```
+
+The fix removes the `Skip` and the `KnownGap` trait in the same pull request, and the test must pass. A
+known-gap test never asserts the current, wrong behavior. It does not count for G4 (a).
 
 **What does not gate:** coverage percentage, number of tests, test duration (tracked, not gated).
 
@@ -119,7 +137,7 @@ Q-008.
 | Wave | Goal | Risks | Needs |
 |---|---|---|---|
 | **1 — Clean the repository and the dev defaults** ✅ done 2026-11-15 | Nothing secret or dev-only is public or on by default | R-030 (legacy projects deleted, build output ignored; rotate the old password wherever it is used), R-027 (password grant off on `hospital-web`, no replacement test client), R-029 (sample data and Swagger only in `docker-compose.override.yml`), R-043 (password reset off until SMTP exists) | Q-009 answered: delete |
-| **2 — Phase 2: tests and CI** | Every change is checked automatically | R-035 (API and unit test projects, GitHub Actions with gates G1–G6), R-012 (gitleaks), R-040 (pinned image tags, dependency and image scanning) | – |
+| **2 — Phase 2: tests and CI** | Every change is checked automatically | R-035: API test project (role matrix, BOLA, tokens, deactivation, record author/editor, known gaps), unit tests for the appointment rules (R-009, R-014, R-018, R-022), `TimeProvider` in the services (A-004), GitHub Actions with gates G1–G6, CODEOWNERS and the PR template; R-012 (gitleaks); R-040 (pinned image tags in CI). Remaining unit tests: phase 3; E2E: phase 4 | – |
 | **3 — Production deployment** | A deployable, encrypted, least-privilege stack | R-025 (TLS everywhere, HSTS), R-026 (Keycloak `start` with a production realm, no sample users), R-033 (static frontend image behind a web server), R-034 (hostnames, issuer, CORS and redirect URIs from configuration), R-031 (separate database users, least privilege), R-032 (backups and a restore drill), R-036 (security headers, rate limiting), R-038 (migrations as a release step), R-039 (shared cache or short expiry) | Q-006, Q-008 |
 | **4a — Real-life flows: data and API** | Every flow in [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md) works end to end on realistic synthetic data, without leakage | R-054 (DTOs instead of entities), R-051 (time zones), R-049 (duplicate patients), R-044 (patient model and the deterministic data generator, BUSINESS_FLOWS §4), R-048 (concurrent booking), R-056 (record version check), R-053 (records only for completed appointments), R-050 (closing past appointments), R-055 (offboarded doctors' appointments), R-042 (no personal data in logs) | – |
 | **4b — Real-life flows: frontend** | Each actor can do their flows in `frontend-web`, not only through Swagger | Screens for the flows marked "UI ❌" in BUSINESS_FLOWS (appointments, records and history, patient's own data, user linking, status correction, audit) | 4a |

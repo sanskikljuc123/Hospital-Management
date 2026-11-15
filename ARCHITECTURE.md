@@ -277,8 +277,8 @@ Rules enforced by the schema:
 - Deleting a department, service or user clears the reference instead of deleting dependants (`SET NULL`).
 - All timestamps are `timestamp with time zone` in UTC; a model-wide converter normalises incoming values.
 
-**Migrations.** `Data/Migrations` holds a single `InitialPostgres` migration; the earlier SQL Server
-migration was replaced. With `Database:MigrateOnStartup=true` the API applies pending migrations when it
+**Migrations.** `Data/Migrations` holds `InitialPostgres` (the earlier SQL Server migration was replaced)
+and `MedicalRecordRevisions` (record history; gives existing records revision 1). With `Database:MigrateOnStartup=true` the API applies pending migrations when it
 starts, retrying while the database comes up. That is convenient for a single instance. With several
 instances, run migrations as a separate deployment step instead.
 

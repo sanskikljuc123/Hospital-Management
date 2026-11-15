@@ -68,6 +68,8 @@ Rules for every test:
 
 1. **Name:** `Method_or_Endpoint_Condition_ExpectedResult`, e.g. `GetMedicalRecord_OtherPatientsRecord_Returns403`.
 2. **Traceability:** at least one `[Trait("Risk", "R-xxx")]`. Use `[Trait("Category", "Security")]` for security tests.
+   A test for a risk that is still open is skipped as a known gap (`Skip = "Known gap R-xxx"` plus
+   `[Trait("KnownGap", "R-xxx")]`) and asserts the correct behavior — see [QUALITY_GATES.md](QUALITY_GATES.md#1-gates).
 3. **One behavior per test.** Arrange – Act – Assert, with the assertion on the outcome the risk is about
    (status code **and** that no other patient's data is in the body).
 4. **Exact assertions.** Assert the exact status code, not "not 200". Never `Assert.True(true)`.
