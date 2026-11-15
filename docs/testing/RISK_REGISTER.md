@@ -134,7 +134,7 @@ Things we treat as true without proof yet. Each has an owner and a date to re-ch
 
 | ID | Assumption | Why it matters | Owner | Re-check by | Status |
 |---|---|---|---|---|---|
-| A-001 | Keycloak puts realm roles in `realm_access.roles`, and the API copies them to `roles` | API test tokens copy this shape; if Keycloak config changes, API tests would pass while production fails. E2E covers the real token. | Test owner | 2027-01-31 | Open |
+| A-001 | Keycloak puts realm roles in `realm_access.roles`, and the API copies them to `roles` | API test tokens copy this shape; if Keycloak config changes, API tests would pass while production fails. E2E covers the real token. | Test owner | 2027-01-31 | Verified 2026-11-15 by E2E (`ClinicalJourney.feature`, `SignIn.feature`): real Keycloak tokens give each role exactly its access; kept open as a check that runs on every E2E run |
 | A-002 | `frontend-web` has no Keycloak login today | E2E uses the API request context until the frontend signs in through Keycloak | Test owner | When frontend auth is added | Closed 2026-11-15: login added in `d96bba1`; browser E2E journeys are possible |
 | A-003 | The legacy `AppDesktop/` and `GestionHopitalSQL/` projects are not deployed | They were out of scope and held a hard-coded password (R-030) | Test owner | – | Closed 2026-11-15: both projects deleted in `619ef39` (Q-009) |
 | A-004 | Using `DateTime.UtcNow` directly in services is acceptable for now | Tests must use relative dates with margins; a `TimeProvider` would make time rules exact. The appointment lifecycle (R-014) now depends on "has it started", so this matters more. | Test owner | – | Closed 2026-11-15: `TimeProvider` in `e358209`; unit tests fix the clock |

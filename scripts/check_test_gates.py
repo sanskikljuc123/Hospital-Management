@@ -46,8 +46,8 @@ def read_tests():
         if not directory.exists():
             continue
         for path in directory.rglob("*.cs"):
-            if any(part in ("bin", "obj") for part in path.parts):
-                continue
+            if any(part in ("bin", "obj") for part in path.parts) or path.name.endswith(".feature.cs"):
+                continue  # build output and code generated from .feature files (read below)
             class_risks = set()
             pending = []  # attribute lines since the last declaration
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -68,7 +68,29 @@ def read_tests():
                     pending = []
                 elif stripped and not stripped.startswith("//"):
                     pending = []
+        tests.extend(read_feature_scenarios(directory))
     return tests, skips
+
+
+def read_feature_scenarios(directory):
+    """Gherkin scenarios (E2E): risk tags such as @R-001 on the feature or the scenario; @ignore skips."""
+    scenarios = []
+    for path in directory.rglob("*.feature"):
+        feature_tags, pending_tags = set(), set()
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            stripped = line.strip()
+            if stripped.startswith("@"):
+                pending_tags |= set(stripped.split())
+            elif stripped.startswith("Feature:"):
+                feature_tags, pending_tags = pending_tags, set()
+            elif stripped.startswith(("Scenario:", "Scenario Outline:")):
+                tags = feature_tags | pending_tags
+                risks = {t[1:] for t in tags if re.fullmatch(r"@R-[0-9]{3}", t)}
+                scenarios.append((path, number, risks, "ignored" if "@ignore" in tags else None))
+                pending_tags = set()
+            elif stripped and not stripped.startswith("#"):
+                pending_tags = set()
+    return scenarios
 
 
 def main():

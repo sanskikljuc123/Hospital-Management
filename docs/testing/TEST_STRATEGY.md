@@ -135,10 +135,32 @@ must produce the same shape, and the test host must trust only the test key.
 - **The frontend signs in through Keycloak** (`frontend-web/src/auth/`, since `d96bba1`; A-002 closed).
   Browser journeys start at `http://localhost:3000`, are redirected to the real Keycloak login page and
   sign in as a sample user. Journeys that the frontend does not offer yet (appointments, medical records)
-  use the Playwright API request context with the real Keycloak token obtained by signing in through the
-  browser first. The realm allows no password grant (R-027), so tokens cannot be requested with a password.
-- **Login journeys to cover:** each role signs in and sees its name; a user without a hospital role sees
-  "No access"; logout returns to the Keycloak login page.
+  call the deployed API with the real Keycloak token the frontend sends, captured from the browser's own
+  API request. The realm allows no password grant (R-027), so tokens cannot be requested with a password.
+
+**Implemented (phase 4)** in `e2e/HospitalManagement.E2E` — Reqnroll features with risk and scenario tags
+(`@R-001`, `@F-03.1`), Playwright for .NET (Chromium):
+
+| Feature | Scenarios |
+|---|---|
+| `SignIn.feature` | each role signs in and sees its name; no password-reset link; an account without a hospital role sees "No access" and its token gets 403; sign-out ends the Keycloak session |
+| `ClinicalJourney.feature` | a patient books and sees only own appointments; cannot book for another patient; the doctor's diagnosis reaches the patient with the linked doctor as author, another patient's and a missing record give 403; an amendment shows in the history for clinical staff and is refused to the patient |
+
+How they run:
+
+- **Against the production build** of the frontend (`vite build` + `vite preview` on port 3000), not the dev
+  server — faster, and what users get.
+- **Sequentially** (`xunit.runner.json`): all scenarios share one stack.
+- **Fresh synthetic data per scenario:** the administrator creates a new patient and a new doctor profile
+  and links `patient.user` and `doctor.user` to them; a temporary role-less Keycloak account is created and
+  deleted by the scenario that needs it.
+- **No fixed waits, no retries:** Playwright waits on URLs, elements and requests; a failed scenario saves a
+  Playwright trace (`TestResults/traces`).
+- **Configuration from the environment:** `E2E_USERS_PASSWORD` (or `DEV_USERS_PASSWORD`),
+  `E2E_KEYCLOAK_ADMIN_PASSWORD` (or `KEYCLOAK_ADMIN_PASSWORD`), optional `E2E_FRONTEND_URL`, `E2E_API_URL`,
+  `E2E_KEYCLOAK_URL`, `E2E_HEADED=1`.
+- **CI:** `.github/workflows/e2e.yml` (gate G7) on merges to `master`, nightly, on demand and on pull requests
+  labelled `e2e`, with fresh random passwords per run.
 
 ## 10. What makes a test "done"
 

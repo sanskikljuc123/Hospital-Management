@@ -109,8 +109,18 @@ backend/tests/HospitalManagement.UnitTests/   business rules of every service, a
                                                outbox delivery, architecture rules (fixed clock)
 backend/tests/HospitalManagement.ApiTests/    authorization matrix, tokens, BOLA, record author, phase 2 ✅ — real PostgreSQL
                                                catalogue, transactions, outbox
-e2e/HospitalManagement.E2E/                    critical journeys — real Keycloak and full stack    phase 4
+e2e/HospitalManagement.E2E/                    sign-in and clinical journeys — real Keycloak,      phase 4 ✅
+                                               API, PostgreSQL and the production frontend build
 ```
+
+Run the E2E journeys against a running stack (`docker compose up -d --build`, then
+`npm run build` and `npx vite preview --port 3000` in `frontend-web`), with the passwords from `.env`:
+
+```bash
+set -a; . ./.env; set +a; dotnet test e2e/HospitalManagement.E2E
+```
+
+Install Chromium once with `pwsh e2e/HospitalManagement.E2E/bin/Debug/net8.0/playwright.ps1 install chromium`.
 
 Run them (Docker must be running for the API tests):
 
@@ -121,5 +131,6 @@ python3 scripts/check_test_gates.py
 ```
 
 `-f net10.0` is for machines with only the .NET 10 runtime; CI also runs `net8.0`, the runtime the API ships
-on. CI: [.github/workflows/ci.yml](../../.github/workflows/ci.yml). See [TEST_STRATEGY.md](TEST_STRATEGY.md)
+on. CI: [.github/workflows/ci.yml](../../.github/workflows/ci.yml) (G1–G6) and
+[.github/workflows/e2e.yml](../../.github/workflows/e2e.yml) (G7). See [TEST_STRATEGY.md](TEST_STRATEGY.md)
 for what belongs where.
