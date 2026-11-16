@@ -16,6 +16,8 @@ Read these and follow them throughout:
 2. `docs/testing/QUALITY_GATES.md` — gates, flaky-test policy, failure classification, templates.
 3. `docs/testing/RISK_REGISTER.md` and `docs/testing/SECURITY_TESTING.md` when the task touches risks or access.
 4. `docs/testing/BUSINESS_FLOWS.md` §5 — the leakage checklist, applied to every changed endpoint.
+5. `ARCHITECTURE.md` §1, §3 and §11 — the service contract (D-16), where authorization decisions live (D-9) and
+   what must be atomic with a change (D-8). A change that breaks one of these is a finding even if tests pass.
 
 Then do the mode that matches the input.
 
@@ -29,12 +31,27 @@ Check and report each item:
 2. **Traceability.** New or changed tests without a `Risk` trait; traits pointing to IDs missing from the
    register.
 3. **Access changes without security tests.** Any change to `[Authorize]`, `[AllowAnonymous]`,
-   `backend/api/Auth/`, an ownership check (`CanAccessPatientAsync`, `GetCurrentPatientIdAsync`, `IsStaff`,
-   `IsClinicalStaff`), or token validation — with no matching change in security tests or in the
-   SECURITY_TESTING matrix.
-4. **New endpoints** missing from the matrix in SECURITY_TESTING §2.
-5. **Risks touched** by the change that have no test (see the register).
-6. **Test conventions** from TEST_STRATEGY §4 and §8 (determinism) that the new tests break.
+   `backend/api/Auth/` (`Policies.cs`, `PatientAccessPolicy.cs`, `AuthenticationExtensions.cs`,
+   `UserSyncMiddleware.cs`), a controller's use of `IPatientAccessPolicy` (`ListScopeAsync`, `CheckAsync`,
+   `StaffScope`), or how a doctor is resolved (`GetCurrentDoctorIdAsync`) — with no matching change in
+   `PatientAccessPolicyTests`, `BolaTests`, `AuthorizationMatrix.cs` or the SECURITY_TESTING matrix.
+4. **New endpoints** missing from `AuthorizationMatrix.cs` (the API test `EveryControllerEndpoint_HasAMatrixRow`
+   fails then) and from the matrix in SECURITY_TESTING §2.
+5. **Architecture rules** (`ARCHITECTURE.md` §11):
+   - D-16: a service that returns an EF entity, binds an entity in a controller, swallows an exception, ignores an
+     unknown reference, or changes data without `IAuditService.LogAsync`.
+   - D-9: a controller deciding ownership itself (`GetCurrentPatientIdAsync`, `IsInRole`) instead of asking
+     `IPatientAccessPolicy` — `ArchitectureRulesTests` fails then.
+   - D-8: a side effect (notification, external call) made directly instead of through `IOutbox`; a service that
+     opens its own transaction without checking `CurrentTransaction` (`TransactionalWriteFilter` already wraps
+     every write request); a new migration without a reason.
+6. **Risks touched** by the change that have no test (see the register), and **flow scenarios**
+   (`BUSINESS_FLOWS.md`) the change affects without a `Scenario` trait or Gherkin tag.
+7. **Test conventions** from TEST_STRATEGY §4 and §8 (determinism) that the new tests break, including a known-gap
+   test that asserts the current wrong behavior instead of the correct one.
+8. **Mutation testing:** a change to `AppointmentService`, `MedicalRecordService`, `OutboxProcessor` or
+   `UserService` without unit tests for its new branches — the weekly Stryker run (TEST_STRATEGY §11) fails below
+   90 %.
 
 Output section: **Review comments** — one per finding, with `file:line`, and a suggested PR-template answer
 the author can confirm.

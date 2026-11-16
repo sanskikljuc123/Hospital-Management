@@ -64,6 +64,23 @@ public class RecordAuthorTests : IAsyncLifetime
     }
 
     [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-08.4")]
+    public async Task CreateRecord_ForOwnAppointmentThatHasNotStarted_Returns409_AndCreatesNothing()
+    {
+        var futureAppointment = await _data.CreateAppointmentAsync(_patientId, _d1Id, daysAhead: 10);
+        using var client = _factory.ClientFor(_d1);
+        using var nurse = _factory.ClientFor(TestUser.Nurse());
+        var before = await CountRecordsAsync(nurse);
+
+        var response = await client.PostAsJsonAsync("/api/MedicalRecord",
+            new { patientId = _patientId, appointmentId = futureAppointment, diagnosis = "Synthetic" }, TestData.Json);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(before, await CountRecordsAsync(nurse));
+    }
+
+    [Fact]
     [Trait("Risk", "R-021")]
     [Trait("Scenario", "F-01.2")]
     public async Task UnlinkedDoctor_CreatesRecord_Returns403()

@@ -63,6 +63,29 @@ These documents are the **single source of truth**. Agents and skills point to t
 
 The reviewer also validates the analyst's and the test designer's output, so no agent checks its own work.
 
+### Running the workflow — what the R-053 pilot taught
+
+The full loop was first run on R-053 (a medical record attached to a visit that never took place), on
+2026-11-15/16:
+
+1. **Pass outputs verbatim.** The reviewer validates what an agent actually said. A summary in between
+   produced a false format failure; the analyst's and designer's text, and the diff, go to the reviewer
+   whole (a diff as a file the reviewer reads).
+2. **One step at a time.** Validate the design before implementing it, and review the diff only after it is
+   final. A reviewer reading code that changes under it reports noise. Docs are updated after the change
+   review, because the reviewer reads the register.
+3. **Each agent reads its own definition first** (`.claude/agents/<name>.md`), so the brief stays short and
+   the rules are the ones in the repo.
+4. **Decisions go to the person.** Every Question from an agent was put to the product owner in business
+   language; no agent and no implementer settled one.
+
+What the agents caught that the implementer had not: stale citations in the register, that the 400 (not
+yours) check must run before the 409 (wrong state) check so that a caller cannot learn the state of someone
+else's appointment, wrong scenario traits, the `PUT` path to `NoShow` next to the correction path, and — in
+the final change review — that a started, documented visit could be moved back into the future and then
+cancelled (now F-05.7). It also listed what stays open: a write race (A-006), existing data (Q-011) and a
+quiet unlink on delete (R-058).
+
 ## AI rules
 
 1. **Agents are read-only.** They read code and documents. They never edit files, commit, push, approve a

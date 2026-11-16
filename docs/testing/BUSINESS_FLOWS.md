@@ -105,6 +105,7 @@ Steps: staff change time, doctor, service or duration. API ✅ · UI ❌
 | F-05.4 | Move and set a final status in one request | 409 | R-014 |
 | F-05.5 | Move a final appointment | 409 | R-014 |
 | F-05.6 | Patient tries to reschedule | 403 | R-014 |
+| F-05.7 | Move an appointment (time, doctor, service or duration) at or after its start | 409, unchanged; close it with `Completed` / `NoShow` instead. Otherwise a documented visit could be moved back into the future and cancelled | R-014, R-053 |
 
 ### F-06 Cancellation
 
@@ -127,6 +128,7 @@ Steps: at or after the start, the doctor marks `Completed`, or staff mark `NoSho
 | F-07.2 | Nurse or admin tries to complete | 403 | R-014 |
 | F-07.3 | Complete or no-show before the start | 409 | R-014 |
 | F-07.4 | Nobody closes the appointment | **Gap:** it stays `Scheduled`/`Confirmed` forever; statistics and the doctor's list are wrong | R-050 |
+| F-07.5 | Staff mark `NoShow` on a started visit that already has a medical record | 409, unchanged (the visit is documented) | R-014, R-053 |
 
 ### F-08 Writing a medical record
 
@@ -137,7 +139,7 @@ Steps: the doctor writes diagnosis, treatment and notes, optionally for an appoi
 | F-08.1 | Linked doctor writes a record | 201, author = that doctor, revision 1, audited without clinical content | R-010, R-011 |
 | F-08.2 | Request names another doctor as author | Ignored; author = caller | R-010 |
 | F-08.3 | Attach to another doctor's or another patient's appointment | 400, nothing written | R-010 |
-| F-08.4 | Attach to an appointment that is not `Completed` (future, cancelled, no-show) | **Gap:** accepted today | R-053 |
+| F-08.4 | Attach to an own appointment that cannot have taken place (not started yet, `Cancelled`, `NoShow`) | 409, nothing written. Allowed: started and `Scheduled`, `Confirmed` or `Completed` (the doctor may write during the visit) | R-053 |
 | F-08.5 | Nurse, admin or patient tries to write | 403 | R-005 |
 | F-08.6 | Diagnosis missing or over the length limit | 400 | – |
 
@@ -175,6 +177,7 @@ Steps: an administrator corrects a final status set by mistake, with a reason. A
 | F-11.3 | Reopen after the start, or the slot is taken now | 409 | R-022 |
 | F-11.4 | Reason missing or shorter than 10 characters | 400 | R-022 |
 | F-11.5 | Non-admin tries | 403 | R-005 |
+| F-11.6 | `Completed` → `NoShow` while a medical record is linked to the appointment | 409, stays `Completed`, no audit entry, no notification. Without a linked record the correction is applied | R-022, R-053 |
 
 ### F-12 Offboarding
 
