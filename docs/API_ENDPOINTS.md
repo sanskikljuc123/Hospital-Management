@@ -139,8 +139,8 @@ Create, update, cancel and delete are audited. Create and update also notify the
 | `Scheduled` ⇄ `Confirmed` at any time. | – |
 | `Cancelled` only before `scheduledAt` (both through `PUT` and `/cancel`). | 409 |
 | `Completed` only by a Doctor and only once `scheduledAt` has passed. | 403 (not a doctor), 409 (not started) |
-| `NoShow` only once `scheduledAt` has passed. | 409 |
-| Changing `doctorId`, `serviceId`, `scheduledAt` or `durationMinutes` (moving) is allowed only while `Scheduled` or `Confirmed`, only into the future, and must not be combined with a final status. | 400 (past), 409 (with final status, or doctor busy) |
+| `NoShow` only once `scheduledAt` has passed, and never when a medical record is linked to the appointment (the visit is documented). | 409 |
+| Changing `doctorId`, `serviceId`, `scheduledAt` or `durationMinutes` (moving) is allowed only while `Scheduled` or `Confirmed`, only **before** the current `scheduledAt` (a started visit is closed with `Completed` or `NoShow`, not moved), only into the future, and must not be combined with a final status. | 400 (new time in the past), 409 (already started, with final status, or doctor busy) |
 | A moved appointment always goes back to `Scheduled` and has to be confirmed again. | – |
 
 ### Status corrections
@@ -151,7 +151,7 @@ A final status set by mistake is not changed with `PUT`. An admin corrects it wi
 | From | To | Condition |
 |---|---|---|
 | `NoShow` | `Completed` | – (e.g. the patient arrived late and was seen) |
-| `Completed` | `NoShow` | – (e.g. the wrong appointment was marked as completed) |
+| `Completed` | `NoShow` | No medical record is linked to the appointment (e.g. the wrong appointment was marked as completed). A documented visit took place and stays `Completed` |
 | `Cancelled` | `Scheduled` | The appointment has not started and the doctor is still free in that slot |
 
 Any other correction, or a correction of an appointment that is not final, returns 409. Each correction is
@@ -193,7 +193,9 @@ Admins have no access to clinical content.
 
 - **Author.** The record's `doctorId` is the doctor linked to the caller's account; a `doctorId` sent in the
   body is ignored. `appointmentId` is optional and must be an appointment of the same patient **and** the
-  same doctor (400 otherwise). An unlinked doctor gets 403.
+  same doctor (400 otherwise, checked first). The appointment must also be a visit that can have taken
+  place: it has started (`scheduledAt` ≤ now) and is `Scheduled`, `Confirmed` or `Completed` — 409 for a
+  future, `Cancelled` or `NoShow` appointment, nothing written. An unlinked doctor gets 403.
 - **History.** Revision 1 is the record as created. Each edit that changes something stores the full new
   content, the changed fields, the editing doctor, the user name and the time, in the same transaction as
   the edit. An edit that changes nothing creates no revision. Revisions are never changed or deleted.
