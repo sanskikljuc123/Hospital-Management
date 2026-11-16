@@ -67,14 +67,25 @@ namespace Services.MedicalRecordService
         {
             if (!await _context.Patients.AnyAsync(p => p.Id == dto.PatientId, cancellationToken))
                 return ServiceResult<MedicalRecordDto>.Invalid($"Patient with ID {dto.PatientId} not found");
-            // A record can only be attached to an appointment of this patient with this doctor.
-            if (dto.AppointmentId.HasValue && !await _context.Appointments.AnyAsync(
-                    a => a.Id == dto.AppointmentId.Value && a.PatientId == dto.PatientId && a.DoctorId == doctorId,
-                    cancellationToken))
-                return ServiceResult<MedicalRecordDto>.Invalid(
-                    $"Appointment with ID {dto.AppointmentId} not found for this patient and doctor");
-
             var now = _time.GetUtcNow().UtcDateTime;
+            if (dto.AppointmentId.HasValue)
+            {
+                // A record can only be attached to an appointment of this patient with this doctor (400)...
+                var appointment = await _context.Appointments.AsNoTracking()
+                    .Where(a => a.Id == dto.AppointmentId.Value && a.PatientId == dto.PatientId && a.DoctorId == doctorId)
+                    .Select(a => new { a.Status, a.ScheduledAt })
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (appointment == null)
+                    return ServiceResult<MedicalRecordDto>.Invalid(
+                        $"Appointment with ID {dto.AppointmentId} not found for this patient and doctor");
+
+                // ...and only to a visit that can have taken place: started, not cancelled, not missed (R-053, 409).
+                if (appointment.ScheduledAt > now
+                    || appointment.Status is AppointmentStatus.Cancelled or AppointmentStatus.NoShow)
+                    return ServiceResult<MedicalRecordDto>.Conflict(
+                        "A medical record can only be attached to an appointment that has started and was not cancelled or missed");
+            }
+
             var record = new MedicalRecord
             {
                 PatientId = dto.PatientId,

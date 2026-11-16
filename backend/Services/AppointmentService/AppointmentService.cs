@@ -108,8 +108,19 @@ namespace Services.AppointmentService
             var transitionError = ValidateTransition(appointment, dto.Status, rescheduled, now);
             if (transitionError != null) return transitionError;
 
+            // A documented visit cannot become NoShow (R-053), the same rule as CorrectStatusAsync.
+            if (dto.Status == AppointmentStatus.NoShow
+                && await _context.MedicalRecords.AnyAsync(m => m.AppointmentId == id, cancellationToken))
+                return ServiceResult<AppointmentDto>.Conflict(
+                    "The appointment has a medical record; a documented visit cannot be marked as NoShow");
+
             if (rescheduled)
             {
+                // A visit that has started is closed with Completed or NoShow, never moved: moving it back into
+                // the future would let it be cancelled, even with a medical record attached (R-053).
+                if (appointment.ScheduledAt <= now)
+                    return ServiceResult<AppointmentDto>.Conflict(
+                        "An appointment that has started cannot be moved; set it to Completed or NoShow");
                 if (scheduledAt <= now)
                     return ServiceResult<AppointmentDto>.Invalid("An appointment must be scheduled in the future");
                 var slotError = await ValidateSlotAsync(id, dto.DoctorId, dto.ServiceId, scheduledAt, dto.DurationMinutes, cancellationToken);
@@ -176,6 +187,12 @@ namespace Services.AppointmentService
             if (!allowed)
                 return ServiceResult<AppointmentDto>.Conflict(
                     $"A {from} appointment cannot be corrected to {dto.Status}");
+
+            // A documented visit took place: it cannot become a no-show while a medical record belongs to it (R-053).
+            if (dto.Status == AppointmentStatus.NoShow
+                && await _context.MedicalRecords.AnyAsync(m => m.AppointmentId == id, cancellationToken))
+                return ServiceResult<AppointmentDto>.Conflict(
+                    "The appointment has a medical record; a documented visit cannot be corrected to NoShow");
 
             if (dto.Status == AppointmentStatus.Scheduled)
             {
