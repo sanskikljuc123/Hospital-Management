@@ -176,6 +176,80 @@ public class MedicalRecordServiceTests : IDisposable
         Assert.Null(await _service.GetHistoryAsync(999));
     }
 
+    // ---------- R-053: only a visit that can have taken place (designed by qe-test-designer) ----------
+
+    private async Task<int> AddAppointmentAsync(AppointmentStatus status, int minutesFromNow, int? doctorId = null,
+        int? patientId = null)
+    {
+        var appointment = new Appointment
+        {
+            PatientId = patientId ?? _patientId, DoctorId = doctorId ?? _doctorA,
+            ScheduledAt = Now.UtcDateTime.AddMinutes(minutesFromNow), Status = status
+        };
+        _db.Appointments.Add(appointment);
+        await _db.SaveChangesAsync();
+        return appointment.Id;
+    }
+
+    private Task<ServiceResult<MedicalRecordDto>> CreateForAsync(int appointmentId) => _service.CreateAsync(
+        new MedicalRecordCreateDto { PatientId = _patientId, AppointmentId = appointmentId, Diagnosis = "Flu" }, _doctorA);
+
+    [Theory]
+    [InlineData(AppointmentStatus.Scheduled, 0)] // exactly at the start
+    [InlineData(AppointmentStatus.Scheduled, -60)]
+    [InlineData(AppointmentStatus.Confirmed, -60)]
+    [InlineData(AppointmentStatus.Completed, -60)]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-08.4")]
+    public async Task Create_ForOwnAppointmentThatHasStarted_WithAllowedStatus_IsCreated(AppointmentStatus status, int minutesFromNow)
+    {
+        var appointmentId = await AddAppointmentAsync(status, minutesFromNow);
+
+        var result = await CreateForAsync(appointmentId);
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(appointmentId, result.Value!.AppointmentId);
+        Assert.Single(_db.MedicalRecordRevisions);
+        Assert.Equal(new[] { AuditActions.MedicalRecordCreated }, _audit.Actions.ToArray());
+    }
+
+    [Theory]
+    [InlineData(AppointmentStatus.Scheduled, 1)]
+    [InlineData(AppointmentStatus.Confirmed, 1440)]
+    [InlineData(AppointmentStatus.Completed, 1440)]
+    [InlineData(AppointmentStatus.Cancelled, -60)]
+    [InlineData(AppointmentStatus.NoShow, -60)]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-08.4")]
+    public async Task Create_ForOwnAppointmentNotStartedOrNotHeld_IsConflict_AndWritesNothing(AppointmentStatus status, int minutesFromNow)
+    {
+        var result = await CreateForAsync(await AddAppointmentAsync(status, minutesFromNow));
+
+        Assert.Equal(ResultStatus.Conflict, result.Status);
+        Assert.Empty(_db.MedicalRecords);
+        Assert.Empty(_db.MedicalRecordRevisions);
+        Assert.Empty(_audit.Entries);
+    }
+
+    // Ownership is checked before state, so a caller cannot learn the state of someone else's appointment.
+    [Theory]
+    [InlineData("other doctor")]
+    [InlineData("other patient")]
+    [Trait("Risk", "R-053")]
+    [Trait("Risk", "R-010")]
+    [Trait("Scenario", "F-08.3")]
+    public async Task Create_ForSomeoneElsesAppointmentThatHasNotStarted_IsInvalid_NotConflict(string owner)
+    {
+        var appointmentId = owner == "other doctor"
+            ? await AddAppointmentAsync(AppointmentStatus.Cancelled, 1440, doctorId: _doctorB)
+            : await AddAppointmentAsync(AppointmentStatus.Cancelled, 1440, patientId: _otherPatientId);
+
+        var result = await CreateForAsync(appointmentId);
+
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.Empty(_db.MedicalRecords);
+    }
+
     // ---------- Added after mutation testing (phase 5) ----------
 
     [Fact]

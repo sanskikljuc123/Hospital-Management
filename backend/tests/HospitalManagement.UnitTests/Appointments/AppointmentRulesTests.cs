@@ -182,6 +182,56 @@ public class AppointmentRulesTests : IDisposable
         Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
     }
 
+    // A started visit is closed, not moved; otherwise it could be moved back into the future and cancelled
+    // with a medical record attached (R-053).
+    [Theory]
+    [InlineData(0)]   // exactly at the start
+    [InlineData(30)]
+    [Trait("Risk", "R-053")]
+    [Trait("Risk", "R-014")]
+    [Trait("Scenario", "F-05.7")]
+    public async Task Move_AfterTheStart_IsConflict_AndNothingChanges(int minutesAfterStart)
+    {
+        var a = await _bed.BookAsync(At(1, 9));
+        _bed.AdvanceTo(At(1, 9, minutesAfterStart));
+        var auditBefore = _bed.Audit.Entries.Count;
+        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        move.ScheduledAt = At(2, 10);
+
+        var result = await _bed.Service.UpdateAsync(a.Id, move);
+
+        Assert.Equal(ResultStatus.Conflict, result.Status);
+        Assert.Equal(At(1, 9), (await _bed.Db.Appointments.FindAsync(a.Id))!.ScheduledAt);
+        Assert.Equal(auditBefore, _bed.Audit.Entries.Count);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Risk", "R-014")]
+    [Trait("Scenario", "F-05.7")]
+    public async Task ChangeDoctor_AfterTheStart_IsConflict()
+    {
+        var a = await _bed.BookAsync(At(1, 9));
+        _bed.AdvanceTo(At(1, 9, 5));
+        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        move.DoctorId = _bed.OtherDoctorId;
+
+        Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-014")]
+    [Trait("Scenario", "F-05.1")]
+    public async Task Move_OneMinuteBeforeTheStart_IsApplied()
+    {
+        var a = await _bed.BookAsync(At(1, 9));
+        _bed.AdvanceTo(At(1, 8, 59));
+        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        move.ScheduledAt = At(2, 10);
+
+        Assert.Equal(At(2, 10), (await _bed.Service.UpdateAsync(a.Id, move)).Value!.ScheduledAt);
+    }
+
     // ---------- Cancellation (F-06) ----------
 
     [Fact]
@@ -374,6 +424,109 @@ public class AppointmentRulesTests : IDisposable
             new AppointmentStatusCorrectionDto { Status = AppointmentStatus.Confirmed, Reason = "Not a final status" });
 
         Assert.Equal(ResultStatus.Conflict, result.Status);
+    }
+
+    // ---------- R-053: a documented visit cannot become a no-show (designed by qe-test-designer) ----------
+
+    private async Task AddRecordAsync(int? appointmentId)
+    {
+        _bed.Db.MedicalRecords.Add(new MedicalRecord
+        {
+            PatientId = _bed.PatientId, DoctorId = _bed.DoctorId, AppointmentId = appointmentId,
+            Diagnosis = "Synthetic", CreatedAt = Now.UtcDateTime
+        });
+        await _bed.Db.SaveChangesAsync();
+    }
+
+    private Task<ServiceResult<AppointmentDto>> CorrectAsync(int id, AppointmentStatus to) => _bed.Service.CorrectStatusAsync(id,
+        new AppointmentStatusCorrectionDto { Status = to, Reason = "Marked on the wrong appointment" });
+
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-11.6")]
+    [Trait("Risk", "R-022")]
+    public async Task Correct_CompletedToNoShow_WithLinkedRecord_IsConflict_AndNothingChanges()
+    {
+        var a = await MakeFinalAsync(AppointmentStatus.Completed);
+        await AddRecordAsync(a.Id);
+        var auditBefore = _bed.Audit.Entries.Count;
+        var sentBefore = _bed.Notifications.Sent.Count;
+
+        var result = await CorrectAsync(a.Id, AppointmentStatus.NoShow);
+
+        Assert.Equal(ResultStatus.Conflict, result.Status);
+        Assert.Equal(AppointmentStatus.Completed, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
+        Assert.Equal(auditBefore, _bed.Audit.Entries.Count);
+        Assert.Equal(sentBefore, _bed.Notifications.Sent.Count);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-11.6")]
+    [Trait("Risk", "R-022")]
+    public async Task Correct_CompletedToNoShow_WithRecordsNotLinkedToIt_IsApplied()
+    {
+        var a = await MakeFinalAsync(AppointmentStatus.Completed);
+        var other = new Appointment
+        {
+            PatientId = _bed.PatientId, DoctorId = _bed.DoctorId, ScheduledAt = At(0, 7), Status = AppointmentStatus.Completed
+        };
+        _bed.Db.Appointments.Add(other);
+        await _bed.Db.SaveChangesAsync();
+        await AddRecordAsync(null);
+        await AddRecordAsync(other.Id);
+
+        Assert.Equal(AppointmentStatus.NoShow, (await CorrectAsync(a.Id, AppointmentStatus.NoShow)).Value!.Status);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-11.1")]
+    [Trait("Risk", "R-022")]
+    public async Task Correct_NoShowToCompleted_WithLinkedRecord_IsApplied()
+    {
+        var a = await MakeFinalAsync(AppointmentStatus.NoShow);
+        await AddRecordAsync(a.Id);
+
+        Assert.Equal(AppointmentStatus.Completed, (await CorrectAsync(a.Id, AppointmentStatus.Completed)).Value!.Status);
+    }
+
+    // The same rule on the normal update path: a started visit that already has a record cannot be marked NoShow.
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-07.5")]
+    [Trait("Risk", "R-014")]
+    public async Task Update_StartedVisitWithLinkedRecord_ToNoShow_IsConflict_AndNothingChanges()
+    {
+        var a = await _bed.BookAsync(At(1, 9));
+        _bed.AdvanceTo(At(1, 9, 5));
+        _bed.User.ActAs(Roles.Doctor);
+        await AddRecordAsync(a.Id);
+        var auditBefore = _bed.Audit.Entries.Count;
+        var sentBefore = _bed.Notifications.Sent.Count;
+
+        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.NoShow));
+
+        Assert.Equal(ResultStatus.Conflict, result.Status);
+        Assert.Equal(AppointmentStatus.Scheduled, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
+        Assert.Equal(auditBefore, _bed.Audit.Entries.Count);
+        Assert.Equal(sentBefore, _bed.Notifications.Sent.Count);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-07.1")]
+    [Trait("Risk", "R-014")]
+    public async Task Update_StartedVisitWithLinkedRecord_ToCompleted_IsApplied()
+    {
+        var a = await _bed.BookAsync(At(1, 9));
+        _bed.AdvanceTo(At(1, 9, 5));
+        _bed.User.ActAs(Roles.Doctor);
+        await AddRecordAsync(a.Id);
+
+        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Completed));
+
+        Assert.Equal(AppointmentStatus.Completed, result.Value!.Status);
     }
 
     /// <summary>An appointment tomorrow at 09:00 brought into the given final status by the normal flow.</summary>
