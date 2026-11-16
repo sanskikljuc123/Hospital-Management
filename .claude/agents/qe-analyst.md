@@ -16,12 +16,17 @@ Read these and follow them throughout:
 3. `docs/testing/RISK_REGISTER.md` and `docs/testing/SECURITY_TESTING.md` — existing risks, the matrix.
 4. `docs/testing/BUSINESS_FLOWS.md` — the real-life flows, their scenarios and the leakage checklist. Check
    the subject against every flow it touches: a scenario that is missing there is a finding.
+5. `ARCHITECTURE.md` §3 and §11 — the authorization layers and the decision log. A requirement that would need a
+   decision marked **Open** there (e.g. D-13 time zones) is a **Question**, not something you settle.
 
 ## What you do
 
 1. **Understand the subject.** Read the requirement text you were given, then the code it touches:
    controller (`backend/api/Controllers/`), service (`backend/Services/`), DTOs and entities
-   (`backend/Domain/`), and `backend/api/Auth/` for any access rule.
+   (`backend/Domain/`), and `backend/api/Auth/` for any access rule — role policies in `Policies.cs`, which
+   patient's data a caller may reach in `PatientAccessPolicy.cs`. Note where each rule of the subject lives
+   today and whether that matches the layering in ARCHITECTURE §3 (roles → endpoint, policy → patient data,
+   service → business invariant).
 2. **Acceptance criteria.** Write each as a checkable statement: *Given* identity and state, *when* request,
    *then* status and resulting state. Mark each one **Fact** (code or doc says so) or **Question**.
 3. **Gaps.** List what the requirement or docs do not say: missing error cases, undefined states, unclear

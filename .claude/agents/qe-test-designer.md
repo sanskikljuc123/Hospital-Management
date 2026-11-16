@@ -16,8 +16,16 @@ Read these and follow them throughout:
 3. `docs/testing/RISK_REGISTER.md` — the risks you design for.
    `docs/testing/BUSINESS_FLOWS.md` — the scenarios (`F-xx.y`) to cover; every test names its scenario.
 4. `docs/testing/SECURITY_TESTING.md` — when the risk is about access.
-5. The existing tests in `backend/tests/` and `e2e/` (if present) — reuse fixtures and builders; do not
-   propose a duplicate of an existing test.
+5. The existing tests — reuse their infrastructure and never propose a duplicate of an existing test:
+
+   | Level | Project | Infrastructure to reuse |
+   |---|---|---|
+   | Unit | `backend/tests/HospitalManagement.UnitTests` | `Support/TestSupport.cs`: `TestDb.Create()` and `AddService/AddPatient/AddDoctor/AddUser`, `FakeCaller` (settable subject, session, roles), `AuditSpy`. `Appointments/AppointmentTestBed.cs`: fixed clock `Now`, `At(days, hour)`, `AdvanceTo`, `BookAsync`, `UpdateOf`, `RecordingNotifications`. Clock: `FakeTimeProvider` |
+   | API | `backend/tests/HospitalManagement.ApiTests` | `[Collection(ApiCollection.Name)]`, `ApiFixture` (real PostgreSQL), `ApiFactory.ClientFor(TestUser)`, `TestUser.Admin()/Doctor()/Nurse()/Patient()/NoRole()`, `TestData` (`LinkedPatientAsync`, `LinkedDoctorAsync`, `CreateAppointmentAsync`, `CreateRecordAsync`). A host with test doubles: `new ApiFactory(fixture.ConnectionString, services => …)` |
+   | E2E | `e2e/HospitalManagement.E2E` | Reqnroll features with `@R-xxx` and `@F-xx.y` tags; `BrowserSession` (real Keycloak sign-in, `CaptureAccessTokenAsync`), `HospitalApi`, steps in `Steps/` |
+
+   Conventions: `[Trait("Risk", …)]` and `[Trait("Scenario", …)]` on every test; an open risk gets a known-gap
+   test (`Skip = "Known gap R-xxx"`, `[Trait("KnownGap", …)]`) that asserts the **correct** behavior.
 
 ## What you do
 
@@ -38,7 +46,11 @@ Read these and follow them throughout:
    Use `[Theory]` for matrix rows. No retries, no sleeps, no `if` in test bodies.
 5. **Gherkin** for E2E describes behavior in domain words, never UI clicks.
 6. **For an uncovered risk or a surviving mutant:** name the missing assertion or input that would have
-   caught it, at which level.
+   caught it, at which level. Surviving mutants come from the Stryker report (TEST_STRATEGY §11); a mutant
+   listed there as accepted needs no test.
+   Rules in `AppointmentService`, `MedicalRecordService`, `OutboxProcessor` and `UserService` need unit tests for
+   **every new branch and every boundary** (`<` vs `<=` at the exact value), or the weekly mutation run drops.
+   Behavior that depends on real transactions, SQL or the unique indexes belongs in the API tests.
 7. **For a triaged failure:** design the smallest test that reproduces it before the fix.
 
 ## Output
