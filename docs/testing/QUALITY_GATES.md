@@ -13,15 +13,22 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists. The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing | gitleaks report |
-| G7 | E2E | merge to `master`, nightly, PR label `e2e` | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
+| G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, `frontend-web/src/auth/`, the compose files, `e2e/`, the E2E workflow), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 
 **Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G6
 binding, not advisory: changes reach `master` only through a pull request, the four CI checks
 (`Backend build and tests (G1, G2, G3)`, `Frontend build (G1)`, `Risk coverage and skips (G4, G5)`,
-`Secret scan (G6)`) must pass, and force pushes and deleting `master` are blocked. The bypass list is
-empty. Renaming a CI job changes its check name, so the ruleset must be updated in the same pull request,
-or every later pull request waits for a check that never runs.
+`Secret scan (G6)`) and the E2E check `End-to-end journeys (G7)` must pass, and force pushes and deleting
+`master` are blocked. The bypass list is empty. Renaming a CI job changes its check name, so the ruleset must
+be updated in the same pull request, or every later pull request waits for a check that never runs.
+
+**G7 on pull requests.** API tests sign tokens with a test key, so only the E2E journeys exercise the real
+Keycloak sign-in. The job `Does this change touch sign-in?` (plain `git diff`) decides whether they run: a pull
+request that touches one of the G7 paths runs them and cannot merge until they pass; any other pull request
+reports the E2E check as *Skipped*, which GitHub counts as passed. If that detection step fails, the journeys
+run anyway, because a skipped required check would pass. A change elsewhere that could still affect sign-in can
+ask for the journeys with the `e2e` label.
 
 **Accepted exception — single maintainer (since 2026-11-20).** The repository has one code owner, and
 GitHub does not let authors approve their own pull requests, so the ruleset requires **0 approvals** and
