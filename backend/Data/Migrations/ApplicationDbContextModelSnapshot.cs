@@ -43,6 +43,9 @@ namespace Data.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -76,7 +79,10 @@ namespace Data.Migrations
 
                     b.HasIndex("DoctorId", "ScheduledAt");
 
-                    b.ToTable("Appointments");
+                    b.ToTable("Appointments", t =>
+                        {
+                            t.HasCheckConstraint("CK_Appointments_EndsAt", "\"EndsAt\" = \"ScheduledAt\" + make_interval(mins => \"DurationMinutes\")");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Entities.AuditLog", b =>

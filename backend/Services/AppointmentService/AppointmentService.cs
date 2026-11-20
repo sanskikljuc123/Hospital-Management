@@ -65,6 +65,7 @@ namespace Services.AppointmentService
                 ServiceId = dto.ServiceId,
                 ScheduledAt = scheduledAt,
                 DurationMinutes = dto.DurationMinutes,
+                EndsAt = scheduledAt.AddMinutes(dto.DurationMinutes),
                 Status = AppointmentStatus.Scheduled,
                 Reason = dto.Reason,
                 CreatedAt = UtcNow,
@@ -131,6 +132,7 @@ namespace Services.AppointmentService
             appointment.ServiceId = dto.ServiceId;
             appointment.ScheduledAt = scheduledAt;
             appointment.DurationMinutes = dto.DurationMinutes;
+            appointment.EndsAt = scheduledAt.AddMinutes(dto.DurationMinutes);
             // A moved appointment has to be confirmed again.
             appointment.Status = rescheduled ? AppointmentStatus.Scheduled : dto.Status;
             appointment.Reason = dto.Reason;

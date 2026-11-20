@@ -101,6 +101,11 @@ namespace Data
                     .HasForeignKey(a => a.ServiceId).OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(a => new { a.DoctorId, a.ScheduledAt });
                 e.HasIndex(a => a.PatientId);
+                // EndsAt is derived; the database keeps it honest. The exclusion constraint that uses it
+                // (no overlapping appointments of one doctor, R-048) is created in migration
+                // AppointmentNoOverlap, because EF Core has no model API for exclusion constraints.
+                e.ToTable(t => t.HasCheckConstraint("CK_Appointments_EndsAt",
+                    "\"EndsAt\" = \"ScheduledAt\" + make_interval(mins => \"DurationMinutes\")"));
             });
 
             modelBuilder.Entity<MedicalRecord>(e =>
