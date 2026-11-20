@@ -18,14 +18,16 @@ namespace Services.Outbox
         private readonly ApplicationDbContext _context;
         private readonly IReadOnlyDictionary<string, IOutboxHandler> _handlers;
         private readonly TimeProvider _time;
+        private readonly OutboxMetrics _metrics;
         private readonly ILogger<OutboxProcessor> _logger;
 
         public OutboxProcessor(ApplicationDbContext context, IEnumerable<IOutboxHandler> handlers, TimeProvider time,
-            ILogger<OutboxProcessor> logger)
+            OutboxMetrics metrics, ILogger<OutboxProcessor> logger)
         {
             _context = context;
             _handlers = handlers.ToDictionary(h => h.Type);
             _time = time;
+            _metrics = metrics;
             _logger = logger;
         }
 
@@ -74,6 +76,7 @@ namespace Services.Outbox
                 await handler.HandleAsync(message.Payload, cancellationToken);
                 message.ProcessedAt = now;
                 message.LastError = null;
+                _metrics.Delivered(message.Type);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -82,12 +85,14 @@ namespace Services.Outbox
                 if (message.Attempts >= MaxAttempts)
                 {
                     message.FailedAt = now;
+                    _metrics.Failed(message.Type);
                     _logger.LogError("Outbox message {MessageId} ({Type}) failed after {Attempts} attempts",
                         message.Id, message.Type, message.Attempts);
                 }
                 else
                 {
                     message.NextAttemptAt = now.AddMinutes(Math.Pow(2, message.Attempts - 1));
+                    _metrics.Retried(message.Type);
                     _logger.LogWarning("Outbox message {MessageId} ({Type}) attempt {Attempts} failed; retrying at {NextAttemptAt}",
                         message.Id, message.Type, message.Attempts, message.NextAttemptAt);
                 }

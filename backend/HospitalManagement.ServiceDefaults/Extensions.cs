@@ -46,7 +46,9 @@ namespace Microsoft.Extensions.Hosting
                 .WithMetrics(metrics => metrics
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddRuntimeInstrumentation())
+                    .AddRuntimeInstrumentation()
+                    // Notification delivery counters (Services.Outbox.OutboxMetrics, R-046).
+                    .AddMeter("HospitalManagement.Outbox"))
                 .WithTracing(tracing => tracing
                     .AddSource(builder.Environment.ApplicationName)
                     .AddAspNetCoreInstrumentation(options =>

@@ -16,7 +16,10 @@ var connectionString = builder.Configuration.GetConnectionString("hospitaldb")
     ?? throw new InvalidOperationException(
         "Connection string 'hospitaldb' is missing. Set ConnectionStrings__hospitaldb or use .NET user secrets.");
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddHealthChecks().AddDbContextCheck<ApplicationDbContext>("database");
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>("database")
+    // Degraded (still 200) when notifications failed recently or delivery has stopped (R-046).
+    .AddCheck<OutboxHealthCheck>("outbox");
 builder.Services.AddTransient<Seed>();
 
 // Business services, audit logging and external integration abstractions.

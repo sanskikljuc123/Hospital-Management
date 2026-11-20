@@ -41,6 +41,9 @@ namespace Services
             // Outbox: side effects are recorded with the change and delivered afterwards (D-8).
             services.AddScoped<Outbox.IOutbox, Outbox.Outbox>();
             services.AddScoped<Outbox.OutboxProcessor>();
+            // Delivery visibility (R-046): counters for metrics, state for the health check. IMeterFactory comes from the host.
+            services.AddSingleton<Outbox.OutboxMetrics>();
+            services.AddScoped<Outbox.OutboxMonitor>();
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<Outbox.IOutboxHandler, AppointmentNotificationHandler>();
 
