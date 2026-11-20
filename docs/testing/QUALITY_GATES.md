@@ -161,21 +161,25 @@ a CI check of the deployment configuration (level *Config*) or a rehearsed proce
 such a risk instead needs the test owner's written reason and an end date in RISK_REGISTER §5. Medium risks
 in §2.1 follow the normal rule: covered when the related code or configuration changes.
 
+**Current decision (Q-006, 2026-11-20): the system runs locally only**, with tests in GitHub Actions (possibly
+Jenkins later). No deployment is planned, so this gate is not reached: the deployment risks are accepted for
+local use in RISK_REGISTER §5 until a deployment is planned, and real patient data stays excluded (Q-007).
+
 ### Proposed order
 
 Waves are ordered by "public exposure today" first, then by what each wave unblocks. Waves 1, 2 and 4 need
-no further decision (Q-007 is answered: synthetic data, production-like everything); wave 3 needs Q-006 and
-Q-008.
+no further decision (Q-007 is answered: synthetic data). Waves 3 and 5 are **not planned** while the system runs
+locally only (Q-006, Q-008); they stay here as the plan for the day a deployment is decided.
 
 | Wave | Goal | Risks | Needs |
 |---|---|---|---|
 | **1 — Clean the repository and the dev defaults** ✅ done 2026-11-15 | Nothing secret or dev-only is public or on by default | R-030 (legacy projects deleted, build output ignored; rotate the old password wherever it is used), R-027 (password grant off on `hospital-web`, no replacement test client), R-029 (sample data and Swagger only in `docker-compose.override.yml`), R-043 (password reset off until SMTP exists) | Q-009 answered: delete |
 | **2 — Phase 2: tests and CI** | Every change is checked automatically | R-035: API test project (role matrix, BOLA, tokens, deactivation, record author/editor, known gaps), unit tests for the appointment rules (R-009, R-014, R-018, R-022), `TimeProvider` in the services (A-004), GitHub Actions with gates G1–G6, CODEOWNERS and the PR template; R-012 (gitleaks); R-040 (pinned image tags in CI). Remaining unit tests: phase 3; E2E: phase 4 | – |
-| **3 — Production deployment** | A deployable, encrypted, least-privilege stack | R-025 (TLS everywhere, HSTS), R-026 (Keycloak `start` with a production realm, no sample users), R-033 (static frontend image behind a web server), R-034 (hostnames, issuer, CORS and redirect URIs from configuration), R-031 (separate database users, least privilege), R-032 (backups and a restore drill), R-036 (security headers, rate limiting), R-038 (migrations as a release step), R-039 (shared cache or short expiry) | Q-006, Q-008 |
+| **3 — Production deployment** ⏸ not planned (local only, Q-006) | A deployable, encrypted, least-privilege stack | R-025 (TLS everywhere, HSTS), R-026 (Keycloak `start` with a production realm, no sample users), R-033 (static frontend image behind a web server), R-034 (hostnames, issuer, CORS and redirect URIs from configuration), R-031 (separate database users, least privilege), R-032 (backups and a restore drill), R-036 (security headers, rate limiting), R-038 (migrations as a release step), R-039 (shared cache or short expiry) | Q-006, Q-008 |
 | **4a — Real-life flows: data and API** | Every flow in [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md) works end to end on realistic synthetic data, without leakage | R-054 (DTOs instead of entities), R-051 (time zones), R-049 (duplicate patients), R-044 (patient model and the deterministic data generator, BUSINESS_FLOWS §4), R-048 (concurrent booking), R-056 (record version check), R-053 (records only for completed appointments), R-050 (closing past appointments), R-055 (offboarded doctors' appointments), R-042 (no personal data in logs) | – |
 | **4b — Real-life flows: frontend** | Each actor can do their flows in `frontend-web`, not only through Swagger | Screens for the flows marked "UI ❌" in BUSINESS_FLOWS (appointments, records and history, patient's own data, user linking, status correction, audit) | 4a |
 | **4c — Health-data security** | Security as if the data were real | R-028 (MFA and password policy for staff), R-041 (append-only audit store, retention), R-045 (retention and export mechanisms), R-052 (shorter token lifetime or role re-check) | – |
-| **5 — Operate** | Problems are seen and handled | R-046 (telemetry export, alerts, central logs including Keycloak events), R-047 (runbooks for deploy, rollback, secret rotation, restore), R-037 (paging) | Wave 3 |
+| **5 — Operate** ⏸ not planned (local only, Q-006), except R-037, which is code | Problems are seen and handled | R-046 (telemetry export, alerts, central logs including Keycloak events), R-047 (runbooks for deploy, rollback, secret rotation, restore), R-037 (paging) | Wave 3 |
 
 Wave 1 is small enough to do before phase 2. Phase 2 (wave 2) is the foundation for the others: from then on
 every fix in waves 3–5 lands with the test or configuration check that proves it.
