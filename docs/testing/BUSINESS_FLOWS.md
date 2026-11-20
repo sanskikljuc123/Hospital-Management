@@ -128,7 +128,7 @@ Steps: at or after the start, the doctor marks `Completed`, or staff mark `NoSho
 | F-07.2 | Nurse or admin tries to complete | 403 | R-014 |
 | F-07.3 | Complete or no-show before the start | 409 | R-014 |
 | F-07.4 | Nobody closes the appointment | **Gap:** it stays `Scheduled`/`Confirmed` forever; statistics and the doctor's list are wrong | R-050 |
-| F-07.5 | Staff mark `NoShow` on a started visit that already has a medical record | 409, unchanged (the visit is documented) | R-014, R-053 |
+| F-07.5 | Staff mark `NoShow` on a started visit that already has a medical record — also when the doctor saves the record at the same moment | 409, unchanged (the visit is documented). At the same moment exactly one wins: the record (201, `NoShow` gets 409) or `NoShow` (200, the record gets 409), never both | R-014, R-053 |
 
 ### F-08 Writing a medical record
 
