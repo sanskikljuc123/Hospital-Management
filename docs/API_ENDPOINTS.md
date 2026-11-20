@@ -145,6 +145,7 @@ Create, update, cancel and delete are audited. Create and update also notify the
 | `Completed` only by a Doctor and only once `scheduledAt` has passed. | 403 (not a doctor), 409 (not started) |
 | `NoShow` only once `scheduledAt` has passed, and never when a medical record is linked to the appointment (the visit is documented). | 409 |
 | Changing `doctorId`, `serviceId`, `scheduledAt` or `durationMinutes` (moving) is allowed only while `Scheduled` or `Confirmed`, only **before** the current `scheduledAt` (a started visit is closed with `Completed` or `NoShow`, not moved), only into the future, and must not be combined with a final status. | 400 (new time in the past), 409 (already started, with final status, or doctor busy) |
+| A doctor never has two overlapping appointments that are not cancelled, also when two bookings or moves arrive at the same moment: the database decides, and every request but one gets the same 409 as a busy slot. A rare 409 "another change … was saved at the same moment" means the same thing: reload and try again. | 409 |
 | A moved appointment always goes back to `Scheduled` and has to be confirmed again. | – |
 
 ### Status corrections
