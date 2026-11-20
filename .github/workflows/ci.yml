@@ -77,7 +77,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: python3 scripts/check_test_gates.py
+      - name: Risk coverage and skips (G4 a, b; G5)
+        run: python3 scripts/check_test_gates.py
+      # Part of the same job, so the required check name in the ruleset stays the same.
+      - name: Cited paths, lines and code names still exist (G4 c)
+        run: python3 -I scripts/check_doc_references.py
 
   secrets:
     name: Secret scan (G6)
