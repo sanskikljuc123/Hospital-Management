@@ -36,7 +36,7 @@ Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive versi
 
 | Method | Path | Purpose | Auth | Output |
 |---|---|---|---|---|
-| GET | `/health` | Readiness: process and database reachable | Anonymous | `Healthy` / `Unhealthy` (200 / 503) |
+| GET | `/health` | Readiness: process and database reachable; `Degraded` when notifications failed in the last 24 h or delivery has stopped (due > 10 min) | Anonymous | `Healthy` / `Degraded` (200), `Unhealthy` (503) |
 | GET | `/alive` | Liveness: process responds | Anonymous | `Healthy` (200) |
 
 ## Doctors — `/api/Doctor`
