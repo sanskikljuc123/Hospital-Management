@@ -83,7 +83,7 @@ namespace Services.AppointmentService
 
         public async Task<ServiceResult<AppointmentDto>> UpdateAsync(int id, AppointmentUpdateDto dto, CancellationToken cancellationToken = default)
         {
-            var appointment = await _context.Appointments.FindAsync(new object[] { id }, cancellationToken);
+            var appointment = await _context.FindAppointmentForUpdateAsync(id, cancellationToken);
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
 
             if (dto.ScheduledAt.Kind == DateTimeKind.Unspecified) return MissingTimeZone();
@@ -172,7 +172,7 @@ namespace Services.AppointmentService
         public async Task<ServiceResult<AppointmentDto>> CorrectStatusAsync(int id, AppointmentStatusCorrectionDto dto,
             CancellationToken cancellationToken = default)
         {
-            var appointment = await _context.Appointments.FindAsync(new object[] { id }, cancellationToken);
+            var appointment = await _context.FindAppointmentForUpdateAsync(id, cancellationToken);
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
             if (!IsFinal(appointment.Status))
                 return ServiceResult<AppointmentDto>.Conflict(
@@ -222,7 +222,7 @@ namespace Services.AppointmentService
 
         public async Task<ServiceResult<AppointmentDto>> CancelAsync(int id, CancellationToken cancellationToken = default)
         {
-            var appointment = await _context.Appointments.FindAsync(new object[] { id }, cancellationToken);
+            var appointment = await _context.FindAppointmentForUpdateAsync(id, cancellationToken);
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
             if (IsFinal(appointment.Status))
                 return ServiceResult<AppointmentDto>.Conflict($"A {appointment.Status} appointment cannot be cancelled");
