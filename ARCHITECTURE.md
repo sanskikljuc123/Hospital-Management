@@ -64,7 +64,7 @@ The `backend/Service` folder (`Servicest.csproj`) is leftover scaffolding that i
 | Write transactions | `api/Infrastructure/TransactionalWriteFilter.cs` | One database transaction per POST/PUT/PATCH/DELETE: change, audit entry, record revision and outbox messages commit together (D-8) |
 | Side effects | `Services/Outbox`, `api/Infrastructure/OutboxDispatcher.cs` | Recorded in the outbox with the change, delivered afterwards with retries (§7) |
 | Errors | `api/Infrastructure/DbUpdateExceptionHandler.cs` | Constraint violations → 409 problem details |
-| Health | `/health` (readiness, includes database), `/alive` (liveness) | Anonymous |
+| Health | `/health` (readiness: database; notification delivery as Degraded), `/alive` (liveness) | Anonymous |
 | Telemetry | ServiceDefaults | OTLP export when `OTEL_EXPORTER_OTLP_ENDPOINT` is set |
 | CORS | `Cors:AllowedOrigins` | Explicit origin list; default `http://localhost:3000` |
 
@@ -392,6 +392,14 @@ background:           OutboxDispatcher → OutboxProcessor → handler → IEmai
   marked `FailedAt` and kept for inspection. `LastError` holds the exception type and message only.
 - Delivery is **at least once**: a crash after sending but before marking the message processed sends it
   again. Real providers should be given the message id as an idempotency key.
+- **Visibility (R-046).** A failed or stuck notification is not only a log line:
+  - `/health` includes the check `outbox` (`api/Infrastructure/OutboxHealthCheck.cs`, `Services/Outbox/OutboxMonitor.cs`).
+    It is **Degraded** when a message failed for good in the last 24 hours, or a message has been due for more
+    than 10 minutes without being delivered (delivery has stopped). Degraded still answers 200, so the instance
+    stays in rotation; the API works, only notifications do not. The check reports counts only.
+  - The meter `HospitalManagement.Outbox` (`OutboxMetrics`) counts `hospital.outbox.messages.delivered`,
+    `.retried` and `.failed`, tagged with the message type; it is exported with the other OpenTelemetry metrics.
+    Alert on `failed` > 0 and on `/health` = Degraded. Setting up that alert belongs to wave 5 (R-046).
 
 To connect a real provider, implement `IEmailService` or `ISmsService` and change one registration line.
 
