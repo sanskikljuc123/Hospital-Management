@@ -10,7 +10,7 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds | CI log |
 | G2 | Unit tests | every PR | all pass; none skipped without a ticket (G5) | test results (TRX) |
 | G3 | API tests | every PR | all pass against real PostgreSQL; none skipped without a ticket | test results (TRX) |
-| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists. The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
+| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing | gitleaks report |
 | G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, `frontend-web/src/auth/`, the compose files, `e2e/`, the E2E workflow), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
@@ -39,6 +39,14 @@ when a second maintainer joins: then the ruleset requires 1 approval and review 
 
 G4 and G5 are small scripts in `scripts/`. They read the register and the test source; they do not judge
 test quality — that is G8.
+
+**G4 (c) — citations still resolve** (`scripts/check_doc_references.py`, in the same CI job). Agents and people
+act on what the documents cite; when code moves, a citation can quietly point at nothing (the agents once named
+helpers that had been removed). The check fails when a cited path or file is gone, a cited line is past the end of
+the file, or a code name in an agent or skill file no longer appears in the code. It proves that a citation
+resolves, **not** that the cited line still says the same thing: that stays with the reviewer and qe-reviewer's
+check V3. Cite pull requests, not branch names: a branch is gone after merge. Format examples, routes such as
+`/health`, git-ignored build output and `.env`, and the two legacy folders deleted on purpose are not checked.
 
 **G4 is a ratchet.** A risk enters the gate when the test owner sets it to `Covered` after its tests pass;
 from then on it can never lose its tests unnoticed. Risks of level *Config* and *Ops* join the gate in wave 3
