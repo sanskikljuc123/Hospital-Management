@@ -80,7 +80,7 @@ API ✅ · UI ❌
 | F-03.6 | Duration below 5 or above 480 minutes | 400 | – |
 | F-03.7 | Unknown doctor or service | 400 | – |
 | F-03.8 | Patient books for another patient | 403, nothing created | R-002 |
-| F-03.9 | Two bookings for the same slot at the same moment | **Gap:** both can succeed (check-then-insert, no database constraint) | R-048 |
+| F-03.9 | Two or more bookings for the same or overlapping slot of one doctor at the same moment | Exactly one is saved (201); every other gets 409 and nothing is saved. Decided by the database, not by timing | R-048 |
 | F-03.10 | Time sent without a time zone, or with an offset (e.g. across a daylight-saving change) | Without a time zone: 400, nothing booked or changed (also on `PUT`). With `Z` or an offset: stored as the same instant in UTC (`09:00+01:00` → `08:00Z`) | R-051 |
 
 ### F-04 Confirmation
