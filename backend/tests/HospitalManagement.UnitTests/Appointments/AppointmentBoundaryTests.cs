@@ -96,6 +96,43 @@ public class AppointmentBoundaryTests : IDisposable
     // ---------- Time kinds ----------
 
     [Fact]
+    [Trait("Risk", "R-051")]
+    [Trait("Scenario", "F-03.10")]
+    public async Task Book_TimeWithoutTimeZone_IsInvalid_AndNothingIsBooked()
+    {
+        var result = await _bed.Service.CreateAsync(new AppointmentCreateDto
+        {
+            PatientId = _bed.PatientId, DoctorId = _bed.DoctorId,
+            ScheduledAt = DateTime.SpecifyKind(At(1, 9), DateTimeKind.Unspecified), DurationMinutes = 30
+        });
+
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.Empty(_bed.Db.Appointments);
+        Assert.Empty(_bed.Audit.Entries);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-051")]
+    [Trait("Scenario", "F-03.10")]
+    public async Task Update_TimeWithoutTimeZone_IsInvalid_AndNothingChanges()
+    {
+        var a = await _bed.BookAsync(At(1, 9));
+        var auditBefore = _bed.Audit.Entries.Count;
+        var update = _bed.UpdateOf(a, AppointmentStatus.Confirmed);
+        update.ScheduledAt = DateTime.SpecifyKind(a.ScheduledAt, DateTimeKind.Unspecified);
+
+        var result = await _bed.Service.UpdateAsync(a.Id, update);
+
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        var stored = (await _bed.Db.Appointments.FindAsync(a.Id))!;
+        Assert.Equal(AppointmentStatus.Scheduled, stored.Status);
+        Assert.Equal(At(1, 9), stored.ScheduledAt);
+        Assert.Equal(auditBefore, _bed.Audit.Entries.Count);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-051")]
+    [Trait("Scenario", "F-03.10")]
     public async Task Book_UtcTime_IsStoredUnchanged()
     {
         var a = await _bed.BookAsync(DateTime.SpecifyKind(At(1, 9), DateTimeKind.Utc));
@@ -104,6 +141,8 @@ public class AppointmentBoundaryTests : IDisposable
     }
 
     [Fact]
+    [Trait("Risk", "R-051")]
+    [Trait("Scenario", "F-03.10")]
     public async Task Book_LocalTime_IsConvertedToUtc()
     {
         var local = DateTime.SpecifyKind(At(1, 9), DateTimeKind.Utc).ToLocalTime();

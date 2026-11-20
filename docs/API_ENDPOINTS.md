@@ -27,6 +27,10 @@ Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive versi
   | 409 | Conflict: double booking, duplicate name, or the record is still referenced by other data |
 
 - **Formats.** JSON, camelCase. Dates are ISO 8601 and stored in UTC. Enums are strings.
+- **Time zones.** An appointment time (`scheduledAt`) must say which time zone it is in: end it with `Z`
+  (`2027-03-01T08:00:00Z`) or an offset (`2027-03-01T09:00:00+01:00`). A time without one
+  (`2027-03-01T09:00:00`) is refused with 400, because it could mean UTC or the clinic's local time. The
+  response always returns the time in UTC (`…Z`); the client converts it for display.
 
 ## Health
 

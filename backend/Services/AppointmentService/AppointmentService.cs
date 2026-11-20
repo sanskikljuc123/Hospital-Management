@@ -49,7 +49,8 @@ namespace Services.AppointmentService
 
         public async Task<ServiceResult<AppointmentDto>> CreateAsync(AppointmentCreateDto dto, CancellationToken cancellationToken = default)
         {
-            var scheduledAt = ToUtc(dto.ScheduledAt);
+            if (dto.ScheduledAt.Kind == DateTimeKind.Unspecified) return MissingTimeZone();
+            var scheduledAt = dto.ScheduledAt.ToUniversalTime();
             if (scheduledAt <= UtcNow)
                 return ServiceResult<AppointmentDto>.Invalid("An appointment must be scheduled in the future");
             if (!await _context.Patients.AnyAsync(p => p.Id == dto.PatientId, cancellationToken))
@@ -86,7 +87,8 @@ namespace Services.AppointmentService
             var appointment = await _context.Appointments.FindAsync(new object[] { id }, cancellationToken);
             if (appointment == null) return ServiceResult<AppointmentDto>.NotFound($"Appointment with ID {id} not found");
 
-            var scheduledAt = ToUtc(dto.ScheduledAt);
+            if (dto.ScheduledAt.Kind == DateTimeKind.Unspecified) return MissingTimeZone();
+            var scheduledAt = dto.ScheduledAt.ToUniversalTime();
             var now = UtcNow;
             var rescheduled = appointment.DoctorId != dto.DoctorId
                 || appointment.ServiceId != dto.ServiceId
@@ -289,8 +291,13 @@ namespace Services.AppointmentService
                 : null;
         }
 
-        private static DateTime ToUtc(DateTime value) =>
-            value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(value, DateTimeKind.Utc) : value.ToUniversalTime();
+        /// <summary>
+        /// A time without a time zone ("2027-03-01T09:00:00") is ambiguous: read as UTC it shifts the appointment
+        /// by the clinic's offset, and by one more hour across a daylight-saving change (R-051). It is refused;
+        /// the client sends "Z" or an offset such as "+01:00", and the time is stored in UTC.
+        /// </summary>
+        private static ServiceResult<AppointmentDto> MissingTimeZone() => ServiceResult<AppointmentDto>.Invalid(
+            "scheduledAt must include a time zone: end it with Z (UTC) or an offset such as +01:00");
 
         private static IQueryable<AppointmentDto> Project(IQueryable<Appointment> query) =>
             query.Select(a => new AppointmentDto
