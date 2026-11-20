@@ -305,6 +305,21 @@ Rules enforced by the schema:
 - Deleting a department or user clears the reference instead of deleting dependants (`SET NULL`); deleting a
   service clears it from appointments.
 - All timestamps are `timestamp with time zone` in UTC; a model-wide converter normalises incoming values.
+- A doctor cannot have two appointments whose times overlap, unless one is cancelled: exclusion constraint
+  `EX_Appointments_DoctorNoOverlap` on `(DoctorId, [ScheduledAt, EndsAt))` (migration `AppointmentNoOverlap`,
+  extension `btree_gist`). The service checks the slot first and returns its own 409; the constraint decides
+  between requests that arrive at the same moment (R-048). `EndsAt` is kept equal to `ScheduledAt` plus
+  `DurationMinutes` by the check constraint `CK_Appointments_EndsAt`. The API maps the constraint violation,
+  and the deadlock PostgreSQL may report while two such requests check each other, to 409.
+  If the migration fails on an existing database, overlapping appointments already exist. This query lists them:
+  ```sql
+  SELECT a."Id", b."Id", a."DoctorId", a."ScheduledAt", b."ScheduledAt"
+  FROM "Appointments" a JOIN "Appointments" b
+    ON a."DoctorId" = b."DoctorId" AND a."Id" < b."Id"
+   AND a."Status" <> 'Cancelled' AND b."Status" <> 'Cancelled'
+   AND a."ScheduledAt" < b."ScheduledAt" + make_interval(mins => b."DurationMinutes")
+   AND b."ScheduledAt" < a."ScheduledAt" + make_interval(mins => a."DurationMinutes");
+  ```
 
 **Migrations.** `Data/Migrations` holds `InitialPostgres` (the earlier SQL Server migration was replaced)
 and `MedicalRecordRevisions` (record history; gives existing records revision 1). With `Database:MigrateOnStartup=true` the API applies pending migrations when it
