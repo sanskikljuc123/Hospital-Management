@@ -49,8 +49,8 @@ These documents are the **single source of truth**. Agents and skills point to t
    │ qe-test-designer│── Gherkin, draft code as text ─┐
    └─────────────────┘                                │
                                                       ▼
-                                          a person writes / accepts
-                                          the test code and commits it
+                                          the implementer writes the code
+                                          and tests; a person accepts them
                                                       │
                                                       ▼
    ┌─────────────────┐   weakened or missing tests, missing risk tags,
@@ -96,7 +96,43 @@ quiet unlink on delete (R-058).
    *Question*. Uncited statements are not used.
 4. **Agents never weaken a test.** They never propose retries, skips, longer timeouts, broader assertions
    or deleting a failing test as a fix.
-5. **No secrets or real patient data** are given to an agent. Test data is synthetic.
+5. **No secrets or real patient data** are given to an agent. Test data is synthetic. This is enforced, not
+   only asked for: [.claude/settings.json](../../.claude/settings.json) denies reading the local `.env`
+   files and key files, for every Claude session in this repository.
+6. **The implementer is governed too.** The rules above cover the three read-only agents. The session that
+   changes code — a person, or an AI coding session such as Claude Code — follows
+   [The implementer](#the-implementer) below.
+
+## The implementer
+
+The implementer is whoever turns a design into a change: a person, or an AI coding session working for a
+person. It is the one role that writes, so its limits are explicit.
+
+| The implementer may | Only a person may |
+|---|---|
+| Edit code, tests and documents on a feature branch | Answer a **Question** (business rule, expected result, status code) |
+| Run builds, tests and the gate scripts locally | Set a risk's rating or status in RISK_REGISTER (`Accepted`, `Covered`, `Closed`) |
+| Run the agents and pass their output on | Confirm the PR template answers — above all "tests removed, skipped or loosened?" |
+| Commit on the feature branch and push it (an AI session asks first) | Merge into `master` |
+| Draft the PR description and the PR template answers | Change repository, GitHub or Keycloak settings |
+
+Rules for an AI implementer:
+
+1. **Hand-offs are verbatim.** Agent output, diffs and test output are passed to the next agent whole,
+   never summarized (the R-053 pilot, lesson 1).
+2. **One step at a time.** No implementation while a design is still being validated; no change review
+   until the diff is final (lesson 2).
+3. **Decisions are asked, not made.** Every Question goes to the person in business language, with the
+   options and their consequences. A recommendation is allowed, but it is labelled as one, and the person's
+   answer is recorded in RISK_REGISTER §4 with the date.
+4. **Results are reported as they are.** Failing tests, skipped steps and anything not verified are stated
+   in the PR; a test is never weakened to make it pass (AI rule 4 applies to the implementer too).
+5. **Work is visible.** Commits carry a `Co-Authored-By` line for the AI session, and the PR says which
+   agents ran and what they found.
+6. **Limits are enforced where possible.** [.claude/settings.json](../../.claude/settings.json) denies
+   force pushes, direct pushes to `master` and `git reset --hard`, and asks the person before every commit,
+   push, merge and rebase. These rules match command prefixes, so they guard against mistakes, not against
+   a session that sets out to get around them; branch protection on GitHub is the control that holds.
 
 ## Agents and skills
 
@@ -123,6 +159,7 @@ Use qe-reviewer to triage this failing test: <paste output>.
 |---|---|---|
 | Test owner | Repository owner | Accepts risk ratings and assumptions, owns this folder, decides on quarantine and accepted risks. |
 | Author | Whoever changes code | Writes or updates the tests for the risks their change touches. |
+| Implementer | A person, or an AI coding session working for one | Writes the change within the limits in [The implementer](#the-implementer). An AI implementer is never the author of record: the person it works for is, and that person confirms the PR template. |
 | Code owner | Listed in CODEOWNERS | Approves pull requests. Cannot be an agent. |
 
 ## Test projects
