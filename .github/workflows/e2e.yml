@@ -1,6 +1,9 @@
 # Quality gate G7 (docs/testing/QUALITY_GATES.md §1): end-to-end journeys against the real stack —
 # Keycloak, the API, PostgreSQL (docker compose) and the production build of the web frontend.
-# Runs on merges to master, nightly, on demand, and on pull requests labelled "e2e". No retries, no AI step.
+# Runs on merges to master, nightly, on demand, on pull requests labelled "e2e", and on every pull request that
+# touches sign-in (see the "changes" job). No retries, no AI step.
+# The job "End-to-end journeys (G7)" is a required check on master: when a pull request does not touch sign-in it
+# reports Skipped, which GitHub counts as passed; when it does, the journeys must pass before merge.
 name: E2E
 
 on:
@@ -20,9 +23,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Does this pull request touch sign-in? Plain git, no third-party action. The paths are where a change can break
+  # the real Keycloak sign-in that only the E2E journeys exercise (API tests use test-signed tokens).
+  changes:
+    name: Does this change touch sign-in?
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    outputs:
+      sign_in: ${{ steps.diff.outputs.sign_in }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
+          echo "Changed files:"; echo "$changed"
+          pattern='^(backend/api/Auth/|backend/api/Program\.cs$|keycloak/|frontend-web/src/auth/|docker-compose[^/]*\.ya?ml$|e2e/|\.github/workflows/e2e\.yml$)'
+          if echo "$changed" | grep -Eq "$pattern"; then
+            echo "sign_in=true" >> "$GITHUB_OUTPUT"
+            echo "Touches sign-in: the journeys run."
+          else
+            echo "sign_in=false" >> "$GITHUB_OUTPUT"
+            echo "Does not touch sign-in: the journeys are skipped."
+          fi
+
   e2e:
     name: End-to-end journeys (G7)
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    needs: changes
+    # Fail-safe: if the change detection itself did not succeed, the journeys run rather than being skipped,
+    # because a skipped required check counts as passed.
+    if: >-
+      !cancelled() && (
+        github.event_name != 'pull_request'
+        || contains(github.event.pull_request.labels.*.name, 'e2e')
+        || needs.changes.outputs.sign_in == 'true'
+        || needs.changes.result != 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
