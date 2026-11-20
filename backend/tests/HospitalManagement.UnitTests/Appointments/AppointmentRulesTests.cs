@@ -125,6 +125,23 @@ public class AppointmentRulesTests : IDisposable
         Assert.Equal(AppointmentStatus.Confirmed, result.Value!.Status);
     }
 
+    // EndsAt feeds the database's no-overlap constraint (R-048); a wrong value would let overlaps through there.
+    [Fact]
+    [Trait("Risk", "R-048")]
+    [Trait("Scenario", "F-03.9")]
+    public async Task Book_And_Move_KeepEndsAtAtStartPlusDuration()
+    {
+        var a = await _bed.BookAsync(At(1, 9), durationMinutes: 45);
+        Assert.Equal(At(1, 9, 45), (await _bed.Db.Appointments.FindAsync(a.Id))!.EndsAt);
+
+        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        move.ScheduledAt = At(2, 10);
+        move.DurationMinutes = 20;
+        await _bed.Service.UpdateAsync(a.Id, move);
+
+        Assert.Equal(At(2, 10, 20), (await _bed.Db.Appointments.FindAsync(a.Id))!.EndsAt);
+    }
+
     [Fact]
     [Trait("Risk", "R-014")]
     [Trait("Scenario", "F-05.1")]

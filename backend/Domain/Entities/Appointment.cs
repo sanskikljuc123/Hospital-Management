@@ -20,6 +20,11 @@ namespace Domain.Entities
         public Service? Service { get; set; }
         public DateTime ScheduledAt { get; set; }
         public int DurationMinutes { get; set; } = 30;
+        /// <summary>
+        /// <see cref="ScheduledAt"/> plus <see cref="DurationMinutes"/>, stored so the database can refuse
+        /// overlapping appointments of one doctor (exclusion constraint, R-048). A check constraint keeps it in step.
+        /// </summary>
+        public DateTime EndsAt { get; set; }
         public AppointmentStatus Status { get; set; } = AppointmentStatus.Scheduled;
         public string? Reason { get; set; }
         public string? Notes { get; set; }
