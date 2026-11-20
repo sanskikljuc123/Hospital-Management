@@ -122,7 +122,7 @@ flow scenario that exposes each one is named in the evidence column.
 
 | ID | Risk | STRIDE | I | L | Severity | Evidence (current state) | Level | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| R-048 | Two bookings for the same doctor and slot at the same moment both succeed | T | 3 | 2 | Medium (6) | Check-then-insert in `AppointmentService.cs:253-264`; the index on `(DoctorId, ScheduledAt)` is not unique and cannot express overlap (`ApplicationDbContext.cs:98`) — F-03.9 | API | – | Proposed |
+| R-048 | Two bookings for the same doctor and slot at the same moment both succeed | T | 3 | 2 | Medium (6) | Fixed on `fix/r048-concurrent-booking`: exclusion constraint `EX_Appointments_DoctorNoOverlap` on the doctor and the time range (migration `AppointmentNoOverlap`); the violation, and the deadlock two such inserts can report, become 409 (`DbUpdateExceptionHandler.cs`). Before the fix, 8 of 10 parallel bookings of one slot were saved — F-03.9 | API | `ConcurrentBookingTests`, `AppointmentRulesTests` | Covered |
 | R-049 | The same person is registered twice, splitting their history across two patient records | T | 3 | 3 | **High (9)** | No duplicate check in `PatientServiceImp.cs` — F-02.3 | Unit | – | Proposed |
 | R-050 | Appointments nobody closes stay `Scheduled`/`Confirmed` forever | T | 2 | 4 | **High (8)** | No job or rule closes past appointments — F-07.4 | Unit | – | Proposed |
 | R-051 | A local time sent without an offset is stored as if it were UTC, shifting the appointment by the time-zone difference | T | 3 | 3 | **High (9)** | `AppointmentService.cs:269` (`Unspecified` → `Utc`) — F-03.10 | API | `KnownGapTests` (known gap, skipped) | Proposed |
