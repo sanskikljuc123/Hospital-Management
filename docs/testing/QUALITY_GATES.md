@@ -16,6 +16,20 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G7 | E2E | merge to `master`, nightly, PR label `e2e` | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 
+**Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G6
+binding, not advisory: changes reach `master` only through a pull request, the four CI checks
+(`Backend build and tests (G1, G2, G3)`, `Frontend build (G1)`, `Risk coverage and skips (G4, G5)`,
+`Secret scan (G6)`) must pass, and force pushes and deleting `master` are blocked. The bypass list is
+empty. Renaming a CI job changes its check name, so the ruleset must be updated in the same pull request,
+or every later pull request waits for a check that never runs.
+
+**Accepted exception — single maintainer (since 2026-11-20).** The repository has one code owner, and
+GitHub does not let authors approve their own pull requests, so the ruleset requires **0 approvals** and
+G8 is met by the code owner reviewing and merging the pull request themselves. Changes written by an AI
+implementer still need that person's review and merge (README → *The implementer*). The exception ends
+when a second maintainer joins: then the ruleset requires 1 approval and review from code owners, and
+`/backend/api/Auth/` and `/keycloak/` get a second reviewer in CODEOWNERS.
+
 G4 and G5 are small scripts in `scripts/`. They read the register and the test source; they do not judge
 test quality — that is G8.
 
