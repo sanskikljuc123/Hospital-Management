@@ -2,7 +2,11 @@
 """Quality gates G4 (risk coverage) and G5 (no silent skips), docs/testing/QUALITY_GATES.md §1.
 
 G4 (a) every risk with status `Covered` in docs/testing/RISK_REGISTER.md is named by at least one test
-       that is not skipped ([Trait("Risk", "R-xxx")] on the test method or its class);
+       that is not skipped ([Trait("Risk", "R-xxx")] on the test method or its class) **at the risk's
+       level**: a Unit risk needs a unit test, an API risk an API test, an E2E risk an E2E scenario. A test
+       at another level does not count, so an E2E scenario (which does not run on every pull request)
+       cannot keep a Unit or API risk Covered after its tests are deleted. A risk whose level names no
+       test level (CI, Config, Ops) needs a unit or API test;
 G4 (b) every Risk trait names a risk that exists in the register;
 G4     lists, without failing, the Critical/High risks of level API, Unit or CI that are not Covered yet.
 G5     every Skip = "..." names an open risk ("Known gap R-xxx") or a GitHub issue ("#123").
@@ -23,6 +27,25 @@ SKIP = re.compile(r'Skip\s*=\s*"([^"]*)"')
 KNOWN_GAP = re.compile(r"Known gap (R-[0-9]{3})")
 ISSUE = re.compile(r"#[0-9]+")
 DECLARATION = re.compile(r"^\s*(public|internal|private|protected)\b.*\b(class|Task|void)\b")
+TEST_LEVELS = ("Unit", "API", "E2E")
+PULL_REQUEST_LEVELS = {"Unit", "API"}  # run on every pull request (G2, G3)
+
+
+def test_level(path):
+    """The level of a test from where it lives: the unit project, the API project, or a .feature file."""
+    if path.suffix == ".feature":
+        return "E2E"
+    if "HospitalManagement.UnitTests" in path.parts:
+        return "Unit"
+    if "HospitalManagement.ApiTests" in path.parts:
+        return "API"
+    return None
+
+
+def risk_levels(level_cell):
+    """The test levels a register row names, e.g. "Unit, API" -> {"Unit", "API"}; none -> Unit or API."""
+    named = {level for level in TEST_LEVELS if re.search(rf"\b{level}\b", level_cell)}
+    return named or PULL_REQUEST_LEVELS
 
 
 def read_register():
@@ -98,18 +121,24 @@ def main():
     tests, skips = read_tests()
     failures = []
 
-    active = {}
+    active = {}  # risk -> {test level: number of active tests}
     for path, number, test_risks, skip in tests:
         for risk in test_risks:
             if risk not in risks:
                 failures.append(f"G4(b) {rel(path)}:{number} names {risk}, which is not in the register")
             if skip is None:
-                active.setdefault(risk, 0)
-                active[risk] += 1
+                by_level = active.setdefault(risk, {})
+                level = test_level(path)
+                by_level[level] = by_level.get(level, 0) + 1
 
-    for risk, (_, _, status) in sorted(risks.items()):
-        if status == "Covered" and not active.get(risk):
-            failures.append(f"G4(a) {risk} is Covered in the register but no active test names it")
+    for risk, (_, level, status) in sorted(risks.items()):
+        if status != "Covered":
+            continue
+        wanted = risk_levels(level)
+        if not any(active.get(risk, {}).get(l) for l in wanted):
+            found = ", ".join(f"{n} {l}" for l, n in sorted(active.get(risk, {}).items(), key=str)) or "none"
+            failures.append(f"G4(a) {risk} is Covered at level {'/'.join(sorted(wanted))}, but no active test "
+                            f"at that level names it (active tests: {found})")
 
     for path, number, reason in skips:
         gap = KNOWN_GAP.search(reason)
@@ -123,7 +152,7 @@ def main():
             failures.append(f'G5 {rel(path)}:{number} Skip = "{reason}" names neither a risk nor an issue')
 
     uncovered = [
-        f"  {risk}  {severity}  level {level}  status {status}  active tests: {active.get(risk, 0)}"
+        f"  {risk}  {severity}  level {level}  status {status}  active tests: {sum(active.get(risk, {}).values())}"
         for risk, (severity, level, status) in sorted(risks.items())
         if severity.startswith(("Critical", "High")) and level in ("API", "Unit", "CI") and status != "Covered"
     ]
