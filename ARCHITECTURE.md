@@ -387,7 +387,11 @@ background:           OutboxDispatcher → OutboxProcessor → handler → IEmai
 - The payload holds ids and status only; contact details are read at delivery time, so the outbox never
   stores personal data.
 - `OutboxDispatcher` (a hosted service in the API) runs the processor every `Outbox:PollIntervalSeconds`.
-  Each batch is claimed with `FOR UPDATE SKIP LOCKED`, so several API instances can run it safely.
+  Each batch is claimed with `FOR UPDATE SKIP LOCKED`, so several API instances can run it safely. It delivers
+  due messages as soon as it starts, drains a backlog in one pass (not one batch per tick), and survives an
+  unreachable database: the error is logged and the next tick tries again. Its timer runs on the app's
+  `TimeProvider`. Tested as a loop, not only through the processor: `OutboxDispatcherTests` (unit, fake clock,
+  failing database) and `OutboxDispatcherHostTests` (API host on PostgreSQL, booking → e-mail delivered).
 - A failed delivery is retried with exponential back-off (1, 2, 4, 8 minutes); after 5 attempts the message is
   marked `FailedAt` and kept for inspection. `LastError` holds the exception type and message only.
 - Delivery is **at least once**: a crash after sending but before marking the message processed sends it
