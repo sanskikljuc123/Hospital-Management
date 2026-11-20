@@ -70,12 +70,12 @@ namespace Services.MedicalRecordService
             var now = _time.GetUtcNow().UtcDateTime;
             if (dto.AppointmentId.HasValue)
             {
+                // The appointment's row is locked first, so a status change at the same moment waits for this
+                // record, or this record sees that change (A-006, AppointmentLocking).
+                var appointment = await _context.FindAppointmentForUpdateAsync(dto.AppointmentId.Value, cancellationToken);
+
                 // A record can only be attached to an appointment of this patient with this doctor (400)...
-                var appointment = await _context.Appointments.AsNoTracking()
-                    .Where(a => a.Id == dto.AppointmentId.Value && a.PatientId == dto.PatientId && a.DoctorId == doctorId)
-                    .Select(a => new { a.Status, a.ScheduledAt })
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (appointment == null)
+                if (appointment == null || appointment.PatientId != dto.PatientId || appointment.DoctorId != doctorId)
                     return ServiceResult<MedicalRecordDto>.Invalid(
                         $"Appointment with ID {dto.AppointmentId} not found for this patient and doctor");
 

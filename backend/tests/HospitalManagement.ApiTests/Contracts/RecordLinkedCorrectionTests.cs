@@ -84,6 +84,47 @@ public class RecordLinkedCorrectionTests : IAsyncLifetime
         Assert.Equal("Scheduled", after.GetProperty("status").GetString());
     }
 
+    // A-006: the doctor documents the visit while a nurse marks it NoShow, at the same moment. Each request checks
+    // the other's rule ("not NoShow" / "no record") before the other has saved, so both could pass. Whatever the
+    // timing, the visit must end documented or NoShow, never both. Repeated because one pair rarely collides.
+    [Fact]
+    [Trait("Risk", "R-053")]
+    [Trait("Scenario", "F-07.5")]
+    public async Task RecordAndNoShowAtTheSameMoment_NeverBothSucceed()
+    {
+        const int Iterations = 20;
+        var both = new List<string>();
+        using var nurse = _later.ClientFor(TestUser.Nurse());
+
+        for (var i = 0; i < Iterations; i++)
+        {
+            var (doctor, doctorId) = await _data.LinkedDoctorAsync();
+            var patientId = await _data.CreatePatientAsync();
+            var appointmentId = await _data.CreateAppointmentAsync(patientId, doctorId, daysAhead: 7);
+            using var doctorClient = _later.ClientFor(doctor);
+            var current = await nurse.GetFromJsonAsync<JsonElement>($"/api/Appointment/{appointmentId}", TestData.Json);
+
+            var record = doctorClient.PostAsJsonAsync("/api/MedicalRecord",
+                new { patientId, appointmentId, diagnosis = "Synthetic diagnosis" }, TestData.Json);
+            var noShow = nurse.PutAsJsonAsync($"/api/Appointment/{appointmentId}", new
+            {
+                doctorId,
+                scheduledAt = current.GetProperty("scheduledAt").GetDateTime(),
+                durationMinutes = current.GetProperty("durationMinutes").GetInt32(),
+                reason = current.GetProperty("reason").GetString(),
+                status = "NoShow"
+            }, TestData.Json);
+            await Task.WhenAll(record, noShow);
+
+            if (record.Result.StatusCode == HttpStatusCode.Created && noShow.Result.StatusCode == HttpStatusCode.OK)
+                both.Add($"iteration {i}: record 201 and NoShow 200 on appointment {appointmentId}");
+            else
+                Assert.Contains((int)record.Result.StatusCode + "/" + (int)noShow.Result.StatusCode, new[] { "201/409", "409/200" });
+        }
+
+        Assert.True(both.Count == 0, $"{both.Count} of {Iterations} visits ended documented AND NoShow:\n" + string.Join("\n", both));
+    }
+
     /// <summary>
     /// Booked a week ahead on the real clock; eight days later the visit has started (still Scheduled)
     /// and the doctor has written a record for it.

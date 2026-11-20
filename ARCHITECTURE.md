@@ -468,7 +468,7 @@ blocks the gap named next to it.
 | D-5 | Synthetic data only, but everything built and tested as in production (`docs/testing/BUSINESS_FLOWS.md`) | Taken (Q-007) |
 | D-6 | One API instance or several | **Open** (Q-008) — blocks the instance-local state gap (§9) |
 | D-7 | Deployment target and reference topology (compose vs. Aspire publish vs. Kubernetes) | **Open** (Q-006) |
-| D-8 | Atomic with the change: the audit entry, the record revision and the outbox messages (one transaction per write request; audit fails closed). Delivered afterwards, at least once: notifications | Taken (architecture review C-4) |
+| D-8 | Atomic with the change: the audit entry, the record revision and the outbox messages (one transaction per write request; audit fails closed). Delivered afterwards, at least once: notifications. Rules that span two requests on one appointment (a record vs. its status) are serialized by a row lock on the appointment (`AppointmentLocking`, A-006); overlapping bookings by a database constraint (R-048) | Taken (architecture review C-4) |
 | D-9 | Where authorization decisions live: role attributes and policies for *which endpoints*, `IPatientAccessPolicy` for *which patient's data*, services for business invariants (§3); enforced by an architecture test | Taken (architecture review C-3) |
 | D-10 | Error contract: ProblemDetails only | **Open** |
 | D-11 | API contracts: where DTOs live, versioning, how the front end gets its types | **Open** |
