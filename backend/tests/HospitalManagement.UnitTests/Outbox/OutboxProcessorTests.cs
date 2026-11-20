@@ -19,10 +19,16 @@ public class OutboxProcessorTests : IDisposable
     private readonly ApplicationDbContext _db = TestDb.Create();
     private readonly FakeTimeProvider _clock = new(Now);
     private readonly ScriptedHandler _handler = new();
+    private readonly TestMetrics _metrics = new();
 
-    public void Dispose() => _db.Dispose();
+    public void Dispose()
+    {
+        _db.Dispose();
+        _metrics.Dispose();
+    }
 
-    private OutboxProcessor Processor => new(_db, new[] { _handler }, _clock, NullLogger<OutboxProcessor>.Instance);
+    private OutboxProcessor Processor => new(_db, new[] { _handler }, _clock, new OutboxMetrics(_metrics),
+        NullLogger<OutboxProcessor>.Instance);
 
     private async Task<long> EnqueueAsync(string type = ScriptedHandler.HandledType, object? payload = null)
     {
@@ -167,6 +173,40 @@ public class OutboxProcessorTests : IDisposable
         Assert.Equal(2, await Processor.ProcessPendingAsync(batchSize: 2));
 
         Assert.Equal(new[] { "{\"Order\":0}", "{\"Order\":1}" }, _handler.Delivered.ToArray());
+    }
+
+    // ---------- Metrics (R-046): what an alert can watch ----------
+
+    [Fact]
+    [Trait("Risk", "R-046")]
+    public async Task Delivery_IsCounted_WithTheMessageType()
+    {
+        await EnqueueAsync();
+
+        await Processor.ProcessPendingAsync();
+
+        Assert.Equal(new[] { ("hospital.outbox.messages.delivered", 1L, (string?)ScriptedHandler.HandledType) },
+            _metrics.Recorded.ToArray());
+    }
+
+    [Fact]
+    [Trait("Risk", "R-046")]
+    public async Task EveryFailedAttemptButTheLast_IsCountedAsRetry_TheLastAsFailed()
+    {
+        _handler.FailuresLeft = int.MaxValue;
+        var id = await EnqueueAsync();
+
+        for (var i = 0; i < OutboxProcessor.MaxAttempts; i++)
+        {
+            var due = new DateTimeOffset((await LoadAsync(id)).NextAttemptAt, TimeSpan.Zero);
+            if (due > _clock.GetUtcNow()) _clock.SetUtcNow(due);
+            await Processor.ProcessPendingAsync();
+        }
+
+        var names = _metrics.Recorded.Select(m => m.Instrument).ToArray();
+        Assert.Equal(Enumerable.Repeat("hospital.outbox.messages.retried", OutboxProcessor.MaxAttempts - 1)
+            .Append("hospital.outbox.messages.failed"), names);
+        Assert.All(_metrics.Recorded, m => Assert.Equal((1L, ScriptedHandler.HandledType), (m.Value, m.Type)));
     }
 
     private sealed class ScriptedHandler : IOutboxHandler
