@@ -19,16 +19,17 @@ level cannot see it.
 
 | Level | Project | Proves | Real dependencies | Fakes | Runs |
 |---|---|---|---|---|---|
-| **Unit** | `backend/tests/HospitalManagement.UnitTests` | A business rule in one service: double booking, scheduling in the past, status rules, audit entry written | none | EF Core on a real PostgreSQL container is preferred over the in-memory provider when queries matter; otherwise plain objects | smoke on every branch push; all on every PR |
-| **API** | `backend/tests/HospitalManagement.ApiTests` | The HTTP contract: status codes, the role-by-endpoint matrix, per-record access (BOLA), validation, error bodies | PostgreSQL (Testcontainers), the real API pipeline (`WebApplicationFactory<Program>`) | Keycloak is replaced by a local test token issuer (§5) | smoke on every branch push; all on every PR |
+| **Unit** | `backend/tests/HospitalManagement.UnitTests` | A business rule in one service: double booking, scheduling in the past, status rules, audit entry written | none | EF Core on a real PostgreSQL container is preferred over the in-memory provider when queries matter; otherwise plain objects | all on every branch push that changes the backend, and on every PR |
+| **API** | `backend/tests/HospitalManagement.ApiTests` | The HTTP contract: status codes, the role-by-endpoint matrix, per-record access (BOLA), validation, error bodies | PostgreSQL (Testcontainers), the real API pipeline (`WebApplicationFactory<Program>`) | Keycloak is replaced by a local test token issuer (§5) | all on every branch push that changes the backend, and on every PR |
 | **E2E** | `e2e/HospitalManagement.E2E` | A whole journey works with the real identity provider and deployment wiring | PostgreSQL, Keycloak, API (docker-compose stack) | nothing | merge to `master`, nightly, PR label `e2e` |
 
-The branch smoke suite is selected by `[Trait("Suite", "Smoke")]` and runs via
-`.github/workflows/smoke.yml` on pushes to branches other than `master`. It is early feedback, not a required
-merge gate: the full unit and API suites remain required on every pull request. Risk/skip validation and
-documentation-reference checks run on every branch push. Backend smoke tests run only when backend code or its
-build configuration changes; they still start the real PostgreSQL Testcontainer. The frontend production build
-runs only when a push changes `frontend-web/`.
+`.github/workflows/smoke.yml` gives early feedback on pushes to branches other than `master`, before a pull
+request exists; it is not a required merge gate. It runs **all** unit and API tests when backend code or its
+build configuration changes (since 2026-11-23; before that only the five `[Trait("Suite", "Smoke")]` tests). The
+tests themselves take about 25 s: restore, build and the PostgreSQL container are most of the job, so the subset
+saved about 10 s and skipped 160 tests. The `Suite=Smoke` trait stays for a quick local run
+(`dotnet test --filter Suite=Smoke`). Risk/skip validation and documentation-reference checks run on every branch
+push; the frontend production build runs only when a push changes `frontend-web/`.
 
 ### Where a check belongs
 

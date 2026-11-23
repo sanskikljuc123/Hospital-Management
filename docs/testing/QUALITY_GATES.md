@@ -69,9 +69,14 @@ The fix removes the `Skip` and the `KnownGap` trait in the same pull request, an
 known-gap test never asserts the current, wrong behavior. It does not count for G4 (a).
 
 **Branch smoke (early feedback, not a merge gate):** `.github/workflows/smoke.yml` runs risk/skip and
-documentation-reference checks on every push to branches other than `master`. Selected unit and API tests run
+documentation-reference checks on every push to branches other than `master`. All unit and API tests run
 when backend code or its build configuration changes; the frontend build runs when `frontend-web/` changes.
-It does not replace the full unit/API suites required on every PR.
+It does not replace the checks required on every PR.
+
+**E2E job duration.** The journeys themselves take about 20 s; the job's time is preparation. The stack starts in
+the background while the frontend, the E2E project and Chromium are prepared; the Chromium build is cached by
+Playwright version, and system packages are installed only if the browser reports a missing library (until
+2026-11-23 `--with-deps` ran apt-get on every run, 40 s to 6 min).
 
 **What does not gate:** coverage percentage, number of tests, test duration (tracked, not gated).
 

@@ -88,16 +88,13 @@ jobs:
           sed -i "s/^KEYCLOAK_ADMIN_PASSWORD=.*/KEYCLOAK_ADMIN_PASSWORD=$(openssl rand -hex 16)/" .env
           sed -i "s/^DEV_USERS_PASSWORD=.*/DEV_USERS_PASSWORD=$(openssl rand -hex 16)/" .env
 
-      - name: Start PostgreSQL, Keycloak and the API
-        run: docker compose up -d --build --wait
-
-      - name: Wait for the API
+      # Building the API image and waiting for Keycloak take about a minute. The stack starts in the background
+      # while the frontend, the E2E project and the browser are prepared; "Wait for the stack" joins it again.
+      # Its exit code and log go to files, so a failed start fails the job with the reason instead of a timeout.
+      - name: Start PostgreSQL, Keycloak and the API (in the background)
         run: |
-          for i in $(seq 1 60); do
-            [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5117/health)" = 200 ] && exit 0
-            sleep 2
-          done
-          echo "API did not become healthy"; exit 1
+          nohup bash -c 'docker compose up -d --build --wait > compose-up.log 2>&1; echo $? > compose-up.exit' \
+            > /dev/null 2>&1 &
 
       - name: Build and serve the web frontend (production build)
         working-directory: frontend-web
@@ -111,10 +108,49 @@ jobs:
           done
           echo "Frontend did not start"; cat ../vite-preview.log; exit 1
 
-      - name: Build the E2E tests and install Chromium
+      - name: Build the E2E tests
+        run: dotnet build e2e/HospitalManagement.E2E
+
+      # The browser build belongs to the Playwright version, so the cache key is that version (from the project
+      # file). A hit skips the ~150 MB download.
+      - name: Playwright version
+        id: playwright
         run: |
-          dotnet build e2e/HospitalManagement.E2E
-          pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+          version="$(grep -oP 'Include="Microsoft\.Playwright" Version="\K[^"]+' e2e/HospitalManagement.E2E/HospitalManagement.E2E.csproj)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Playwright browser
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+      # `--with-deps` ran apt-get on every run and took 40 s to 6 min. The runner image already has the libraries
+      # Chromium needs (it ships Google Chrome), so the system packages are installed only if the browser binary
+      # reports a missing library. Same browser build either way: nothing about the tests changes.
+      - name: Install Chromium
+        run: |
+          pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install chromium
+          missing="$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell \) -perm -u+x \
+            -exec ldd {} \; | grep 'not found' || true)"
+          if [ -n "$missing" ]; then
+            echo "Missing system libraries, installing them:"; echo "$missing"
+            pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install-deps chromium
+          else
+            echo "All system libraries present; no apt-get needed."
+          fi
+
+      - name: Wait for the stack
+        run: |
+          for i in $(seq 1 120); do [ -f compose-up.exit ] && break; sleep 2; done
+          if [ "$(cat compose-up.exit 2>/dev/null)" != 0 ]; then
+            echo "The stack did not start:"; cat compose-up.log; exit 1
+          fi
+          for i in $(seq 1 60); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5117/health)" = 200 ] && exit 0
+            sleep 2
+          done
+          echo "API did not become healthy"; exit 1
 
       - name: Run the journeys
         run: |
