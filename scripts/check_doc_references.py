@@ -22,9 +22,12 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SKIP_DIRS = {".git", "bin", "obj", "node_modules", "dist", "TestResults", ".vs", "__pycache__", "StrykerOutput"}
+# Local git worktrees of Claude Code sessions: other checkouts, not this one. Never in CI; skipped so a local run
+# (scripts/verify.sh) neither checks their copies of the documents nor resolves a citation against them.
+WORKTREES = ROOT / ".claude" / "worktrees"
 
 DOCUMENTS = (
-    [p for p in (ROOT / ".claude").rglob("*.md")]
+    [p for p in (ROOT / ".claude").rglob("*.md") if WORKTREES not in p.parents]
     + list((ROOT / "docs" / "testing").glob("*.md"))
     + [ROOT / "docs" / "API_ENDPOINTS.md", ROOT / "ARCHITECTURE.md"]
 )
@@ -49,7 +52,7 @@ CODE_NAME = re.compile(r"^[A-Za-z_][\w]*(?:\.[A-Za-z_]\w*)*(?:\([^)]*\))?(?:/[A-
 
 def walk_files():
     for directory, dirs, files in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and pathlib.Path(directory, d) != WORKTREES]
         for name in files:
             yield pathlib.Path(directory, name)
 
@@ -194,6 +197,8 @@ def check_document(document, paths, by_name, directories, code_words):
 
 
 def main():
+    # Findings quote document text; a Windows console's default code page cannot print all of it.
+    sys.stdout.reconfigure(encoding="utf-8")
     paths, by_name, directories = index_repository()
     code_words = index_code_words()
     problems = []
