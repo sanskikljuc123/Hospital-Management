@@ -78,7 +78,10 @@ It needs the .NET 8 and 10 SDKs, Node 20, Docker and Python 3; `--no-frontend` s
 
 **Dependencies:** `.github/dependabot.yml` proposes NuGet, npm and GitHub Actions updates weekly. Actions are
 pinned to a commit SHA with the version as a comment, so a moved tag cannot change what runs. Each update is an
-ordinary pull request through all the gates and a person's merge.
+ordinary pull request through all the gates and a person's merge. Dependabot proposes no major versions of NuGet or
+npm packages: a major upgrade is a deliberate change made and tested by a person, and for .NET the
+`Microsoft.EntityFrameworkCore.*`, `Microsoft.Extensions.*` and `Microsoft.AspNetCore.*` majors follow the .NET
+runtime, so they move only with it. A known vulnerability in a skipped major is still caught by the G1 audit.
 
 ## 2. Pull request checklist
 
