@@ -21,7 +21,7 @@ def outcomes(results):
     runs = sorted(p.name for p in results.iterdir() if p.is_dir())
     for run in runs:
         for trx in sorted((results / run).rglob("*.trx")):
-            # The target framework is part of the name: one test on net8.0 and net10.0 is two results.
+            # The result file identifies the target framework when a project has multiple targets.
             framework = trx.stem
             for result in ET.parse(trx).getroot().iterfind(".//t:UnitTestResult", NS):
                 name = f"{result.get('testName')} [{framework}]"

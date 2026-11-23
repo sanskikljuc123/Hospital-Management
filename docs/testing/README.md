@@ -187,17 +187,16 @@ Run the E2E journeys against a running stack (`docker compose up -d --build`, th
 set -a; . ./.env; set +a; dotnet test e2e/HospitalManagement.E2E
 ```
 
-Install Chromium once with `pwsh e2e/HospitalManagement.E2E/bin/Debug/net8.0/playwright.ps1 install chromium`.
+Install Chromium once with `pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install chromium`.
 
 Run them (Docker must be running for the API tests):
 
 ```bash
 dotnet test backend/tests/HospitalManagement.UnitTests
-dotnet test backend/tests/HospitalManagement.ApiTests -f net10.0
+dotnet test backend/tests/HospitalManagement.ApiTests
 python3 scripts/check_test_gates.py
 ```
 
-`-f net10.0` is for machines with only the .NET 10 runtime; CI also runs `net8.0`, the runtime the API ships
-on. CI: [.github/workflows/ci.yml](../../.github/workflows/ci.yml) (G1–G6) and
+The API and every test project target .NET 10. CI: [.github/workflows/ci.yml](../../.github/workflows/ci.yml) (G1–G6) and
 [.github/workflows/e2e.yml](../../.github/workflows/e2e.yml) (G7). See [TEST_STRATEGY.md](TEST_STRATEGY.md)
 for what belongs where.

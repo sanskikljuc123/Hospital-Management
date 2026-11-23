@@ -67,9 +67,7 @@ jobs:
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          dotnet-version: 10.0.x
 
       - name: Unit smoke tests
         run: >
@@ -81,7 +79,7 @@ jobs:
       # These API smoke tests use the same real PostgreSQL/Testcontainers setup as the full API suite.
       - name: API smoke tests
         run: >
-          dotnet test backend/tests/HospitalManagement.ApiTests -c Release -f net8.0
+          dotnet test backend/tests/HospitalManagement.ApiTests -c Release
           --filter "Suite=Smoke"
           --logger "trx;LogFileName=api-smoke.trx"
           --results-directory test-results/api

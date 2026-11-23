@@ -67,12 +67,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The SDK that builds is pinned in global.json (10.0.x); the .NET 8 runtime runs the API.
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          dotnet-version: 10.0.x
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -114,7 +111,7 @@ jobs:
       - name: Build the E2E tests and install Chromium
         run: |
           dotnet build e2e/HospitalManagement.E2E
-          pwsh e2e/HospitalManagement.E2E/bin/Debug/net8.0/playwright.ps1 install --with-deps chromium
+          pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Run the journeys
         run: |
@@ -129,7 +126,7 @@ jobs:
           name: e2e-results
           path: |
             test-results
-            e2e/HospitalManagement.E2E/bin/Debug/net8.0/TestResults/traces
+            e2e/HospitalManagement.E2E/bin/Debug/net10.0/TestResults/traces
           retention-days: 14
 
       - name: Stack logs on failure
