@@ -4,6 +4,7 @@ export type Doctor = {
   lastName: string;
   birthday: string;
   address: string;
+  departmentId?: number | null;
   serviceIds?: number[];
   // speciality: string;
   // location: string;

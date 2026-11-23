@@ -27,19 +27,26 @@ responsive, reliability and security cases.
 ## 3. Defects found while designing
 
 These were found by reading the code and confirmed by sending the frontend's exact requests to the API as
-`admin.user`. Each one is a defect today, and each has a test in §6 that fails until it is fixed.
+`admin.user`. Each has a test in §6 that fails until it is fixed.
+
+**D-1 to D-5 are fixed** (2026-11-23, on the branch docs/ui-test-design). The fix was checked in a real browser
+(Chromium, Playwright, signed in as `admin.user` through Keycloak) in the time zones Europe/Sarajevo and
+America/New_York: edit doctor, patient and service, then compare with the API; create a doctor with a picked
+birthday. 12 of 12 checks passed. A first run caught that D-2 and D-3 had a second cause: the tables copied only
+their visible columns into each row, and Edit passed that trimmed row to the form. The checks are a script in
+the session, not yet tests in `e2e/` (UI-HP-04 … 06, UI-BND-07 remain to be written).
 
 | # | Label | Defect | Evidence |
 |---|---|---|---|
-| D-1 | Fact | **Editing a doctor never works.** The frontend sends `PATCH /api/doctor/{id}`; the API only has `PUT`, so it answers 405 and the page shows nothing | `doctorSlice.ts:70`; probe: `PATCH /api/doctor/1` → 405 |
-| D-2 | Fact | **Editing a patient erases their email.** The form has no email field, antd submits only the fields it renders, and `PUT` replaces every field | `PatientForm.tsx:36-63`, `PatientServiceImp.cs:75`; probe: email `probe@hospital.local` → `null` after the edit |
-| D-3 | Fact | **Editing a service erases its department.** Same cause: no department field, `PUT` sets `DepartmentId` from the body | `ServiceForm.tsx:29-39`, `ServiceServiceImp.cs:52`; probe: `departmentId` 1 → `null` |
-| D-4 | Fact | Once D-1 is fixed with `PUT`, **editing a doctor would erase birthday and department**: the birthday field is hidden when editing and there is no department field | `DoctorForm.tsx:56`, `DoctorServiceImp.cs:89, 91` |
-| D-5 | Fact + Assumption | **A doctor's birthday can be saved one day early.** The API keeps only the date of the UTC instant it receives: `1980-01-01T23:00:00.000Z` was stored as `1980-01-01`. *Assumption:* the date picker sends local midnight as UTC, so a user in UTC+1 picking 2 January sends exactly that. Proven by UI-BND-07 with the browser time zone set | probe: `POST /api/doctor` |
+| D-1 | Fact, fixed | **Editing a doctor never worked.** The frontend sent `PATCH /api/doctor/{id}`; the API only has `PUT`, so it answered 405 and the page showed nothing. Now `PUT` | `doctorSlice.ts:70`; probe before the fix: `PATCH /api/doctor/1` → 405 |
+| D-2 | Fact, fixed | **Editing a patient erased their email.** The form had no email field, the table row passed to Edit had no email either, and `PUT` replaces every field. Now the form has an email field and the row keeps the whole record | `PatientForm.tsx:53`, `Patients.tsx:27`, `PatientServiceImp.cs:75`; probe before the fix: email `probe@hospital.local` → `null` |
+| D-3 | Fact, fixed | **Editing a service erased its department.** Same two causes. Now the form sends the current department in a hidden field | `ServiceForm.tsx:32`, `Services.tsx:26`, `ServiceServiceImp.cs:52`; probe before the fix: `departmentId` 1 → `null` |
+| D-4 | Fact, fixed | With `PUT`, **editing a doctor would have erased birthday and department**: the birthday field was hidden when editing and there was no department field. Now the birthday is shown and the department sent | `DoctorForm.tsx:43`, `:72`; `Doctors.tsx:27`; `DoctorServiceImp.cs:89, 91` |
+| D-5 | Fact, fixed | **A doctor's birthday could be saved one day early.** The API keeps only the date of the UTC instant it receives (`1980-01-01T23:00:00.000Z` was stored as `1980-01-01`), and the picker sent local midnight as a UTC timestamp. Now the form sends `YYYY-MM-DD` and reads only the date part back | `DoctorForm.tsx:24`, `:29`; browser check: 1980-01-02 picked and stored in both zones |
 | D-6 | Fact | **No failed request is ever shown to the user.** Errors are stored in the slices (`selectError`) but nothing reads them, and the drawer closes before the request finishes. 400, 403, 405, 409, 500 and network errors all look like "nothing happened" | `doctorSlice.ts:155`, `patientSlice.ts:156`, `serviceSlice.ts:187`; `Doctor.tsx:64-67` |
 | D-7 | Fact | **Every role sees every action.** No page reads the user's roles; a doctor sees "Add a new Doctor", a patient sees an empty Patients page with no explanation | `PrivateRoutes.tsx:57-62`; role check in this session (patient: `GET /api/Patient` → 403) |
 | D-8 | Fact | Doctor details show the **first name as the last name** | `DoctorDetails.tsx:15` |
-| D-9 | Fact | The last-name column of the doctors table is titled "Phone Last name" | `Doctors.tsx:52` |
+| D-9 | Fact | The last-name column of the doctors table is titled "Phone Last name" | `Doctors.tsx:46` |
 | D-10 | Fact | The **search boxes do nothing** (they only log to the console) | `Doctors.tsx:19` |
 | D-11 | Fact | **A phone number with 10 or more digits cannot be saved** (the API field is an `int`); the form gives no hint and the 400 is not shown (D-6). Overlaps R-044 | `PatientCreationDto.cs:10`, `PatientForm.tsx:48`; probe: `38761123456` → 400 |
 | D-12 | Fact | Form rules and API rules disagree: the form has no length limits (API: name 200, description 1000), and it requires a description the API does not | `ServiceDto.cs:12-15`; probes: 201-character name → 400, no description → 201 |
@@ -101,9 +108,9 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-HP-01 | High | Admin adds a doctor with services | Admin signed in; a service the test created → Doctors → Add → fill names, address, birthday, pick the service → Create | Row appears; after reload still there; `GET /api/Doctor/{id}` has the same values and service | Empty service dropdown (redirect/CORS), wrong payload, row only in local state | E2E | P1 |
 | UI-HP-02 | High | A new service is offered in the doctor and patient forms without reload | Admin → Services → Add → open Doctors → Add | New service is an option | Stale cached service list | E2E | P2 |
 | UI-HP-03 | High | Nurse registers a patient (F-02.1) | Nurse signed in → Patients → Add → name, phone, service → Create | Row appears; API record equal | Payload mismatch, 400 swallowed | E2E | P1 |
-| UI-HP-04 | High | Admin edits a doctor's name — **fails today (D-1)** | Doctor created via API → Edit → change first name → Update | Table and API show the new name; birthday, department, services unchanged | 405 on PATCH; fields erased (D-4) | E2E | P1 |
-| UI-HP-05 | Critical | Staff edits a patient's name — **fails today (D-2)** | Patient with email created via API → Edit → change name → Update | Name changed; **email, phone, service unchanged** in the API | Silent field erasure | E2E | P1 |
-| UI-HP-06 | Critical | Admin edits a service description — **fails today (D-3)** | Service with department created via API → Edit → change description → Update | Description changed; **department unchanged** | Silent field erasure | E2E | P1 |
+| UI-HP-04 | High | Admin edits a doctor's name — fixed (D-1), test still to write | Doctor created via API → Edit → change first name → Update | Table and API show the new name; birthday, department, services unchanged | 405 on PATCH; fields erased (D-4) | E2E | P1 |
+| UI-HP-05 | Critical | Staff edits a patient's name — fixed (D-2), test still to write | Patient with email created via API → Edit → change name → Update | Name changed; **email, phone, service unchanged** in the API | Silent field erasure | E2E | P1 |
+| UI-HP-06 | Critical | Admin edits a service description — fixed (D-3), test still to write | Service with department created via API → Edit → change description → Update | Description changed; **department unchanged** | Silent field erasure | E2E | P1 |
 | UI-HP-07 | Medium | Admin deletes an unused service | Service created via API → Delete → confirm | Row gone; reload: still gone; API 404 | Row removed only locally | E2E | P2 |
 | UI-HP-08 | Medium | Details drawer shows what the API holds — **fails today (D-8)** | Doctor, patient, service created via API → View each | Every shown value equals the API value | Wrong field bound | Comp | P2 |
 | UI-HP-09 | Low | Navigation: every menu item opens its page | Signed in → click each menu item; open `/patient` directly | Right page, header title and highlighted item | Broken route, wrong title | E2E | P3 |
@@ -133,9 +140,9 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-BND-04 | High | Phone numbers: 8 digits, 11 digits with country code, leading zero, `1e5`, negative — **11 digits fails today (D-11)** | Patient form | Agreed format accepted; others refused with a message; value round-trips unchanged | Overflow, lost leading zero, number notation | Comp + E2E | P2 (after Q-c) |
 | UI-BND-05 | Medium | Unicode round trip: `Đorđe Šćepanović`, `Zoë`, Arabic, emoji | Create doctor and patient with these names | Shown and stored exactly as typed | Encoding loss | E2E | P2 |
 | UI-BND-06 | Medium | Whitespace-only names `"   "` | Any form | Refused in the form | antd `required` passes spaces; API 400 swallowed | Comp | P2 |
-| UI-BND-07 | High | Birthday in UTC+1, UTC−5 and on a DST change — **fails today in UTC+1 (D-5)** | Playwright context with `TimezoneId` → pick 2 Jan 1980 | API and table show 1980-01-02 in every zone | Off-by-one day | E2E | P1 |
+| UI-BND-07 | High | Birthday in UTC+1, UTC−5 and on a DST change — fixed (D-5), test still to write | Playwright context with `TimezoneId` → pick 2 Jan 1980 | API and table show 1980-01-02 in every zone | Off-by-one day | E2E | P1 |
 | UI-BND-08 | Low | Empty lists | No services exist (fresh stack) | Empty-state text and working "Add" | Broken layout, wrong count | Comp | P3 |
-| UI-BND-09 | Medium | 500 rows (R-037) | 500 services created via API → open page | Renders in < 2 s on CI hardware; scroll reaches the last row | Freeze; table with `pagination={false}` (`Doctors.tsx:127`) | E2E | P3 |
+| UI-BND-09 | Medium | 500 rows (R-037) | 500 services created via API → open page | Renders in < 2 s on CI hardware; scroll reaches the last row | Freeze; table with `pagination={false}` (`Doctors.tsx:121`) | E2E | P3 |
 | UI-BND-10 | Low | Doctor with no service | Doctor form | Behavior per Q-d | Form and API disagree (form requires one, API allows none) | Comp | P3 |
 
 ### 6.4 State transitions — reload, navigation, session
@@ -252,7 +259,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | antd renders dropdowns, popconfirms and drawers in portals at `body`, and virtualizes long option lists | Select, Popconfirm, Drawer | Open the control, then locate the option by role `option` and name; type to filter instead of scrolling |
 | Drawer animation and `destroyOnClose` | `DrawerComponent.tsx:11` | Wait until the drawer is visible and its form is enabled; never wait a fixed time |
 | A save is fire-and-forget and the drawer closes at once | `Doctor.tsx:64-67` | Assert on the network response (`RunAndWaitForResponseAsync`) and then on the table, not on the drawer closing |
-| Loading spinners on tables | `Doctors.tsx:122` | Wait for the list response, then the row |
+| Loading spinners on tables | `Doctors.tsx:116` | Wait for the list response, then the row |
 | One shared stack and shared sample users, scenarios run in sequence | `xunit.runner.json` | Each scenario creates its own records with a unique prefix and asserts only on them; never on totals or seed rows (`Service1`) |
 | Time-zone-dependent dates | D-5 | Set `TimezoneId` on the browser context per scenario |
 | Aspire is not covered by any test | TEST_STRATEGY §7 | UI-REL-07 as a smoke check of both start-up paths |
@@ -278,9 +285,9 @@ All use Playwright route interception on API requests; the stack itself stays re
 
 | Risk | Tests | Lvl | Today |
 |---|---|---|---|
-| new — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | **fails** |
+| new — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; no test yet |
 | new — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-NEG-09, UI-DI-03, UI-REL-01, UI-REL-03 | Comp, E2E | **fails** |
-| new — date saved as a different date (High) | UI-BND-07 | E2E | **fails** in UTC+1 (*Assumption* until run) |
+| new — date saved as a different date (High) | UI-BND-07 | E2E | fixed; no test yet |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | **fails** |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |

@@ -21,12 +21,9 @@ const Services: React.FC<ServicesProps> = ({
   const [tableContent, setTableContent] = useState<service[]>([]);
   const [countServices, setcountServices] = useState(tableContent.length);
   useEffect(() => {
-    // Extract specific fields from services and populate tableContent
-    const tableContent = services.map((service) => ({
-      id: service.id,
-      name: service.name,
-      description: service.description,
-    }));
+    // Keep the whole record: Edit and View receive the row, and a field dropped here would be missing from
+    // the edit form and cleared by the API's PUT (e.g. departmentId). The columns decide what is shown.
+    const tableContent = services.map((service) => ({ ...service }));
     setTableContent(tableContent);
     setcountServices(tableContent.length);
   }, [services]);

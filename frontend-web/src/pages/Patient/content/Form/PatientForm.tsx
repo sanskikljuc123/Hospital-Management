@@ -47,6 +47,17 @@ const PatientForm: React.FC<ServiceFormProps> = ({ patient, onSubmit }) => {
       >
         <Input type='number' />
       </Form.Item>
+      {/* The API's PUT replaces every field, so a field missing from the form is cleared on every edit. */}
+      <Form.Item
+        label='Patient email'
+        name='email'
+        rules={[
+          { type: "email", message: "Please enter a valid email address" },
+          { max: 254, message: "The email address can have at most 254 characters" },
+        ]}
+      >
+        <Input type='email' />
+      </Form.Item>
 
       <Form.Item
         label='Select Service'

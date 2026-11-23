@@ -22,13 +22,9 @@ const Patients: React.FC<PatientsProps> = ({
   const [countPatients, setcountPatients] = useState(tableContent.length);
 
   useEffect(() => {
-    // Extract specific fields from services and populate tableContent
-    const tableContent = patients.map((patient) => ({
-      id: patient.id,
-      userName: patient.userName,
-      phone: patient.phone,
-      serviceId: patient.serviceId,
-    }));
+    // Keep the whole record: Edit and View receive the row, and a field dropped here would be missing from
+    // the edit form and cleared by the API's PUT (e.g. email). The columns decide what is shown.
+    const tableContent = patients.map((patient) => ({ ...patient }));
     setTableContent(tableContent);
     setcountPatients(tableContent.length);
   }, [patients]);
