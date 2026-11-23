@@ -27,6 +27,7 @@ reliability, and every important scenario and edge case — while all data is fa
 | [TEST_STRATEGY.md](TEST_STRATEGY.md) | What we test at which level, with which tools, data and environments, and how tests are written. |
 | [RISK_REGISTER.md](RISK_REGISTER.md) | How risks are rated, the current risks, the open assumptions, and which test covers which risk. |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Who may call which endpoint, per-record access rules, token and leakage checks. |
+| [UI_TEST_DESIGN.md](UI_TEST_DESIGN.md) | Proposed tests for `frontend-web`: defects found, proposed risks, the test catalogue by category, open questions and automation approach. Not implemented yet. |
 | [QUALITY_GATES.md](QUALITY_GATES.md) | What must pass before merge and release, the flaky-test and skip policy, and how failures and findings are handled. |
 
 These documents are the **single source of truth**. Agents and skills point to them; they do not copy them.
