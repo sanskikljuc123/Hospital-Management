@@ -46,6 +46,7 @@ public class TokenValidationTests
     }
 
     [Fact]
+    [Trait("Suite", "Smoke")]
     public async Task ProtectedEndpoint_ValidToken_Returns200()
     {
         using var client = _factory.ClientFor(TestUser.Admin());

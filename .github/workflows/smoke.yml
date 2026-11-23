@@ -1,0 +1,118 @@
+name: Branch smoke
+
+on:
+  push:
+    branches:
+      - "**"
+      - "!master"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        name: Detect backend and frontend changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            changed="$(git ls-tree -r --name-only HEAD)"
+          elif ! changed="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")"; then
+            echo "::warning::Could not compare push commits; running backend and frontend smoke checks."
+            changed="backend/ frontend-web/"
+          fi
+
+          if echo "$changed" | grep -Eq '^(backend/|global\.json$|Directory\.Build\.props$|\.github/workflows/smoke\.yml$)'; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$changed" | grep -q '^frontend-web/'; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  quick-checks:
+    name: Risk tags, skips and documentation references
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate risk coverage and skips
+        run: python3 scripts/check_test_gates.py
+      - name: Validate documentation references
+        run: python3 -I scripts/check_doc_references.py
+
+  # Backend tests compile the services and use Testcontainers for PostgreSQL, so skip them for unrelated pushes.
+  backend-smoke:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    name: Backend smoke tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Unit smoke tests
+        run: >
+          dotnet test backend/tests/HospitalManagement.UnitTests -c Release
+          --filter "Suite=Smoke"
+          --logger "trx;LogFileName=unit-smoke.trx"
+          --results-directory test-results/unit
+
+      # These API smoke tests use the same real PostgreSQL/Testcontainers setup as the full API suite.
+      - name: API smoke tests
+        run: >
+          dotnet test backend/tests/HospitalManagement.ApiTests -c Release -f net8.0
+          --filter "Suite=Smoke"
+          --logger "trx;LogFileName=api-smoke.trx"
+          --results-directory test-results/api
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: branch-smoke-results
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend-smoke:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    name: Frontend build smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend-web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend-web
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend-web
+        run: npm run build
