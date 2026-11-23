@@ -33,35 +33,27 @@ These documents are the **single source of truth**. Agents and skills point to t
 
 ## How the work flows
 
-```
- requirement / change / endpoint
-            │
-            ▼
-   ┌─────────────────┐   criteria, gaps, risks,
-   │  qe-analyst     │── abuse cases, security gaps ──┐
-   └─────────────────┘                                │
-                                                      ▼
-                                          a person accepts or edits
-                                          risks in RISK_REGISTER.md
-                                                      │
-                                                      ▼
-   ┌─────────────────┐   test cases at the right level,
-   │ qe-test-designer│── Gherkin, draft code as text ─┐
-   └─────────────────┘                                │
-                                                      ▼
-                                          the implementer writes the code
-                                          and tests; a person accepts them
-                                                      │
-                                                      ▼
-   ┌─────────────────┐   weakened or missing tests, missing risk tags,
-   │  qe-reviewer    │── auth changes without tests, failure triage, ─▶ a person decides
-   └─────────────────┘   evidence check of the other agents' output
-                                                      │
-                                                      ▼
-                                       CI quality gates (no AI involved)
-```
+![The testing flow as three lanes: AI agents advise, people decide, CI checks automatically](../images/testing-flow-lanes.png)
 
-The reviewer also validates the analyst's and the test designer's output, so no agent checks its own work.
+The picture is drawn by `docs/images/make_testing_flow.py` from one list of steps, which also draws the overview in
+the root [Readme](../../Readme.md); change a step there and run the script again. The agents are named `qe-` for
+quality engineering.
+
+| # | Step | Who | What happens |
+|---|---|---|---|
+| 1 | Input | A person | A requirement, a code change, a new endpoint or a finding (QUALITY_GATES §6 has the finding template). |
+| 2 | Analyse | `qe-analyst` | Turns it into acceptance criteria and finds gaps, proposed risks with ratings, abuse cases and security gaps. Advice only. |
+| 3 | Decide | Test owner | Accepts or edits the risks and their ratings in [RISK_REGISTER.md](RISK_REGISTER.md). Open questions go to the product owner. |
+| 4 | Design tests | `qe-test-designer` | Picks the lowest level that can prove each risk (unit, API or E2E) and drafts test cases, Gherkin and code as text. |
+| 5 | Implement | Developer | Writes the code and the tests, each tagged `[Trait("Risk", "R-xxx")]`. `scripts/verify.sh` runs the CI gates locally; branch smoke checks run on every push. |
+| 6 | Review | `qe-reviewer` | Looks for removed, skipped or weakened tests, missing risk tags and auth changes without security tests, and checks the other agents' output. The PR template asks for red evidence. |
+| 7 | Pull request gates | CI | G1 build and package audit, G2 unit tests, G3 API tests, G4 risk coverage, G5 no silent skips, G6 secret scan, G7 E2E when sign-in is touched ([QUALITY_GATES.md](QUALITY_GATES.md)). |
+| 8 | Merge | Code owner | Reviews the change and merges it once every gate is green (G8). |
+| 9 | Covered | Test owner | Sets the risk to `Covered` when a passing test proves it; from then on G4 fails if that test disappears. |
+| 10 | Monitor | CI | Nightly mutation testing (score at least 90 %), repeated runs that find flaky tests, nightly E2E; Dependabot proposes updates weekly. |
+
+A failure in step 7 or 10 starts the loop again at step 2. The reviewer also validates the analyst's and the test
+designer's output, so no agent checks its own work, and no CI gate calls an AI agent.
 
 ### Running the workflow — what the R-053 pilot taught
 
