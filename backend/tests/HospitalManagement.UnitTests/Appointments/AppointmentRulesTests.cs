@@ -19,6 +19,7 @@ public class AppointmentRulesTests : IDisposable
     // ---------- Booking (F-03) ----------
 
     [Fact]
+    [Trait("Suite", "Smoke")]
     [Trait("Risk", "R-009")]
     [Trait("Scenario", "F-03.1")]
     public async Task Book_FreeFutureSlot_IsScheduledAndAudited()
@@ -32,6 +33,7 @@ public class AppointmentRulesTests : IDisposable
     [Theory]
     [InlineData(-60)] // an hour ago
     [InlineData(0)]   // exactly now
+    [Trait("Suite", "Smoke")]
     [Trait("Risk", "R-018")]
     [Trait("Scenario", "F-03.2")]
     public async Task Book_PastOrNow_IsInvalid(int minutesFromNow)
@@ -50,6 +52,7 @@ public class AppointmentRulesTests : IDisposable
     [InlineData(9, 15, 30)]  // starts inside
     [InlineData(8, 45, 30)]  // ends inside
     [InlineData(8, 30, 120)] // covers it
+    [Trait("Suite", "Smoke")]
     [Trait("Risk", "R-009")]
     [Trait("Scenario", "F-03.3")]
     public async Task Book_OverlappingSameDoctor_IsConflict(int hour, int minute, int duration)
