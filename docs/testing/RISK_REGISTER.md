@@ -141,8 +141,8 @@ proposals until the test owner accepts them.
 
 | ID | Risk | STRIDE | I | L | Severity | Evidence (current state) | Level | Tests | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| R-059 | Editing a doctor, patient or service in the web application fails, or silently erases fields the form does not show (the API's `PUT` replaces every field) | T | 3 | 4 | **Critical (12)** | Fixed on 2026-11-23: edit doctor sends `PUT` (`doctorSlice.ts:70`); the tables pass the whole record to Edit (`Doctors.tsx:27`); the patient form has an email field (`PatientForm.tsx:53`); the doctor and service forms send the department (`DoctorForm.tsx:43`, `ServiceForm.tsx:32`) — UI_TEST_DESIGN D-1 … D-4 | E2E | `CatalogueEditing.feature` | Proposed |
-| R-060 | A date picked in the web application is saved as a different date (local midnight sent as a UTC timestamp) | T | 2 | 4 | **High (8)** | Fixed on 2026-11-23: the doctor form sends `YYYY-MM-DD` and reads back only the date part (`DoctorForm.tsx:24`, `:29`) — UI_TEST_DESIGN D-5 | E2E | `CatalogueEditing.feature` | Proposed |
+| R-059 | Editing a doctor, patient or service in the web application fails, or silently erases fields the form does not show (the API's `PUT` replaces every field) | T | 3 | 4 | **Critical (12)** | Fixed on 2026-11-23: edit doctor sends `PUT` (`doctorSlice.ts:70`); the tables pass the whole record to Edit (`Doctors.tsx:27`); the patient form has an email field (`PatientForm.tsx:53`); the doctor and service forms send the department (`DoctorForm.tsx:43`, `ServiceForm.tsx:32`) — UI_TEST_DESIGN D-1 … D-4 | Component, E2E | `DoctorForm.test.tsx`, `PatientForm.test.tsx`, `ServiceForm.test.tsx`, `catalogueTables.test.tsx`, `doctorSlice.test.ts`, `CatalogueEditing.feature` | Proposed |
+| R-060 | A date picked in the web application is saved as a different date (local midnight sent as a UTC timestamp) | T | 2 | 4 | **High (8)** | Fixed on 2026-11-23: the doctor form sends `YYYY-MM-DD` and reads back only the date part (`DoctorForm.tsx:24`, `:29`) — UI_TEST_DESIGN D-5 | Component, E2E | `DoctorForm.test.tsx`, `CatalogueEditing.feature` | Proposed |
 
 ## 3. Assumptions
 

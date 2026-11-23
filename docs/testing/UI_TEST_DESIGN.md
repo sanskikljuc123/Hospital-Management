@@ -3,7 +3,8 @@
 A risk-based design for testing the web frontend: what can go wrong for a user, which test would catch it,
 at which level, and what is still unknown. It follows [TEST_STRATEGY.md](TEST_STRATEGY.md) and the
 evidence rules (every statement is a **Fact**, an **Assumption** or a **Question**). Implemented so far:
-UI-HP-04, UI-HP-05, UI-HP-06 and UI-BND-07 in `CatalogueEditing.feature`; the rest is design. Every rating is a
+UI-HP-04, UI-HP-05, UI-HP-06 and UI-BND-07 in `CatalogueEditing.feature`; UI-DI-02, UI-BND-07 and part of UI-NEG-01
+as component tests (§5); the rest is design. Every rating is a
 **proposal** for the test owner ([RISK_REGISTER.md](RISK_REGISTER.md) §1).
 
 Written 2026-11-23 from the code at `frontend-web/src/` and from replaying the frontend's own requests
@@ -92,7 +93,7 @@ level below E2E today** (no test script in `frontend-web/package.json`), so this
 
 | Level | Tool | Proves | Real dependencies | Status |
 |---|---|---|---|---|
-| **Component** (proposed) | Vitest + React Testing Library + MSW (mocked HTTP) | A form sends the right payload; an error response is shown; a role sees the right buttons; loading and empty states | none | **Question Q-a**: needs the test owner's decision and a CI job |
+| **Component** | Vitest + React Testing Library + MSW (mocked HTTP) | A form sends the right payload; an error response is shown; a role sees the right buttons; loading and empty states | none | Exists since 2026-11-23 (Q-a answered): runs on every PR (G2) and on branch pushes that change `frontend-web/` |
 | **E2E** (exists) | Reqnroll + Playwright for .NET, `e2e/HospitalManagement.E2E` | A journey works through real Keycloak, API and database; data in the UI equals data in the API | Compose stack, production build | Add scenarios below |
 | **E2E with fault injection** | Playwright `RouteAsync` on API calls | What the UI does when the API is slow, down or returns 500 | as E2E | New pattern; only for §6.9 |
 
@@ -242,7 +243,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 
 | # | Label | Gap | Affects |
 |---|---|---|---|
-| Q-a | Question | Add a **component test level** for `frontend-web` (Vitest + Testing Library + MSW) and run it on every PR? | Every **Comp** row; the "no frontend tests" risk |
+| Q-a | Answered | Add a **component test level** for `frontend-web` (Vitest + Testing Library + MSW) and run it on every PR? | Every **Comp** row; the "no frontend tests" risk — **Yes** (2026-11-23): Vitest, Testing Library, MSW; on every PR in the frontend job |
 | Q-b | Question | How must a refused or failed action look: hidden button, disabled button with a reason, a message after the click? | UI-NEG-02 … 06, UI-SEC-03 |
 | Q-c | Question | What is a valid phone number (format, length, country code)? Today it is an `int` (R-044) | UI-BND-04 |
 | Q-d | Question | May a doctor have no services, and is a service description required? The form and the API disagree (D-12) | UI-BND-10, UI-BND-01 |
@@ -282,7 +283,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 - **Mocking:** only at the component level (MSW) and in the fault-injection rows (§6.9). Happy paths and
   security rows always use the real stack.
 - **Data:** synthetic only (BUSINESS_FLOWS §4); no seed rows relied on.
-- **CI:** component tests on every PR once Q-a is decided; the new E2E scenarios under G7. Playwright trace
+- **CI:** component tests on every PR (G2, frontend job) and on branch pushes; the E2E scenarios under G7. Playwright trace
   on failure is already collected.
 
 ## 9. Coverage matrices
@@ -323,7 +324,8 @@ All use Playwright route interception on API requests; the stack itself stays re
 
 ### C. Missing test areas
 
-- No frontend unit or component tests at all (Q-a).
+- Component tests exist since 2026-11-23 for the edit forms, the tables and the doctor slice; error display (D-6) and
+  role-based actions (D-7) have none yet, because they are not built.
 - No UI for appointments and medical records, so the clinical flows have no UI tests (only API through E2E).
 - No performance budget for pages; only UI-BND-09 touches it.
 - No test of the Aspire start-up path (UI-REL-07 proposes one).
