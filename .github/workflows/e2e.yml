@@ -1,9 +1,10 @@
 # Quality gate G7 (docs/testing/QUALITY_GATES.md §1): end-to-end journeys against the real stack —
 # Keycloak, the API, PostgreSQL (docker compose) and the production build of the web frontend.
 # Runs on merges to master, nightly, on demand, on pull requests labelled "e2e", and on every pull request that
-# touches sign-in or the web frontend (see the "changes" job). No retries, no AI step.
-# The job "End-to-end journeys (G7)" is a required check on master: when a pull request touches neither it
-# reports Skipped, which GitHub counts as passed; when it does, the journeys must pass before merge.
+# changes something the stack runs (see the "changes" job). No retries, no AI step.
+# The job "End-to-end journeys (G7)" is a required check on master: on a pull request that changes only docs, tests
+# of other levels, tooling or housekeeping it reports Skipped, which GitHub counts as passed; otherwise the journeys
+# must pass before merge.
 name: E2E
 
 on:
@@ -23,12 +24,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Does this pull request touch sign-in or the web frontend? Plain git, no third-party action. The paths are where
-  # a change can break what only the E2E journeys exercise: the real Keycloak sign-in (API tests use test-signed
-  # tokens) and the web frontend's pages, which have no tests below E2E (UI_TEST_DESIGN §5). For the frontend,
-  # everything that goes into its build counts: sources, index.html, dependencies, Vite and TypeScript config.
+  # Does this pull request change anything the E2E stack runs? Plain git, no third-party action. The journeys run
+  # for every change except files that are known not to reach the stack (docs, tests of other levels, gate scripts,
+  # other workflows, the Aspire AppHost, repository housekeeping). The list names what may be skipped, not what
+  # must run, so a new or unexpected path runs the journeys rather than slipping past them.
   changes:
-    name: Does this change touch sign-in or the web frontend?
+    name: Does this change reach the E2E stack?
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     outputs:
@@ -44,14 +45,17 @@ jobs:
         run: |
           changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
           echo "Changed files:"; echo "$changed"
-          sign_in='backend/api/Auth/|backend/api/Program\.cs$|keycloak/|docker-compose[^/]*\.ya?ml$|e2e/|\.github/workflows/e2e\.yml$'
-          frontend='frontend-web/(src/|index\.html$|package(-lock)?\.json$|vite\.config\.ts$|tsconfig[^/]*\.json$)'
-          if echo "$changed" | grep -Eq "^($sign_in|$frontend)"; then
+          docs='docs/|.*\.md$|\.claude/'
+          other_tests='backend/tests/|frontend-web/src/test/|frontend-web/src/.*\.test\.tsx?$|frontend-web/vitest\.config\.ts$'
+          tooling='scripts/|dotnet-tools\.json$|backend/HospitalManagement\.AppHost/|\.github/workflows/(ci|smoke|mutation|flaky)\.yml$'
+          housekeeping='\.github/(CODEOWNERS|dependabot\.yml)$|\.gitignore$|\.gitattributes$|\.editorconfig$|LICENSE'
+          reaching="$(echo "$changed" | grep -Ev "^($docs|$other_tests|$tooling|$housekeeping)" | grep -v '^$' || true)"
+          if [ -n "$reaching" ]; then
             echo "journeys=true" >> "$GITHUB_OUTPUT"
-            echo "Touches sign-in or the web frontend: the journeys run."
+            echo "These changes reach the E2E stack, the journeys run:"; echo "$reaching"
           else
             echo "journeys=false" >> "$GITHUB_OUTPUT"
-            echo "Touches neither sign-in nor the web frontend: the journeys are skipped."
+            echo "Only docs, other tests, tooling or housekeeping changed: the journeys are skipped."
           fi
 
   e2e:
