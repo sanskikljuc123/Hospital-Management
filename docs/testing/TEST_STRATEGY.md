@@ -181,6 +181,7 @@ some unit test fails. A change that no test notices is a test that is missing.
 | Run locally | `dotnet tool restore`, then `dotnet tool run dotnet-stryker --concurrency 2` in that folder (about 25 minutes; report in `StrykerOutput/`) |
 | CI | `.github/workflows/mutation.yml`: weekly (Monday 03:00 UTC) and on demand; HTML report as an artifact. Not on every pull request — too slow |
 | Threshold | The run fails below **90 %** (`break`) |
+| SDK | Pinned to 10.0.x in `global.json`. The GitHub runner also has a newer SDK preinstalled; built with it, the VSTest that Stryker 4.16 ships aborts test discovery (`NullReferenceException` in `GetTestHostPath`, 0 tests found), while `dotnet test` itself still works. The same pin keeps local and CI builds on one SDK |
 
 **Not mutated, on purpose:** error-message strings (the text is not a business rule) and logging calls (they do
 not change behavior).
