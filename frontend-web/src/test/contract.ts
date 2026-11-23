@@ -9,7 +9,10 @@ import contract from "../../../contracts/openapi.json";
  *
  * Error responses are checked too: a status the contract describes (400, 404, 409, a 403 with a reason) must be a
  * ProblemDetails body; any other error status must have an empty body, as the API's ownership and role checks
- * answer (401, 403). Not described yet, so not checked: query parameters and 5xx.
+ * answer (401, 403). So are the parameters of the URL: every query parameter must be one the endpoint accepts, with
+ * a value of its type, and every path parameter (`{id}`) must have its type. The API silently ignores an unknown
+ * query parameter, so `?patient=5` instead of `?patientId=5` would return everyone's data instead of one patient's.
+ * Not described, so not checked: 5xx.
  */
 
 type Schema = {
@@ -26,7 +29,8 @@ type Schema = {
   minLength?: number;
 };
 type Media = { content?: Record<string, { schema?: Schema }> };
-type Operation = { requestBody?: Media; responses?: Record<string, Media> };
+type Parameter = { name: string; in: "path" | "query" | "header" | "cookie"; required?: boolean; schema?: Schema };
+type Operation = { parameters?: Parameter[]; requestBody?: Media; responses?: Record<string, Media> };
 type Contract = {
   paths: Record<string, Record<string, Operation>>;
   components?: { schemas?: Record<string, Schema> };
@@ -93,7 +97,75 @@ function find(method: string, url: string) {
     const allowed = Object.keys(route.item).map((m) => m.toUpperCase()).join(", ");
     return { problem: `${method} ${path}: the API offers ${allowed} on ${route.template}, not ${method}` };
   }
-  return { label: `${method} ${route.template}`, operation };
+  return { label: `${method} ${route.template}`, template: route.template, operation };
+}
+
+const INT32 = { min: -2147483648, max: 2147483647 };
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_TIME = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+/** Problems of one URL parameter value. Values in a URL are text, so the type is checked on the text. */
+function checkParameterValue(where: string, name: string, raw: string, schema: Schema | undefined): string[] {
+  const s = schema ? resolve(schema) : {};
+  const wrong = (expected: string) => [`${where} ${name}=${JSON.stringify(raw)} should be ${expected}`];
+  if (s.enum) return s.enum.map(String).includes(raw) ? [] : wrong(`one of ${s.enum.join(", ")}`);
+  switch (s.type) {
+    case "integer": {
+      const ok = /^-?\d+$/.test(raw) && (s.format !== "int32" || (Number(raw) >= INT32.min && Number(raw) <= INT32.max));
+      return ok ? [] : wrong(s.format === "int32" ? "a 32-bit integer" : "an integer");
+    }
+    case "number":
+      return raw.trim() !== "" && Number.isFinite(Number(raw)) ? [] : wrong("a number");
+    case "boolean":
+      return /^(true|false)$/i.test(raw) ? [] : wrong("true or false");
+    case "string":
+      if (s.format === "date-time")
+        return DATE_TIME.test(raw) && !Number.isNaN(Date.parse(raw)) ? [] : wrong("an ISO 8601 date-time");
+      if (s.format === "date") return DATE.test(raw) && !Number.isNaN(Date.parse(raw)) ? [] : wrong("an ISO 8601 date");
+      return [];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Problems of the URL's path and query parameters: every path parameter has its type, every query parameter is one
+ * the endpoint accepts (names compared without case, as ASP.NET Core binds them), appears once unless it is a list,
+ * has a value of its type, and none the contract requires is missing.
+ */
+function checkUrlParameters(label: string, template: string, operation: Operation, url: string): string[] {
+  const parsed = new URL(url);
+  const parameters = operation.parameters ?? [];
+  const problems: string[] = [];
+
+  const templateSegments = template.split("/");
+  const actualSegments = parsed.pathname.split("/");
+  templateSegments.forEach((segment, index) => {
+    const name = /^\{(.+)\}$/.exec(segment)?.[1];
+    if (!name) return;
+    const parameter = parameters.find((p) => p.in === "path" && p.name === name);
+    problems.push(...checkParameterValue(`${label} path parameter`, name, decodeURIComponent(actualSegments[index]), parameter?.schema));
+  });
+
+  const accepted = parameters.filter((p) => p.in === "query");
+  const counts = new Map<string, number>();
+  for (const [key, value] of parsed.searchParams) {
+    const parameter = accepted.find((p) => p.name.toLowerCase() === key.toLowerCase());
+    if (!parameter) {
+      const names = accepted.length ? `it accepts ${accepted.map((p) => p.name).join(", ")}` : "it accepts none";
+      problems.push(`${label}: the API has no query parameter "${key}" (${names}); the API ignores it`);
+      continue;
+    }
+    const count = (counts.get(parameter.name) ?? 0) + 1;
+    counts.set(parameter.name, count);
+    const isList = parameter.schema && resolve(parameter.schema).type === "array";
+    if (count === 2 && !isList) problems.push(`${label}: query parameter "${parameter.name}" is sent more than once`);
+    const itemSchema = isList ? resolve(parameter.schema!).items : parameter.schema;
+    problems.push(...checkParameterValue(`${label} query parameter`, parameter.name, value, itemSchema));
+  }
+  for (const parameter of accepted.filter((p) => p.required && !counts.has(p.name)))
+    problems.push(`${label}: the required query parameter "${parameter.name}" is missing`);
+  return problems;
 }
 
 /** A body that is not JSON, e.g. the plain-text errors the API sent before ProblemDetails. */
@@ -117,13 +189,14 @@ function notJson(where: string, body: unknown): string[] {
 
 /** Problems of a request the frontend sends. */
 export async function checkRequest(request: Request): Promise<string[]> {
-  const { problem, label, operation } = find(request.method, request.url);
+  const { problem, label, template, operation } = find(request.method, request.url);
   if (problem) return [problem];
+  const problems = checkUrlParameters(label!, template!, operation!, request.url);
   const schema = operation!.requestBody?.content?.["application/json"]?.schema;
   const body = await jsonBody(request);
-  if (!schema || body === undefined) return [];
-  if (body instanceof NotJson) return notJson(`${label} request body`, body);
-  return validate(schema, body).map((p) => `${label} request body: ${p}`);
+  if (!schema || body === undefined) return problems;
+  if (body instanceof NotJson) return [...problems, ...notJson(`${label} request body`, body)];
+  return [...problems, ...validate(schema, body).map((p) => `${label} request body: ${p}`)];
 }
 
 /** The schema of a described response, whatever its JSON media type (application/json, application/problem+json). */
