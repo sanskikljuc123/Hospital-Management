@@ -32,7 +32,10 @@ var keycloak = builder.AddKeycloak("keycloak", 8080)
     .WithEnvironment("DEV_USERS_PASSWORD", devUsersPassword)
     .WithRealmImport("../../keycloak/realms");
 
-var api = builder.AddProject<Projects.api>("hospital-api")
+// The API's "http" launch profile, whatever profile the AppHost itself runs with: under the "https"
+// profile the API also listens on https://localhost:7164 and UseHttpsRedirection sends the frontend's
+// requests there, where the browser drops the Authorization header. Plain HTTP, like docker-compose.
+var api = builder.AddProject<Projects.api>("hospital-api", launchProfileName: "http")
     // Injects ConnectionStrings__hospitaldb.
     .WithReference(hospitalDb)
     .WaitFor(hospitalDb)
