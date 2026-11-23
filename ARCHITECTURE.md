@@ -452,6 +452,7 @@ with ratings and a fix order in [docs/testing/RISK_REGISTER.md](docs/testing/RIS
 | **No paging** on list endpoints | All `GET` lists | One paging convention |
 | **Leftover project** `backend/Service` (`Servicest.csproj`) | – | Delete |
 | Doctors and nurses see all patients (no department or care-team restriction) | Authorization model (§3) | A product decision before it is a technical one |
+| **The web frontend is not role-aware.** Every role sees every page and every add, edit and delete button; the API refuses with 403 and the page shows no error (the slices store it in `state.error`, nothing displays it) | `frontend-web/src/routes/PrivateRoutes.tsx`, `pages/*`, `features/*Slice.ts` | Hide actions by role from `getHospitalRoles()`; show API errors. The API stays the only enforcement |
 
 ## 10. Testing and CI
 

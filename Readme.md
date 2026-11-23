@@ -50,6 +50,28 @@ Sample sign-ins: `admin.user`, `doctor.user`, `nurse.user`, `patient.user`, all 
 
 Both options use port 8080 for Keycloak, so run one at a time. Migrations and sample data are applied automatically on startup.
 
+#### What each sample user can do
+
+The four sample users share the password set in step 1 (`DEV_USERS_PASSWORD` or `Parameters:dev-users-password`).
+The API decides what each role may do; the full list per endpoint is the role matrix at the end of
+[docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md).
+
+| Sign in as | Web frontend (Doctors, Patients, Services pages) | API only (Swagger) |
+|---|---|---|
+| `admin.user` (Admin) | Everything: list, add, edit and delete doctors, patients and services | Departments, users and account links, audit log, appointment status corrections and deletes. No medical records |
+| `doctor.user` (Doctor) | List doctors, patients and services; add and edit patients | Appointments (also marking them `Completed`); medical records, once an admin links the account to a doctor record |
+| `nurse.user` (Nurse) | List doctors, patients and services; add and edit patients | Appointments; read medical records and their history |
+| `patient.user` (Patient) | List doctors and services. The Patients page stays empty | Own appointments and medical records, once an admin links the account to a patient record |
+
+Things to know when you try the frontend:
+
+- **The frontend shows every button to every role.** Add, edit and delete are visible even when the role may
+  not use them. The API refuses the request with 403, and the page shows no message: the list or form simply
+  does not change. Use `admin.user` to manage doctors and services.
+- **The sample users are not linked to doctor or patient records.** Until an admin links them
+  (`PUT /api/User/{id}/link`), `doctor.user` cannot write medical records and `patient.user` sees no own data.
+- Appointments, medical records, departments, users and the audit log have no pages yet; use Swagger.
+
 #### Setting up the Frontend (Web):
 
 Only needed with Option 1; Aspire (Option 2) starts the frontend for you.
