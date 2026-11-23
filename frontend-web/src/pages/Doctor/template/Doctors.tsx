@@ -22,15 +22,9 @@ const Doctors: React.FC<DoctorsProps> = ({
   const [countDoctors, setcountDoctors] = useState(tableContent.length);
 
   useEffect(() => {
-    // Extract specific fields from services and populate tableContent
-    const tableContent = doctors.map((doctor) => ({
-      id: doctor.id,
-      firstName: doctor.firstName,
-      lastName: doctor.lastName,
-      birthday: doctor.birthday,
-      address: doctor.address,
-      serviceIds: doctor.serviceIds,
-    }));
+    // Keep the whole record: Edit and View receive the row, and a field dropped here would be missing from
+    // the edit form and cleared by the API's PUT (e.g. departmentId). The columns decide what is shown.
+    const tableContent = doctors.map((doctor) => ({ ...doctor }));
     setTableContent(tableContent);
     setcountDoctors(tableContent.length);
   }, [doctors]);
@@ -75,10 +69,11 @@ const Doctors: React.FC<DoctorsProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button onClick={() => handleViewDoctor(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button aria-label='View' onClick={() => handleViewDoctor(record)} className='table--action-btn' icon={<HiOutlineEye />} />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button
+              aria-label='Edit'
               onClick={() => handleEditDoctor(record)}
               className='table--action-btn'
               icon={<HiOutlinePencilAlt />}
@@ -86,7 +81,7 @@ const Doctors: React.FC<DoctorsProps> = ({
           </Tooltip>
           <Tooltip title='Delete'>
             <Popconfirm title='Sure to delete?' onConfirm={() => handleDeleteDoctor(record.id)}>
-              <Button className='table--action-btn' icon={<HiOutlineTrash />} />
+              <Button aria-label='Delete' className='table--action-btn' icon={<HiOutlineTrash />} />
             </Popconfirm>
           </Tooltip>
         </Space>

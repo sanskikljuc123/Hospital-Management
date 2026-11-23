@@ -56,10 +56,12 @@ jobs:
         run: python3 -I scripts/check_doc_references.py
 
   # Backend tests compile the services and use Testcontainers for PostgreSQL, so skip them for unrelated pushes.
+  # All unit and API tests, not only the Suite=Smoke ones: the tests themselves take about 25 s; restore, build and
+  # the PostgreSQL container take the rest. The smoke subset (5 tests) saved about 10 s and missed 160 tests.
   backend-smoke:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    name: Backend smoke tests
+    name: Backend unit and API tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -69,26 +71,28 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Unit smoke tests
+      # One build for both test projects, as in CI.
+      - name: Build
+        run: dotnet build backend/backend.sln -c Release
+
+      - name: Unit tests
         run: >
-          dotnet test backend/tests/HospitalManagement.UnitTests -c Release
-          --filter "Suite=Smoke"
-          --logger "trx;LogFileName=unit-smoke.trx"
+          dotnet test backend/tests/HospitalManagement.UnitTests --no-build -c Release
+          --logger "trx;LogFileName=unit.trx"
           --results-directory test-results/unit
 
-      # These API smoke tests use the same real PostgreSQL/Testcontainers setup as the full API suite.
-      - name: API smoke tests
+      # The same real PostgreSQL (Testcontainers) setup as the full API suite in CI.
+      - name: API tests
         run: >
-          dotnet test backend/tests/HospitalManagement.ApiTests -c Release
-          --filter "Suite=Smoke"
-          --logger "trx;LogFileName=api-smoke.trx"
+          dotnet test backend/tests/HospitalManagement.ApiTests --no-build -c Release
+          --logger "trx;LogFileName=api.trx"
           --results-directory test-results/api
 
-      - name: Upload smoke test results
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: branch-smoke-results
+          name: branch-test-results
           path: test-results
           if-no-files-found: ignore
           retention-days: 7

@@ -1,8 +1,8 @@
 # Quality gate G7 (docs/testing/QUALITY_GATES.md §1): end-to-end journeys against the real stack —
 # Keycloak, the API, PostgreSQL (docker compose) and the production build of the web frontend.
 # Runs on merges to master, nightly, on demand, on pull requests labelled "e2e", and on every pull request that
-# touches sign-in (see the "changes" job). No retries, no AI step.
-# The job "End-to-end journeys (G7)" is a required check on master: when a pull request does not touch sign-in it
+# touches sign-in or the web frontend (see the "changes" job). No retries, no AI step.
+# The job "End-to-end journeys (G7)" is a required check on master: when a pull request touches neither it
 # reports Skipped, which GitHub counts as passed; when it does, the journeys must pass before merge.
 name: E2E
 
@@ -23,14 +23,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Does this pull request touch sign-in? Plain git, no third-party action. The paths are where a change can break
-  # the real Keycloak sign-in that only the E2E journeys exercise (API tests use test-signed tokens).
+  # Does this pull request touch sign-in or the web frontend? Plain git, no third-party action. The paths are where
+  # a change can break what only the E2E journeys exercise: the real Keycloak sign-in (API tests use test-signed
+  # tokens) and the web frontend's pages, which have no tests below E2E (UI_TEST_DESIGN §5). For the frontend,
+  # everything that goes into its build counts: sources, index.html, dependencies, Vite and TypeScript config.
   changes:
-    name: Does this change touch sign-in?
+    name: Does this change touch sign-in or the web frontend?
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     outputs:
-      sign_in: ${{ steps.diff.outputs.sign_in }}
+      journeys: ${{ steps.diff.outputs.journeys }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,13 +44,14 @@ jobs:
         run: |
           changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
           echo "Changed files:"; echo "$changed"
-          pattern='^(backend/api/Auth/|backend/api/Program\.cs$|keycloak/|frontend-web/src/auth/|docker-compose[^/]*\.ya?ml$|e2e/|\.github/workflows/e2e\.yml$)'
-          if echo "$changed" | grep -Eq "$pattern"; then
-            echo "sign_in=true" >> "$GITHUB_OUTPUT"
-            echo "Touches sign-in: the journeys run."
+          sign_in='backend/api/Auth/|backend/api/Program\.cs$|keycloak/|docker-compose[^/]*\.ya?ml$|e2e/|\.github/workflows/e2e\.yml$'
+          frontend='frontend-web/(src/|index\.html$|package(-lock)?\.json$|vite\.config\.ts$|tsconfig[^/]*\.json$)'
+          if echo "$changed" | grep -Eq "^($sign_in|$frontend)"; then
+            echo "journeys=true" >> "$GITHUB_OUTPUT"
+            echo "Touches sign-in or the web frontend: the journeys run."
           else
-            echo "sign_in=false" >> "$GITHUB_OUTPUT"
-            echo "Does not touch sign-in: the journeys are skipped."
+            echo "journeys=false" >> "$GITHUB_OUTPUT"
+            echo "Touches neither sign-in nor the web frontend: the journeys are skipped."
           fi
 
   e2e:
@@ -60,7 +63,7 @@ jobs:
       !cancelled() && (
         github.event_name != 'pull_request'
         || contains(github.event.pull_request.labels.*.name, 'e2e')
-        || needs.changes.outputs.sign_in == 'true'
+        || needs.changes.outputs.journeys == 'true'
         || needs.changes.result != 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -85,16 +88,13 @@ jobs:
           sed -i "s/^KEYCLOAK_ADMIN_PASSWORD=.*/KEYCLOAK_ADMIN_PASSWORD=$(openssl rand -hex 16)/" .env
           sed -i "s/^DEV_USERS_PASSWORD=.*/DEV_USERS_PASSWORD=$(openssl rand -hex 16)/" .env
 
-      - name: Start PostgreSQL, Keycloak and the API
-        run: docker compose up -d --build --wait
-
-      - name: Wait for the API
+      # Building the API image and waiting for Keycloak take about a minute. The stack starts in the background
+      # while the frontend, the E2E project and the browser are prepared; "Wait for the stack" joins it again.
+      # Its exit code and log go to files, so a failed start fails the job with the reason instead of a timeout.
+      - name: Start PostgreSQL, Keycloak and the API (in the background)
         run: |
-          for i in $(seq 1 60); do
-            [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5117/health)" = 200 ] && exit 0
-            sleep 2
-          done
-          echo "API did not become healthy"; exit 1
+          nohup bash -c 'docker compose up -d --build --wait > compose-up.log 2>&1; echo $? > compose-up.exit' \
+            > /dev/null 2>&1 &
 
       - name: Build and serve the web frontend (production build)
         working-directory: frontend-web
@@ -108,10 +108,49 @@ jobs:
           done
           echo "Frontend did not start"; cat ../vite-preview.log; exit 1
 
-      - name: Build the E2E tests and install Chromium
+      - name: Build the E2E tests
+        run: dotnet build e2e/HospitalManagement.E2E
+
+      # The browser build belongs to the Playwright version, so the cache key is that version (from the project
+      # file). A hit skips the ~150 MB download.
+      - name: Playwright version
+        id: playwright
         run: |
-          dotnet build e2e/HospitalManagement.E2E
-          pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+          version="$(grep -oP 'Include="Microsoft\.Playwright" Version="\K[^"]+' e2e/HospitalManagement.E2E/HospitalManagement.E2E.csproj)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Playwright browser
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+      # `--with-deps` ran apt-get on every run and took 40 s to 6 min. The runner image already has the libraries
+      # Chromium needs (it ships Google Chrome), so the system packages are installed only if the browser binary
+      # reports a missing library. Same browser build either way: nothing about the tests changes.
+      - name: Install Chromium
+        run: |
+          pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install chromium
+          missing="$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell \) -perm -u+x \
+            -exec ldd {} \; | grep 'not found' || true)"
+          if [ -n "$missing" ]; then
+            echo "Missing system libraries, installing them:"; echo "$missing"
+            pwsh e2e/HospitalManagement.E2E/bin/Debug/net10.0/playwright.ps1 install-deps chromium
+          else
+            echo "All system libraries present; no apt-get needed."
+          fi
+
+      - name: Wait for the stack
+        run: |
+          for i in $(seq 1 120); do [ -f compose-up.exit ] && break; sleep 2; done
+          if [ "$(cat compose-up.exit 2>/dev/null)" != 0 ]; then
+            echo "The stack did not start:"; cat compose-up.log; exit 1
+          fi
+          for i in $(seq 1 60); do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5117/health)" = 200 ] && exit 0
+            sleep 2
+          done
+          echo "API did not become healthy"; exit 1
 
       - name: Run the journeys
         run: |

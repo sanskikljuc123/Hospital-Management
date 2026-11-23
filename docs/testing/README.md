@@ -27,6 +27,7 @@ reliability, and every important scenario and edge case — while all data is fa
 | [TEST_STRATEGY.md](TEST_STRATEGY.md) | What we test at which level, with which tools, data and environments, and how tests are written. |
 | [RISK_REGISTER.md](RISK_REGISTER.md) | How risks are rated, the current risks, the open assumptions, and which test covers which risk. |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Who may call which endpoint, per-record access rules, token and leakage checks. |
+| [UI_TEST_DESIGN.md](UI_TEST_DESIGN.md) | Proposed tests for `frontend-web`: defects found, proposed risks, the test catalogue by category, open questions and automation approach. Not implemented yet. |
 | [QUALITY_GATES.md](QUALITY_GATES.md) | What must pass before merge and release, the flaky-test and skip policy, and how failures and findings are handled. |
 
 These documents are the **single source of truth**. Agents and skills point to them; they do not copy them.
@@ -167,9 +168,9 @@ e2e/HospitalManagement.E2E/                    sign-in and clinical journeys —
 Mutation testing (phase 5 ✅) checks that the unit tests notice broken rules: Stryker.NET, nightly in CI,
 score 95.32 %, fails below 90 % — see [TEST_STRATEGY.md §11](TEST_STRATEGY.md#11-mutation-testing).
 
-Risk/skip and documentation-reference checks run on every push to a non-`master` branch. Selected unit/API
-smoke tests run when backend code changes, and the frontend build runs when `frontend-web/` changes. These
-provide early feedback and do not replace the full required PR checks.
+Risk/skip and documentation-reference checks run on every push to a non-`master` branch. All unit and API tests
+run when backend code changes, and the frontend build runs when `frontend-web/` changes. These provide early
+feedback before a pull request exists and do not replace the required PR checks.
 
 Run the E2E journeys against a running stack (`docker compose up -d --build`, then
 `npm run build` and `npx vite preview --port 3000` in `frontend-web`), with the passwords from `.env`:

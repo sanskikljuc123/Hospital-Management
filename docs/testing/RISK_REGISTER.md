@@ -134,6 +134,16 @@ flow scenario that exposes each one is named in the evidence column.
 | R-056 | Two doctors amending the same record: the later save silently overwrites the earlier change | T | 3 | 2 | Medium (6) | No version check on `PUT /api/MedicalRecord/{id}` (`MedicalRecordService.cs:114-121`); history keeps both — F-09.3 | API | – | Proposed |
 | R-057 | Deleting a service silently deletes every patient registered to it (the foreign key cascaded) | T, D | 4 | 2 | **High (8)** | Fixed in C-2 refactor: foreign key `Restrict` (migration `PatientServiceRestrictDelete`), and `DELETE /api/Service/{id}` returns 409 while patients or doctors use it (`ServiceServiceImp.cs`) | API | `CatalogTests` | Covered |
 
+### 2.3 Web frontend
+
+Found while designing the UI tests on 2026-11-23 ([UI_TEST_DESIGN.md](UI_TEST_DESIGN.md) §3–4). Ratings are
+proposals until the test owner accepts them.
+
+| ID | Risk | STRIDE | I | L | Severity | Evidence (current state) | Level | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| R-059 | Editing a doctor, patient or service in the web application fails, or silently erases fields the form does not show (the API's `PUT` replaces every field) | T | 3 | 4 | **Critical (12)** | Fixed on 2026-11-23: edit doctor sends `PUT` (`doctorSlice.ts:70`); the tables pass the whole record to Edit (`Doctors.tsx:27`); the patient form has an email field (`PatientForm.tsx:53`); the doctor and service forms send the department (`DoctorForm.tsx:43`, `ServiceForm.tsx:32`) — UI_TEST_DESIGN D-1 … D-4 | E2E | `CatalogueEditing.feature` | Proposed |
+| R-060 | A date picked in the web application is saved as a different date (local midnight sent as a UTC timestamp) | T | 2 | 4 | **High (8)** | Fixed on 2026-11-23: the doctor form sends `YYYY-MM-DD` and reads back only the date part (`DoctorForm.tsx:24`, `:29`) — UI_TEST_DESIGN D-5 | E2E | `CatalogueEditing.feature` | Proposed |
+
 ## 3. Assumptions
 
 Things we treat as true without proof yet. Each has an owner and a date to re-check.

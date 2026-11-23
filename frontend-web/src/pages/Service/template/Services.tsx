@@ -21,12 +21,9 @@ const Services: React.FC<ServicesProps> = ({
   const [tableContent, setTableContent] = useState<service[]>([]);
   const [countServices, setcountServices] = useState(tableContent.length);
   useEffect(() => {
-    // Extract specific fields from services and populate tableContent
-    const tableContent = services.map((service) => ({
-      id: service.id,
-      name: service.name,
-      description: service.description,
-    }));
+    // Keep the whole record: Edit and View receive the row, and a field dropped here would be missing from
+    // the edit form and cleared by the API's PUT (e.g. departmentId). The columns decide what is shown.
+    const tableContent = services.map((service) => ({ ...service }));
     setTableContent(tableContent);
     setcountServices(tableContent.length);
   }, [services]);
@@ -56,10 +53,11 @@ const Services: React.FC<ServicesProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button onClick={() => handleViewService(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button aria-label='View' onClick={() => handleViewService(record)} className='table--action-btn' icon={<HiOutlineEye />} />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button
+              aria-label='Edit'
               onClick={() => handleEditService(record)}
               className='table--action-btn'
               icon={<HiOutlinePencilAlt />}
@@ -67,7 +65,7 @@ const Services: React.FC<ServicesProps> = ({
           </Tooltip>
           <Tooltip title='Delete'>
             <Popconfirm title='Sure to delete?' onConfirm={() => handleDeleteService(record.id)}>
-              <Button className='table--action-btn' icon={<HiOutlineTrash />} />
+              <Button aria-label='Delete' className='table--action-btn' icon={<HiOutlineTrash />} />
             </Popconfirm>
           </Tooltip>
         </Space>

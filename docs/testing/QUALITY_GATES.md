@@ -13,7 +13,7 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
-| G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, `frontend-web/src/auth/`, the compose files, `e2e/`, the E2E workflow), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
+| G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, the compose files, `e2e/`, the E2E workflow) or the web frontend (`frontend-web/src/`, `index.html`, `package.json` and its lock file, the Vite and TypeScript config), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 
 **Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G6
@@ -24,7 +24,9 @@ binding, not advisory: changes reach `master` only through a pull request, the f
 be updated in the same pull request, or every later pull request waits for a check that never runs.
 
 **G7 on pull requests.** API tests sign tokens with a test key, so only the E2E journeys exercise the real
-Keycloak sign-in. The job `Does this change touch sign-in?` (plain `git diff`) decides whether they run: a pull
+Keycloak sign-in; and the web frontend's pages have no tests below E2E (UI_TEST_DESIGN §5), so a frontend change
+runs them too (since 2026-11-23, after edit bugs in the pages passed every other gate). The job
+`Does this change touch sign-in or the web frontend?` (plain `git diff`) decides whether they run: a pull
 request that touches one of the G7 paths runs them and cannot merge until they pass; any other pull request
 reports the E2E check as *Skipped*, which GitHub counts as passed. If that detection step fails, the journeys
 run anyway, because a skipped required check would pass. A change elsewhere that could still affect sign-in can
@@ -67,9 +69,14 @@ The fix removes the `Skip` and the `KnownGap` trait in the same pull request, an
 known-gap test never asserts the current, wrong behavior. It does not count for G4 (a).
 
 **Branch smoke (early feedback, not a merge gate):** `.github/workflows/smoke.yml` runs risk/skip and
-documentation-reference checks on every push to branches other than `master`. Selected unit and API tests run
+documentation-reference checks on every push to branches other than `master`. All unit and API tests run
 when backend code or its build configuration changes; the frontend build runs when `frontend-web/` changes.
-It does not replace the full unit/API suites required on every PR.
+It does not replace the checks required on every PR.
+
+**E2E job duration.** The journeys themselves take about 20 s; the job's time is preparation. The stack starts in
+the background while the frontend, the E2E project and Chromium are prepared; the Chromium build is cached by
+Playwright version, and system packages are installed only if the browser reports a missing library (until
+2026-11-23 `--with-deps` ran apt-get on every run, 40 s to 6 min).
 
 **What does not gate:** coverage percentage, number of tests, test duration (tracked, not gated).
 

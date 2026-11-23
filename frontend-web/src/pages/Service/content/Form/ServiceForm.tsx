@@ -26,6 +26,13 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit }) => {
           <Input type='hidden' />
         </Form.Item>
       )}
+      {/* The form has no department picker yet. Sending the current department keeps it: the API's PUT
+          replaces every field, and a missing one would be cleared. */}
+      {service && (
+        <Form.Item name='departmentId' style={{ display: "none" }}>
+          <Input type='hidden' />
+        </Form.Item>
+      )}
       <Form.Item label='Name' name='name' rules={[{ required: true, message: "Please enter the service name" }]}>
         <Input />
       </Form.Item>

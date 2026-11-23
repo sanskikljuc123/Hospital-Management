@@ -67,7 +67,7 @@ export const updateDoctor = createAsyncThunk<Doctor, Doctor, { state: RootState 
     let { id, ...newDoctor } = updatedDoctor;
     return new Promise<Doctor>((resolve, reject) => {
       api
-        .patch("/doctor/" + id, newDoctor)
+        .put("/doctor/" + id, newDoctor)
         .then((response) => {
           resolve(response.data);
         })
