@@ -2,7 +2,8 @@
 //
 //   dotnet run --project backend/HospitalManagement.AppHost
 //
-// Starts PostgreSQL and Keycloak as containers, runs the API as a project, wires
+// Starts PostgreSQL and Keycloak as containers, runs the API as a project and the web
+// frontend as a Vite dev server, wires
 // configuration between them and opens the Aspire dashboard (logs, traces, metrics).
 
 // WithoutHttpsCertificate is still marked experimental in Aspire 13.
@@ -31,7 +32,7 @@ var keycloak = builder.AddKeycloak("keycloak", 8080)
     .WithEnvironment("DEV_USERS_PASSWORD", devUsersPassword)
     .WithRealmImport("../../keycloak/realms");
 
-builder.AddProject<Projects.api>("hospital-api")
+var api = builder.AddProject<Projects.api>("hospital-api")
     // Injects ConnectionStrings__hospitaldb.
     .WithReference(hospitalDb)
     .WaitFor(hospitalDb)
@@ -44,5 +45,15 @@ builder.AddProject<Projects.api>("hospital-api")
     .WithEnvironment("Database__MigrateOnStartup", "true")
     .WithEnvironment("Database__SeedOnStartup", "true")
     .WithHttpHealthCheck("/health");
+
+// React web frontend (Vite dev server). Aspire runs `npm install` and then `npm run dev`.
+// Port 3000 is fixed: the Keycloak realm's redirect URIs and the API's CORS origin both use it.
+builder.AddViteApp("frontend-web", "../../frontend-web")
+    .WithEndpoint("http", endpoint => endpoint.Port = 3000)
+    .WithEnvironment("VITE_API_URL", ReferenceExpression.Create($"{api.GetEndpoint("http")}/api"))
+    .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
+    .WithEnvironment("VITE_KEYCLOAK_REALM", RealmName)
+    .WaitFor(api)
+    .WaitFor(keycloak);
 
 builder.Build().Run();
