@@ -9,6 +9,8 @@
 - **Tests that prove them** (names):
 - **Tests removed, skipped or loosened?** No / Yes — why:
 - **Known gaps closed?** (removed `Skip = "Known gap R-xxx"`): No / Yes — which:
+- **Risk set to `Covered`?** No / Yes — **red evidence** for each: link to a CI run (or pasted output) where its
+  test failed on the old or deliberately broken code, then passed with the change. No red evidence, no `Covered`.
 
 ## Security
 

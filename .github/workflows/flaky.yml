@@ -1,0 +1,52 @@
+# Flaky-test detection (docs/testing/QUALITY_GATES.md §3): runs the unit and API tests three times on the same
+# commit and reports every test whose outcome changed. Nightly and on demand, never on pull requests, and never
+# a required check: it finds flaky tests before they block someone's pull request. No retries, no AI step.
+name: Flaky tests
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repeat:
+    name: Repeated test runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Build
+        run: dotnet build backend/backend.sln -c Release
+
+      # Each run writes its own results; a failing run does not stop the next one.
+      - name: Run the tests three times
+        run: |
+          for run in 1 2 3; do
+            dotnet test backend/tests/HospitalManagement.UnitTests --no-build -c Release \
+              --logger "trx;LogFileName=unit.trx" --results-directory "repeat/run$run" || true
+            dotnet test backend/tests/HospitalManagement.ApiTests --no-build -c Release -f net8.0 \
+              --logger "trx;LogFileName=api-net8.0.trx" --results-directory "repeat/run$run" || true
+            dotnet test backend/tests/HospitalManagement.ApiTests --no-build -c Release -f net10.0 \
+              --logger "trx;LogFileName=api-net10.0.trx" --results-directory "repeat/run$run" || true
+          done
+
+      - name: Compare the runs
+        run: python3 -I scripts/flaky_report.py repeat | tee -a "$GITHUB_STEP_SUMMARY"; exit "${PIPESTATUS[0]}"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: repeated-test-results
+          path: repeat
+          retention-days: 14
