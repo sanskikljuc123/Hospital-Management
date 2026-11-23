@@ -127,8 +127,7 @@ Rules for an AI implementer:
    answer is recorded in RISK_REGISTER §4 with the date.
 4. **Results are reported as they are.** Failing tests, skipped steps and anything not verified are stated
    in the PR; a test is never weakened to make it pass (AI rule 4 applies to the implementer too).
-5. **Work is visible.** Commits carry a `Co-Authored-By` line for the AI session, and the PR says which
-   agents ran and what they found.
+5. **Work is visible.** The PR says which agents ran and what they found.
 6. **Limits are enforced where possible.** [.claude/settings.json](../../.claude/settings.json) denies
    force pushes, direct pushes to `master` and `git reset --hard`, and asks the person before every commit,
    push, merge and rebase. These rules match command prefixes, so they guard against mistakes, not against
