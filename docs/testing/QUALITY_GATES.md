@@ -17,14 +17,18 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 | G9 | Mutation of changed code | every PR that changes `backend/Services/` (or the mutation setup) | no mutant on a line the PR changed goes undetected by the unit tests; a truly equivalent one is accepted in the code with `// Stryker disable once <Mutator> : <reason>`, reviewed in the diff. The file's overall score does not count, so old survivors never block an unrelated change (TEST_STRATEGY §11) | job summary, Stryker report artifact |
 
-**Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G6
+**Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G7 and G9
 binding, not advisory: changes reach `master` only through a pull request, the four CI checks
 (`Backend build and tests (G1, G2, G3)`, `Frontend build (G1)`, `Risk coverage and skips (G4, G5)`,
-`Secret scan (G6)`) and the E2E check `End-to-end journeys (G7)` must pass, and force pushes and deleting
+`Secret scan (G6)`), the E2E check `End-to-end journeys (G7)` and the mutation check
+`Mutation testing of changed code` (G9) must pass, and force pushes and deleting
 `master` are blocked. The bypass list is empty. Renaming a CI job changes its check name, so the ruleset must
 be updated in the same pull request, or every later pull request waits for a check that never runs.
 
-**G9 is not in the ruleset yet** (added 2026-11-23). Until the test owner adds the check `Mutation testing of changed code` to *Protect master*, a failing G9 shows on the pull request but does not block the merge. The check reports *Skipped* (counted as passed) on pull requests that change no service code.
+**G9 in the ruleset** (since 2026-11-23). A pull request that changes service code cannot merge while a mutant
+on one of its changed lines goes undetected. A pull request that changes no service code reports the check as
+*Skipped*, which GitHub counts as passed. Before the check became required it had run on GitHub: on #52 Stryker
+found the four changed files, none of them service code, and passed; on #53 and #54 it was skipped.
 
 **G7 on pull requests.** API tests sign tokens with a test key, so only the E2E journeys exercise the real
 Keycloak sign-in, and they are the only tests that run the API, the database, Keycloak and the production
