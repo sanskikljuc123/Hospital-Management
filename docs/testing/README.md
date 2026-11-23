@@ -161,6 +161,8 @@ backend/tests/HospitalManagement.UnitTests/   business rules of every service, a
                                                outbox delivery, architecture rules (fixed clock)
 backend/tests/HospitalManagement.ApiTests/    authorization matrix, tokens, BOLA, record author, phase 2 ✅ — real PostgreSQL
                                                catalogue, transactions, outbox
+frontend-web/src/**/*.test.ts(x)               forms, tables and slices of the web frontend —     2026-11-23 ✅
+                                               Vitest in jsdom, API mocked with MSW
 e2e/HospitalManagement.E2E/                    sign-in and clinical journeys — real Keycloak,      phase 4 ✅
                                                API, PostgreSQL and the production frontend build
 ```
@@ -169,7 +171,7 @@ Mutation testing (phase 5 ✅) checks that the unit tests notice broken rules: S
 score 95.32 %, fails below 90 % — see [TEST_STRATEGY.md §11](TEST_STRATEGY.md#11-mutation-testing).
 
 Risk/skip and documentation-reference checks run on every push to a non-`master` branch. All unit and API tests
-run when backend code changes, and the frontend build runs when `frontend-web/` changes. These provide early
+run when backend code changes, and the frontend build and component tests run when `frontend-web/` changes. These provide early
 feedback before a pull request exists and do not replace the required PR checks.
 
 Run the E2E journeys against a running stack (`docker compose up -d --build`, then

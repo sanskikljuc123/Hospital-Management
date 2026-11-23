@@ -21,6 +21,7 @@ level cannot see it.
 |---|---|---|---|---|---|
 | **Unit** | `backend/tests/HospitalManagement.UnitTests` | A business rule in one service: double booking, scheduling in the past, status rules, audit entry written | none | EF Core on a real PostgreSQL container is preferred over the in-memory provider when queries matter; otherwise plain objects | all on every branch push that changes the backend, and on every PR |
 | **API** | `backend/tests/HospitalManagement.ApiTests` | The HTTP contract: status codes, the role-by-endpoint matrix, per-record access (BOLA), validation, error bodies | PostgreSQL (Testcontainers), the real API pipeline (`WebApplicationFactory<Program>`) | Keycloak is replaced by a local test token issuer (§5) | all on every branch push that changes the backend, and on every PR |
+| **Component** | `frontend-web/src/**/*.test.ts(x)` (Vitest) | A frontend form, table or Redux slice: the payload a form sends (every field the API's `PUT` replaces), the date it sends, the HTTP method and path a slice calls, form validation | none (jsdom) | the API is mocked at the network boundary by MSW, and an unexpected request fails the test; Keycloak is mocked (`src/test/setup.ts`) | all on every branch push that changes `frontend-web/`, and on every PR (G2) |
 | **E2E** | `e2e/HospitalManagement.E2E` | A whole journey works with the real identity provider and deployment wiring | PostgreSQL, Keycloak, API (docker-compose stack) | nothing | merge to `master`, nightly, PR label `e2e` |
 
 `.github/workflows/smoke.yml` gives early feedback on pushes to branches other than `master`, before a pull
@@ -29,7 +30,11 @@ build configuration changes (since 2026-11-23; before that only the five `[Trait
 tests themselves take about 25 s: restore, build and the PostgreSQL container are most of the job, so the subset
 saved about 10 s and skipped 160 tests. The `Suite=Smoke` trait stays for a quick local run
 (`dotnet test --filter Suite=Smoke`). Risk/skip validation and documentation-reference checks run on every branch
-push; the frontend production build runs only when a push changes `frontend-web/`.
+push; the frontend production build and the component tests run only when a push changes `frontend-web/`.
+
+The component level was added on 2026-11-23 (UI_TEST_DESIGN Q-a): edit bugs in the frontend had passed every
+gate because nothing below E2E tested the frontend. The 12 tests run in about 30 s on a developer machine;
+antd and the icon packs are pre-bundled once (`vitest.config.ts`), which took the run from 88 s to 30 s.
 
 ### Where a check belongs
 
@@ -38,6 +43,7 @@ push; the frontend production build runs only when a push changes `frontend-web/
 | Is a rule inside a service correct for given inputs? | Unit |
 | Does role X get status Y on endpoint Z? | API |
 | Can patient A see patient B's record? | API |
+| Does a frontend form send every field, in the right format, to the right endpoint? | Component |
 | Does a real Keycloak token for a real sample user work against the deployed API? | E2E |
 | Does the API reject a token with the wrong issuer, audience, signature or expiry? | API |
 
@@ -50,6 +56,7 @@ push; the frontend production build runs only when a push changes `frontend-web/
 | In-process API host | `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory<Program>`) |
 | Real database | `Testcontainers.PostgreSql` (same major version as `docker-compose.yml`: PostgreSQL 17) |
 | Test tokens | `System.IdentityModel.Tokens.Jwt` with an RSA key generated per test run |
+| Frontend component tests | Vitest in jsdom, React Testing Library and user-event, MSW for the API, jest-dom matchers |
 | E2E scenarios | Reqnroll (Gherkin) |
 | E2E driver | Playwright for .NET: browser for user journeys through `frontend-web`, API request context for API-only journeys |
 | Mutation testing (phase 5) | Stryker.NET on `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` (§11) |
@@ -75,7 +82,8 @@ e2e/
 Rules for every test:
 
 1. **Name:** `Method_or_Endpoint_Condition_ExpectedResult`, e.g. `GetMedicalRecord_OtherPatientsRecord_Returns403`.
-2. **Traceability:** at least one `[Trait("Risk", "R-xxx")]`. Use `[Trait("Category", "Security")]` for security tests.
+2. **Traceability:** at least one `[Trait("Risk", "R-xxx")]`; in a frontend component test, a tag such as
+   `@R-059` in the title of the test or of its `describe` block. Use `[Trait("Category", "Security")]` for security tests.
    A test for a risk that is still open is skipped as a known gap (`Skip = "Known gap R-xxx"` plus
    `[Trait("KnownGap", "R-xxx")]`) and asserts the correct behavior — see [QUALITY_GATES.md](QUALITY_GATES.md#1-gates).
 3. **One behavior per test.** Arrange – Act – Assert, with the assertion on the outcome the risk is about
