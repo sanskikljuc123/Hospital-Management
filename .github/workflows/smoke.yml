@@ -37,10 +37,11 @@ jobs:
             changed="backend/ frontend-web/"
           fi
 
-          if echo "$changed" | grep -Eq '^(backend/|global\.json$|Directory\.Build\.props$|\.github/workflows/smoke\.yml$)'; then
+          # contracts/openapi.json is checked from both sides (R-061): its API test and the frontend component tests.
+          if echo "$changed" | grep -Eq '^(backend/|contracts/|global\.json$|Directory\.Build\.props$|\.github/workflows/smoke\.yml$)'; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
           fi
-          if echo "$changed" | grep -q '^frontend-web/'; then
+          if echo "$changed" | grep -Eq '^(frontend-web/|contracts/)'; then
             echo "frontend=true" >> "$GITHUB_OUTPUT"
           fi
 

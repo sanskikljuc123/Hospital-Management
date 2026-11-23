@@ -2,6 +2,7 @@
 using api.Infrastructure;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.PatientService;
 
@@ -23,12 +24,14 @@ namespace api.Controllers
         }
 
         [HttpGet]
+        [ProducesResponseType<IReadOnlyList<PatientDto>>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> GetAllPatients(CancellationToken cancellationToken) =>
             Ok(await _patients.GetAllAsync(cancellationToken));
 
         /// <summary>Staff can read any patient; a patient only their own (403 for any other id, existing or not).</summary>
         [HttpGet("{id}")]
+        [ProducesResponseType<PatientDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetPatientById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var patient = await _patients.GetByIdAsync(id, cancellationToken);
@@ -37,6 +40,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType<PatientDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> CreatePatient([FromBody] PatientCreationDto dto, CancellationToken cancellationToken)
         {
@@ -47,12 +51,14 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType<PatientDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> UpdatePatient([FromRoute] int id, [FromBody] PatientCreationDto dto, CancellationToken cancellationToken) =>
             FromResult(await _patients.UpdateAsync(id, dto, cancellationToken));
 
         /// <summary>204 when deleted; 409 while the patient has appointments or medical records.</summary>
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeletePatient([FromRoute] int id, CancellationToken cancellationToken) =>
             await _patients.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound($"Patient with ID {id} not found");

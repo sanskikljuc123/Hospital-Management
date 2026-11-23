@@ -1,6 +1,8 @@
 # API Endpoint Inventory
 
-Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive version: `/swagger`.
+Base URL: `http://localhost:5117` (docker-compose and Aspire). Interactive version: `/swagger`. Machine-readable
+contract: `contracts/openapi.json`, generated from the API and kept equal to it by the API tests; the frontend
+tests check their requests and mocks against it (docs/testing/TEST_STRATEGY.md §2, R-061).
 
 ## Conventions
 

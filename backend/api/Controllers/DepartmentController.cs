@@ -2,6 +2,7 @@ using api.Auth;
 using api.Infrastructure;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.DepartmentService;
 
@@ -17,10 +18,12 @@ namespace api.Controllers
         public DepartmentController(IDepartmentService departments) => _departments = departments;
 
         [HttpGet]
+        [ProducesResponseType<IReadOnlyList<DepartmentDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllDepartments(CancellationToken cancellationToken) =>
             Ok(await _departments.GetAllAsync(cancellationToken));
 
         [HttpGet("{id}")]
+        [ProducesResponseType<DepartmentDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetDepartmentById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var department = await _departments.GetByIdAsync(id, cancellationToken);
@@ -28,6 +31,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType<DepartmentDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> CreateDepartment([FromBody] DepartmentDto dto, CancellationToken cancellationToken)
         {
@@ -38,11 +42,13 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType<DepartmentDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> UpdateDepartment([FromRoute] int id, [FromBody] DepartmentDto dto, CancellationToken cancellationToken) =>
             FromResult(await _departments.UpdateAsync(id, dto, cancellationToken));
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteDepartment([FromRoute] int id, CancellationToken cancellationToken) =>
             await _departments.DeleteAsync(id, cancellationToken)

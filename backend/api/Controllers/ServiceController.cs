@@ -2,6 +2,7 @@
 using api.Infrastructure;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.ServiceService;
 
@@ -18,10 +19,12 @@ namespace api.Controllers
         public ServiceController(IServiceService services) => _services = services;
 
         [HttpGet]
+        [ProducesResponseType<IReadOnlyList<ServiceDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllServices(CancellationToken cancellationToken) =>
             Ok(await _services.GetAllAsync(cancellationToken));
 
         [HttpGet("{id}")]
+        [ProducesResponseType<ServiceDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetServiceById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var service = await _services.GetByIdAsync(id, cancellationToken);
@@ -30,6 +33,7 @@ namespace api.Controllers
 
         /// <summary>Binds a DTO, not the entity: extra fields such as patients or doctors are ignored.</summary>
         [HttpPost]
+        [ProducesResponseType<ServiceDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> CreateService([FromBody] ServiceDto dto, CancellationToken cancellationToken)
         {
@@ -40,12 +44,14 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType<ServiceDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] ServiceDto dto, CancellationToken cancellationToken) =>
             FromResult(await _services.UpdateAsync(id, dto, cancellationToken));
 
         /// <summary>204 when deleted; 409 while patients or doctors still use the service.</summary>
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteService([FromRoute] int id, CancellationToken cancellationToken)
         {
