@@ -1,17 +1,13 @@
 import { Button, Menu } from "antd";
+import type { MenuProps } from "antd";
 import { AiOutlineMenuUnfold, AiOutlineMenuFold } from "react-icons/ai";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./SideMenu.scss";
 import { TbLogout } from "react-icons/tb";
 
-type MenuItem = {
-  key: React.Key;
-  label: React.ReactNode;
-  icon?: React.ReactNode;
-  children?: MenuItem[];
-  type?: "group";
-};
+// antd's own item type: a hand-written copy drifts from it (antd 5.29 no longer accepts `children?: ...[]`).
+type MenuItem = Required<MenuProps>["items"][number];
 
 interface SideMenuProps {
   menuItems: MenuItem[];
