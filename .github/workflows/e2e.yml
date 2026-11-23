@@ -1,8 +1,8 @@
 # Quality gate G7 (docs/testing/QUALITY_GATES.md §1): end-to-end journeys against the real stack —
 # Keycloak, the API, PostgreSQL (docker compose) and the production build of the web frontend.
 # Runs on merges to master, nightly, on demand, on pull requests labelled "e2e", and on every pull request that
-# touches sign-in (see the "changes" job). No retries, no AI step.
-# The job "End-to-end journeys (G7)" is a required check on master: when a pull request does not touch sign-in it
+# touches sign-in or the web frontend (see the "changes" job). No retries, no AI step.
+# The job "End-to-end journeys (G7)" is a required check on master: when a pull request touches neither it
 # reports Skipped, which GitHub counts as passed; when it does, the journeys must pass before merge.
 name: E2E
 
@@ -23,14 +23,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Does this pull request touch sign-in? Plain git, no third-party action. The paths are where a change can break
-  # the real Keycloak sign-in that only the E2E journeys exercise (API tests use test-signed tokens).
+  # Does this pull request touch sign-in or the web frontend? Plain git, no third-party action. The paths are where
+  # a change can break what only the E2E journeys exercise: the real Keycloak sign-in (API tests use test-signed
+  # tokens) and the web frontend's pages, which have no tests below E2E (UI_TEST_DESIGN §5). For the frontend,
+  # everything that goes into its build counts: sources, index.html, dependencies, Vite and TypeScript config.
   changes:
-    name: Does this change touch sign-in?
+    name: Does this change touch sign-in or the web frontend?
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     outputs:
-      sign_in: ${{ steps.diff.outputs.sign_in }}
+      journeys: ${{ steps.diff.outputs.journeys }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,13 +44,14 @@ jobs:
         run: |
           changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
           echo "Changed files:"; echo "$changed"
-          pattern='^(backend/api/Auth/|backend/api/Program\.cs$|keycloak/|frontend-web/src/auth/|docker-compose[^/]*\.ya?ml$|e2e/|\.github/workflows/e2e\.yml$)'
-          if echo "$changed" | grep -Eq "$pattern"; then
-            echo "sign_in=true" >> "$GITHUB_OUTPUT"
-            echo "Touches sign-in: the journeys run."
+          sign_in='backend/api/Auth/|backend/api/Program\.cs$|keycloak/|docker-compose[^/]*\.ya?ml$|e2e/|\.github/workflows/e2e\.yml$'
+          frontend='frontend-web/(src/|index\.html$|package(-lock)?\.json$|vite\.config\.ts$|tsconfig[^/]*\.json$)'
+          if echo "$changed" | grep -Eq "^($sign_in|$frontend)"; then
+            echo "journeys=true" >> "$GITHUB_OUTPUT"
+            echo "Touches sign-in or the web frontend: the journeys run."
           else
-            echo "sign_in=false" >> "$GITHUB_OUTPUT"
-            echo "Does not touch sign-in: the journeys are skipped."
+            echo "journeys=false" >> "$GITHUB_OUTPUT"
+            echo "Touches neither sign-in nor the web frontend: the journeys are skipped."
           fi
 
   e2e:
@@ -60,7 +63,7 @@ jobs:
       !cancelled() && (
         github.event_name != 'pull_request'
         || contains(github.event.pull_request.labels.*.name, 'e2e')
-        || needs.changes.outputs.sign_in == 'true'
+        || needs.changes.outputs.journeys == 'true'
         || needs.changes.result != 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
