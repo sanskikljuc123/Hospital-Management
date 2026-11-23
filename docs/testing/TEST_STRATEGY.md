@@ -52,8 +52,19 @@ each action returns). Two checks hold the two sides to it:
 So a change on either side that the other does not follow fails on the pull request, without E2E. Checked on
 2026-11-23: `PATCH` instead of `PUT` (UI_TEST_DESIGN D-1), a mock with an invented field or an `id` of the wrong
 type, and a field removed from the API each failed the component tests with a message naming the mismatch; a
-controller change failed the API test until the file was updated. Error responses (4xx, 5xx) and query
-parameters are not described yet, so they are not checked.
+controller change failed the API test until the file was updated.
+
+**Errors are part of the contract** (since 2026-11-23). The API answers every error that has a reason as
+ProblemDetails (`HospitalControllerBase`), and the controllers declare which statuses each action returns.
+`ErrorContractTests.cs` pins the format (status, application/problem+json, `detail`). In the component tests a
+mocked error must match the contract: a described status needs a ProblemDetails body, and any other status
+(401, the 403 of an ownership check) must be empty, as the API sends it. A plain-text error mock fails as "not
+JSON". Still not described, so not checked: query parameters and 5xx.
+
+Component tests render antd without animations (`render.tsx`), so a closing drawer is gone at once rather than
+after an animation whose length depends on machine load. A test of the drawer closing failed once in a full run
+and passed alone before that change; the cause was not reproduced on demand, and the suite has passed 3 full runs
+in a row since.
 
 ### Where a check belongs
 

@@ -25,15 +25,17 @@ namespace api.Controllers
 
         [HttpGet("{id}")]
         [ProducesResponseType<DoctorDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetDoctorById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var doctor = await _doctors.GetByIdAsync(id, cancellationToken);
-            return doctor == null ? NotFound($"Doctor with ID {id} not found") : Ok(doctor);
+            return doctor == null ? NotFoundProblem($"Doctor with ID {id} not found") : Ok(doctor);
         }
 
         [HttpPost]
         [ProducesResponseType<DoctorDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
         public async Task<IActionResult> CreateDoctor([FromBody] DoctorCreationDto dto, CancellationToken cancellationToken)
         {
             var result = await _doctors.CreateAsync(dto, cancellationToken);
@@ -45,6 +47,8 @@ namespace api.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType<DoctorDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> UpdateDoctor([FromRoute] int id, [FromBody] DoctorCreationDto dto, CancellationToken cancellationToken) =>
             FromResult(await _doctors.UpdateAsync(id, dto, cancellationToken));
 
@@ -52,7 +56,9 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> DeleteDoctor([FromRoute] int id, CancellationToken cancellationToken) =>
-            await _doctors.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound($"Doctor with ID {id} not found");
+            await _doctors.DeleteAsync(id, cancellationToken) ? NoContent() : NotFoundProblem($"Doctor with ID {id} not found");
     }
 }

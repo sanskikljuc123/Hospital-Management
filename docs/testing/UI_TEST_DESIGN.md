@@ -49,7 +49,7 @@ missing from the edit form (UTC−5). With the fix, three full runs in a row pas
 | D-3 | Fact, fixed | **Editing a service erased its department.** Same two causes. Now the form sends the current department in a hidden field | `ServiceForm.tsx:32`, `Services.tsx:26`, `ServiceServiceImp.cs:52`; probe before the fix: `departmentId` 1 → `null` |
 | D-4 | Fact, fixed | With `PUT`, **editing a doctor would have erased birthday and department**: the birthday field was hidden when editing and there was no department field. Now the birthday is shown and the department sent | `DoctorForm.tsx:43`, `:72`; `Doctors.tsx:27`; `DoctorServiceImp.cs:89, 91` |
 | D-5 | Fact, fixed | **A doctor's birthday could be saved one day early.** The API keeps only the date of the UTC instant it receives (`1980-01-01T23:00:00.000Z` was stored as `1980-01-01`), and the picker sent local midnight as a UTC timestamp. Now the form sends `YYYY-MM-DD` and reads only the date part back | `DoctorForm.tsx:24`, `:29`; browser check: 1980-01-02 picked and stored in both zones |
-| D-6 | Fact | **No failed request is ever shown to the user.** Errors are stored in the slices (`selectError`) but nothing reads them, and the drawer closes before the request finishes. 400, 403, 405, 409, 500 and network errors all look like "nothing happened" | `doctorSlice.ts:155`, `patientSlice.ts:156`, `serviceSlice.ts:187`; `Doctor.tsx:64-67` |
+| D-6 | Fact, fixed | **No failed request was ever shown to the user** (fixed 2026-11-23: the API's message is shown, the drawer stays open on failure, a refused delete keeps its row; `catalogueErrors.test.tsx`, R-062). Errors are stored in the slices (`selectError`) but nothing reads them, and the drawer closes before the request finishes. 400, 403, 405, 409, 500 and network errors all look like "nothing happened" | `doctorSlice.ts:141`, `patientSlice.ts:142`, `serviceSlice.ts:170`; `Doctor.tsx:71-82` |
 | D-7 | Fact | **Every role sees every action.** No page reads the user's roles; a doctor sees "Add a new Doctor", a patient sees an empty Patients page with no explanation | `PrivateRoutes.tsx:57-62`; role check in this session (patient: `GET /api/Patient` → 403) |
 | D-8 | Fact | Doctor details show the **first name as the last name** | `DoctorDetails.tsx:15` |
 | D-9 | Fact | The last-name column of the doctors table is titled "Phone Last name" | `Doctors.tsx:46` |
@@ -69,7 +69,7 @@ Existing risks reused where they fit. New ones are labelled `new` until the test
 | Risk | STRIDE | I | L | Severity (proposed) | Reason | Evidence |
 |---|---|---|---|---|---|---|
 | R-059 — editing a patient, service or doctor in the UI silently erases fields the form does not show | T | 3 | 4 | **Critical (12)** | Happens on every normal edit; wrong data saved, nobody is told | D-2, D-3, D-4 |
-| new — a failed write looks like a successful one, so users believe data was saved | T, R | 2 | 4 | **High (8)** | Every 400/403/409/5xx in normal use; misleading | D-6 |
+| R-062 — a failed write looks like a successful one, so users believe data was saved | T, R | 2 | 4 | **High (8)** | Every 400/403/409/5xx in normal use; misleading | D-6 |
 | R-060 — a date chosen in the UI is saved as a different date | T | 2 | 4 | **High (8)** | Every user east of UTC; the clinic's own time zone is UTC+1 | D-5 |
 | new — a UI feature is broken for every user and nothing notices (no frontend tests in CI) | D | 3 | 3 | **High (9)** | D-1 shipped with every gate green; G1 only builds the frontend | D-1; QUALITY_GATES §1 G1 |
 | new — the UI offers actions the role may not use | E | 1 | 4 | Medium (4) | The API refuses them (R-005), so no access is gained; users are confused | D-7 |
@@ -220,7 +220,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 |---|---|---|---|---|---|---|---|
 | UI-REL-01 | High | List request returns 500 | Fault on `GET /api/Doctor` | Error state with retry; no "0 doctors" | Error shown as empty data (D-6) | E2E fault | P2 |
 | UI-REL-02 | Medium | Slow API (5 s) | Delay all API calls | Loading state; submit disabled; one request only | Double submit, no feedback | E2E fault | P2 |
-| UI-REL-03 | High | Network drops during save | Abort `POST` | Message; form stays open with the entered values | Data lost, drawer already closed (`Doctor.tsx:67`) | E2E fault | P2 |
+| UI-REL-03 | High | Network drops during save | Abort `POST` | Message; form stays open with the entered values | Data lost, drawer already closed (before the D-6 fix; now `Doctor.tsx:71`) | E2E fault | P2 |
 | UI-REL-04 | Medium | Request never answers — **fails today (D-15)** | Hang `GET /api/Service` | Timeout message after an agreed time | Spinner forever | E2E fault | P3 |
 | UI-REL-05 | High | Services list fails while the doctor form is open — the defect class seen on 2026-11-23 | Fault on `GET /api/Service` → open Add doctor | Dropdown shows an error, submit blocked with a reason | Empty dropdown, no explanation | Comp + E2E | P1 |
 | UI-REL-06 | Medium | Token refresh fails mid-session | Keycloak token endpoint aborted → save | Clear path back to sign-in; no loop | Redirect loop, silent failure | E2E fault | P3 |
@@ -265,7 +265,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | CSS-class and text locators | `BrowserSession.cs:44` (`.header--user-name`), `:46` ("Logout") | Locate by role and accessible name first; add `data-testid` only where no role fits (table rows, action buttons) |
 | antd renders dropdowns, popconfirms and drawers in portals at `body`, and virtualizes long option lists | Select, Popconfirm, Drawer | Open the control, then locate the option by role `option` and name; type to filter instead of scrolling |
 | Drawer animation and `destroyOnClose` | `DrawerComponent.tsx:11` | Wait until the drawer is visible and its form is enabled; never wait a fixed time |
-| A save is fire-and-forget and the drawer closes at once | `Doctor.tsx:64-67` | Assert on the network response (`RunAndWaitForResponseAsync`) and then on the table, not on the drawer closing |
+| A save closes the drawer only after the API answered (D-6, fixed) | `Doctor.tsx:71-82` | Assert on the network response (`RunAndWaitForResponseAsync`) and then on the table, not on the drawer closing |
 | Loading spinners on tables | `Doctors.tsx:116` | Wait for the list response, then the row |
 | One shared stack and shared sample users, scenarios run in sequence | `xunit.runner.json` | Each scenario creates its own records with a unique prefix and asserts only on them; never on totals or seed rows (`Service1`) |
 | Time-zone-dependent dates | D-5 | Set `TimezoneId` on the browser context per scenario |
@@ -293,7 +293,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Risk | Tests | Lvl | Today |
 |---|---|---|---|
 | R-059 — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; HP-04 … 06 pass; UI-DI-02 not written |
-| new — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-NEG-09, UI-DI-03, UI-REL-01, UI-REL-03 | Comp, E2E | **fails** |
+| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-NEG-09, UI-DI-03, UI-REL-01, UI-REL-03 | Comp, E2E | **fails** |
 | R-060 — date saved as a different date (High) | UI-BND-07 | E2E | fixed; passes |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | **fails** |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |

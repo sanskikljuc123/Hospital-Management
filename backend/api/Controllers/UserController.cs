@@ -25,10 +25,11 @@ namespace api.Controllers
         /// <summary>The caller's own profile, as mirrored from their token.</summary>
         [HttpGet("me")]
         [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetCurrentUser(CancellationToken cancellationToken)
         {
             var user = await _users.GetCurrentAsync(cancellationToken);
-            return user == null ? NotFound("No profile exists for the current user") : Ok(user);
+            return user == null ? NotFoundProblem("No profile exists for the current user") : Ok(user);
         }
 
         [HttpGet]
@@ -40,16 +41,19 @@ namespace api.Controllers
         [HttpGet("{id}")]
         [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetUserById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var user = await _users.GetByIdAsync(id, cancellationToken);
-            return user == null ? NotFound($"User with ID {id} not found") : Ok(user);
+            return user == null ? NotFoundProblem($"User with ID {id} not found") : Ok(user);
         }
 
         /// <summary>Activates or deactivates an account. Deactivated users get 403 on every request.</summary>
         [HttpPut("{id}/status")]
         [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> SetUserStatus([FromRoute] int id, [FromBody] UserStatusDto dto, CancellationToken cancellationToken) =>
             FromResult(await _users.SetActiveAsync(id, dto.IsActive, cancellationToken));
 
@@ -57,6 +61,9 @@ namespace api.Controllers
         [HttpPut("{id}/link")]
         [ProducesResponseType<UserDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> LinkUser([FromRoute] int id, [FromBody] UserLinkDto dto, CancellationToken cancellationToken) =>
             FromResult(await _users.LinkAsync(id, dto, cancellationToken));
     }

@@ -32,6 +32,7 @@ namespace api.Controllers
         /// <summary>Staff can read any patient; a patient only their own (403 for any other id, existing or not).</summary>
         [HttpGet("{id}")]
         [ProducesResponseType<PatientDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetPatientById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var patient = await _patients.GetByIdAsync(id, cancellationToken);
@@ -42,6 +43,7 @@ namespace api.Controllers
         [HttpPost]
         [ProducesResponseType<PatientDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.Staff)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
         public async Task<IActionResult> CreatePatient([FromBody] PatientCreationDto dto, CancellationToken cancellationToken)
         {
             var result = await _patients.CreateAsync(dto, cancellationToken);
@@ -53,6 +55,8 @@ namespace api.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType<PatientDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.Staff)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> UpdatePatient([FromRoute] int id, [FromBody] PatientCreationDto dto, CancellationToken cancellationToken) =>
             FromResult(await _patients.UpdateAsync(id, dto, cancellationToken));
 
@@ -60,7 +64,9 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> DeletePatient([FromRoute] int id, CancellationToken cancellationToken) =>
-            await _patients.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound($"Patient with ID {id} not found");
+            await _patients.DeleteAsync(id, cancellationToken) ? NoContent() : NotFoundProblem($"Patient with ID {id} not found");
     }
 }

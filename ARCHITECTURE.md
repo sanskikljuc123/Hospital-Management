@@ -444,7 +444,7 @@ with ratings and a fix order in [docs/testing/RISK_REGISTER.md](docs/testing/RIS
 | Gap | Where | Direction |
 |---|---|---|
 | **Failed outbox messages are only visible in the database** (`OutboxMessages.FailedAt`) | Outbox | An admin endpoint or a metric and alert (R-046) |
-| **Mixed error contract.** ProblemDetails for validation and 409, plain text elsewhere, empty 403 bodies | Controllers, `HospitalControllerBase` | ProblemDetails everywhere |
+| ~~Mixed error contract~~ — resolved 2026-11-23: every error with a reason is ProblemDetails; only 401 and the 403 of ownership and role checks are empty, on purpose (R-004) | `HospitalControllerBase` | – |
 | **Every `DbUpdateException` becomes 409** | `DbUpdateExceptionHandler` | Map only unique and foreign-key violations to 409 |
 | **No optimistic concurrency**, no database constraint against overlapping bookings | Appointments, medical records | Concurrency token; exclusion constraint |
 | **Instance-local state.** User-sync cache in memory; migrations and seed at startup | `UserService`, `DatabaseInitializer` | Decide single vs. multiple instances first (D-6) |

@@ -44,6 +44,7 @@ namespace api.Controllers
 
         [HttpGet("{id}")]
         [ProducesResponseType<MedicalRecordDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetMedicalRecordById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var record = await _records.GetByIdAsync(id, cancellationToken);
@@ -54,12 +55,15 @@ namespace api.Controllers
         [HttpPost]
         [ProducesResponseType<MedicalRecordDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.DoctorOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> CreateMedicalRecord([FromBody] MedicalRecordCreateDto dto, CancellationToken cancellationToken)
         {
             // The author comes from the caller's account, so a doctor cannot sign as someone else.
             var doctorId = await _users.GetCurrentDoctorIdAsync(cancellationToken);
             if (doctorId == null)
-                return StatusCode(StatusCodes.Status403Forbidden, "This account is not linked to a doctor profile");
+                return ForbiddenProblem("This account is not linked to a doctor profile");
 
             var result = await _records.CreateAsync(dto, doctorId.Value, cancellationToken);
             return result.Success
@@ -71,11 +75,14 @@ namespace api.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType<MedicalRecordDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.DoctorOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> UpdateMedicalRecord([FromRoute] int id, [FromBody] MedicalRecordUpdateDto dto, CancellationToken cancellationToken)
         {
             var doctorId = await _users.GetCurrentDoctorIdAsync(cancellationToken);
             if (doctorId == null)
-                return StatusCode(StatusCodes.Status403Forbidden, "This account is not linked to a doctor profile");
+                return ForbiddenProblem("This account is not linked to a doctor profile");
 
             return FromResult(await _records.UpdateAsync(id, dto, doctorId.Value, cancellationToken));
         }
@@ -84,10 +91,11 @@ namespace api.Controllers
         [HttpGet("{id}/history")]
         [ProducesResponseType<IReadOnlyList<MedicalRecordRevisionDto>>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.ClinicalStaff)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetMedicalRecordHistory([FromRoute] int id, CancellationToken cancellationToken)
         {
             var history = await _records.GetHistoryAsync(id, cancellationToken);
-            return history == null ? NotFound($"Medical record with ID {id} not found") : Ok(history);
+            return history == null ? NotFoundProblem($"Medical record with ID {id} not found") : Ok(history);
         }
     }
 }

@@ -3,6 +3,7 @@ import { Patient } from "./../../types/Patient";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { RootState } from "../../store/store";
 import api from "../../api/AxiosConfig";
+import { apiErrorMessage } from "../../api/apiError";
 
 interface PatientState {
   patients: Patient[];
@@ -17,65 +18,50 @@ const initialState: PatientState = {
   count: 0,
 };
 
-export const fetchPatients = createAsyncThunk<{ patient: Patient[] }>("patients/fetchPatients", async () => {
-  try {
-    const response = await api.get("/Patient");
+export const fetchPatients = createAsyncThunk<{ patient: Patient[] }, void, { rejectValue: string }>(
+  "patients/fetchPatients",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get("/Patient");
+      return { patient: response.data };
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
+  },
+);
 
-    return {
-      patient: response.data,
-    };
-  } catch (error: any) {
-    throw error;
-  }
-});
-
-export const addPatient = createAsyncThunk<Patient, Partial<Patient>, { state: RootState }>(
+export const addPatient = createAsyncThunk<Patient, Partial<Patient>, { state: RootState; rejectValue: string }>(
   "patients/addPatient",
-  async (newPatient) => {
-    return new Promise<Patient>((resolve, reject) => {
-      api
-        .post("/Patient", newPatient)
-        .then((response) => {
-          resolve(response.data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (newPatient, { rejectWithValue }) => {
+    try {
+      return (await api.post("/Patient", newPatient)).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const deletePatient = createAsyncThunk<string, string, { state: RootState }>(
+export const deletePatient = createAsyncThunk<string, string, { state: RootState; rejectValue: string }>(
   "patients/deletePatient",
-  async (PatientId) => {
-    const prom = new Promise<string>((resolve, reject) => {
-      api
-        .delete(`/Patient/${PatientId}`)
-        .then(() => {
-          resolve(PatientId);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
-    return prom;
+  async (PatientId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/Patient/${PatientId}`);
+      return PatientId;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const updatePatient = createAsyncThunk<Patient, Patient, { state: RootState }>(
+export const updatePatient = createAsyncThunk<Patient, Patient, { state: RootState; rejectValue: string }>(
   "patients/updatePatient",
-  async (updatedPatient) => {
-    return new Promise<any>((resolve, reject) => {
-      api
-        .put("/Patient/" + updatedPatient.id, updatedPatient)
-        .then((response) => {
-          // The API returns the updated patient (PatientDto).
-          resolve(response.data as Patient);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (updatedPatient, { rejectWithValue }) => {
+    try {
+      // The API returns the updated patient (PatientDto).
+      return (await api.put("/Patient/" + updatedPatient.id, updatedPatient)).data as Patient;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
@@ -94,7 +80,7 @@ const patientSlice = createSlice({
       })
       .addCase(fetchPatients.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(addPatient.pending, (state) => {
         state.status = "loading";
@@ -110,7 +96,7 @@ const patientSlice = createSlice({
       })
       .addCase(addPatient.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(deletePatient.pending, (state) => {
         state.status = "loading";
@@ -125,7 +111,7 @@ const patientSlice = createSlice({
       })
       .addCase(deletePatient.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(updatePatient.pending, (state) => {
         state.status = "loading";
@@ -142,7 +128,7 @@ const patientSlice = createSlice({
       })
       .addCase(updatePatient.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       });
   },
 });
