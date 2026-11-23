@@ -7,7 +7,7 @@ conventions. Principles are in [README.md](README.md); risks in [RISK_REGISTER.m
 
 | In scope | Out of scope (for now) |
 |---|---|
-| Backend API in `backend/` (.NET 8, ASP.NET Core, EF Core, PostgreSQL) | Keycloak configuration beyond the realm file |
+| Backend API in `backend/` (.NET 10, ASP.NET Core, EF Core, PostgreSQL) | Keycloak configuration beyond the realm file |
 | Authentication and authorization with Keycloak (`HospitalRealm`) | Keycloak itself, PostgreSQL itself, Aspire itself |
 | Business rules in `backend/Services/` | Performance and load testing |
 | A few end-to-end journeys through the full stack | Visual / layout testing of `frontend-web/` |

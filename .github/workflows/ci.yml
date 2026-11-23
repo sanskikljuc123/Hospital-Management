@@ -22,12 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # .NET 8: the runtime the API ships on. .NET 10: the Aspire AppHost and the second test target.
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          dotnet-version: 10.0.x
 
       # NuGet audit (Directory.Build.props): a high or critical vulnerable package fails here (G1, R-040).
       # The E2E project is not in the solution; it is restored here only so its packages are audited on every PR.
@@ -45,7 +42,7 @@ jobs:
           --logger "trx;LogFileName=unit.trx" --results-directory test-results
 
       # Real PostgreSQL through Testcontainers (Docker is available on the runner). No retries.
-      - name: API tests on .NET 8 and .NET 10 (G3)
+      - name: API tests on .NET 10 (G3)
         run: >
           dotnet test backend/tests/HospitalManagement.ApiTests --no-build -c Release
           --logger "trx" --results-directory test-results

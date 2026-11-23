@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs the same gates as CI (.github/workflows/ci.yml), in the same order, on this machine: G1 (restore with
-# package audit, build, frontend audit and build), G2 (unit tests), G3 (API tests on .NET 8 and .NET 10),
+# package audit, build, frontend audit and build), G2 (unit tests), G3 (API tests on .NET 10),
 # G4 and G5 (gate scripts), G6 (gitleaks on the files and on the commits since origin/master).
-# Green here means green in CI. Stops at the first failing gate. Needs: .NET 8 and 10 SDKs, Node 20, Docker,
+# Green here means green in CI. Stops at the first failing gate. Needs: .NET 10 SDK, Node 20, Docker,
 # Python 3. On Windows run it from Git Bash, or through scripts/verify.ps1.
 # Usage: scripts/verify.sh            all gates
 #        scripts/verify.sh --no-frontend   skip npm ci, audit and build (G1 frontend) when only backend changed
@@ -19,8 +19,8 @@ step() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 fail() { printf '\n\033[31mFAILED: %s\033[0m\n' "$1"; exit 1; }
 
 step "Prerequisites"
-dotnet --list-runtimes | grep -q '^Microsoft.AspNetCore.App 8\.' \
-  || fail ".NET 8 runtime missing: CI runs the API tests on .NET 8 too. Install the .NET 8 SDK (Windows: winget install Microsoft.DotNet.SDK.8)."
+dotnet --list-runtimes | grep -q '^Microsoft.AspNetCore.App 10\.' \
+  || fail ".NET 10 runtime missing: install the .NET 10 SDK (Windows: winget install Microsoft.DotNet.SDK.10)."
 docker info >/dev/null 2>&1 || fail "Docker is not running: the API tests and gitleaks need it."
 
 step "G1 restore and package audit"
@@ -40,7 +40,7 @@ fi
 step "G2 unit tests"
 dotnet test backend/tests/HospitalManagement.UnitTests --no-build -c Release || fail "G2 unit tests"
 
-step "G3 API tests (.NET 8 and .NET 10)"
+step "G3 API tests (.NET 10)"
 dotnet test backend/tests/HospitalManagement.ApiTests --no-build -c Release || fail "G3 API tests"
 
 step "G4 and G5 gate scripts"

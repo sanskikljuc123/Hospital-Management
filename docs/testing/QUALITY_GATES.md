@@ -79,7 +79,7 @@ rules; it is handled like a failure on `master` (§4).
 
 **Run the gates locally:** `scripts/verify.sh` (Git Bash, Linux, macOS) or `scripts/verify.ps1` (PowerShell, runs
 the same script) runs G1–G6 in the CI order and stops at the first failure, so green locally means green in CI.
-It needs the .NET 8 and 10 SDKs, Node 20, Docker and Python 3; `--no-frontend` skips the frontend part of G1.
+It needs the .NET 10 SDK, Node 20, Docker and Python 3; `--no-frontend` skips the frontend part of G1.
 
 **Dependencies:** `.github/dependabot.yml` proposes NuGet, npm and GitHub Actions updates weekly. Actions are
 pinned to a commit SHA with the version as a comment, so a moved tag cannot change what runs. Each update is an
