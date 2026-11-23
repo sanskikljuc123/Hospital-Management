@@ -20,17 +20,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # .NET 8: the runtime the API ships on. .NET 10: the Aspire AppHost and the second test target.
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: |
             8.0.x
             10.0.x
 
-      - name: Restore
-        run: dotnet restore backend/backend.sln
+      # NuGet audit (Directory.Build.props): a high or critical vulnerable package fails here (G1, R-040).
+      # The E2E project is not in the solution; it is restored here only so its packages are audited on every PR.
+      - name: Restore and audit packages
+        run: |
+          dotnet restore backend/backend.sln
+          dotnet restore e2e/HospitalManagement.E2E
 
       - name: Build (G1)
         run: dotnet build backend/backend.sln --no-restore -c Release
@@ -48,7 +52,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: test-results
           path: test-results
@@ -62,13 +66,21 @@ jobs:
       run:
         working-directory: frontend-web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: frontend-web/package-lock.json
       - run: npm ci
+      # What reaches the browser: a high or critical vulnerability fails the build (G1, R-040).
+      - name: Audit runtime dependencies (G1)
+        run: npm audit --omit=dev --audit-level=high
+      # Build tools (Vite, esbuild) never ship to the browser; reported as a warning so the gap stays visible.
+      - name: Report build-tool vulnerabilities (not gating)
+        run: >
+          npm audit --audit-level=high
+          || echo "::warning title=Build-tool vulnerabilities::npm audit reports high or critical issues in dev dependencies"
       - run: npm run build
 
   gates:
@@ -76,22 +88,43 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - name: Risk coverage and skips (G4 a, b; G5)
         run: python3 scripts/check_test_gates.py
       # Part of the same job, so the required check name in the ruleset stays the same.
       - name: Cited paths, lines and code names still exist (G4 c)
         run: python3 -I scripts/check_doc_references.py
+      # Shows the person who merges every rating and status change in the register; never fails (G8).
+      - name: Risk register changes in this pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 -I scripts/register_changes.py "$BASE_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   secrets:
     name: Secret scan (G6)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       # Scans the checked-out files. Old commits still hold the removed legacy password (R-030); scanning
-      # them would fail every run, so history is out of scope here and new secrets are caught on arrival.
-      - name: gitleaks
+      # them would fail every run, so history before this pull request is out of scope.
+      - name: gitleaks, files
         run: >
           docker run --rm -v "${{ github.workspace }}:/repo:ro" zricethezav/gitleaks:v8.21.2
           detect --no-git --source /repo --redact --no-banner -v
+      # Every commit of the pull request: a secret added in one commit and deleted in a later one is not in the
+      # files any more, but it stays in the history once merged. safe.directory: the mount belongs to another user.
+      - name: gitleaks, commits of this pull request
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >
+          docker run --rm -v "${{ github.workspace }}:/repo:ro"
+          -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*'
+          zricethezav/gitleaks:v8.21.2
+          detect --source /repo --log-opts="$BASE_SHA..HEAD" --redact --no-banner -v
