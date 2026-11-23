@@ -166,7 +166,8 @@ How they run:
 
 A test is done when it is tagged with its risk, fails when the behavior is broken (checked once by breaking
 the code or by mutation), passes reliably, and the risk's row in [RISK_REGISTER.md](RISK_REGISTER.md)
-names it.
+names it. The check that it fails is not taken on trust: the pull request that sets a risk to `Covered` links
+the run where the test failed (red evidence, QUALITY_GATES §2).
 
 ## 11. Mutation testing
 

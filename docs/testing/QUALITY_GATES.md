@@ -7,12 +7,12 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 
 | # | Gate | Runs on | Passes when | Evidence |
 |---|---|---|---|---|
-| G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds | CI log |
+| G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds; no package with a known high or critical vulnerability: NuGet audit at restore for every .NET project, including transitive packages (`Directory.Build.props`), and `npm audit --omit=dev` for what ships to the browser. Build-tool (dev) vulnerabilities are reported as a warning, not gated. A vulnerable package is fixed by pinning a patched version, never by silencing the warning | CI log |
 | G2 | Unit tests | every PR | all pass; none skipped without a ticket (G5) | test results (TRX) |
 | G3 | API tests | every PR | all pass against real PostgreSQL; none skipped without a ticket | test results (TRX) |
 | G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
-| G6 | Secret scan | every PR | gitleaks finds nothing | gitleaks report |
+| G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
 | G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, `frontend-web/src/auth/`, the compose files, `e2e/`, the E2E workflow), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 
@@ -72,6 +72,14 @@ known-gap test never asserts the current, wrong behavior. It does not count for 
 of the core services drops below 90 % (TEST_STRATEGY §11). A failure there means tests stopped noticing broken
 rules; it is handled like a failure on `master` (§4).
 
+**Run the gates locally:** `scripts/verify.sh` (Git Bash, Linux, macOS) or `scripts/verify.ps1` (PowerShell, runs
+the same script) runs G1–G6 in the CI order and stops at the first failure, so green locally means green in CI.
+It needs the .NET 8 and 10 SDKs, Node 20, Docker and Python 3; `--no-frontend` skips the frontend part of G1.
+
+**Dependencies:** `.github/dependabot.yml` proposes NuGet, npm and GitHub Actions updates weekly. Actions are
+pinned to a commit SHA with the version as a comment, so a moved tag cannot change what runs. Each update is an
+ordinary pull request through all the gates and a person's merge.
+
 ## 2. Pull request checklist
 
 The PR template asks the author:
@@ -81,12 +89,24 @@ The PR template asks the author:
 - Did any test get removed, skipped or loosened? Why?
 - Does the change touch `[Authorize]`, `Policies.cs`, ownership checks or token validation? If yes, which
   security tests changed?
+- Does the change set a risk to `Covered`? If yes, the **red evidence** for it: a CI run (link) or pasted output
+  where its test failed on the old or deliberately broken code, then passed with the change. Without it the risk
+  stays below `Covered` — a test that has never been seen failing has not proven anything (TEST_STRATEGY §10).
 
 `qe-reviewer` can draft answers to these questions; the author confirms them.
+
+**Register changes are shown, not hidden in the diff.** On every pull request the job *Risk coverage and skips*
+writes a table of each Impact, Likelihood, Severity, Level and Status change in the register, and each added or
+removed risk, to its job summary (`scripts/register_changes.py`). It never fails; it makes sure the person who
+merges sees every rating decision before it lands.
 
 ## 3. Flaky tests
 
 A test is **flaky** when it fails and passes on the same code.
+
+**Found before it blocks someone:** `.github/workflows/flaky.yml` runs the unit and API tests three times on the
+same commit every night (and on demand) and lists every test whose outcome changed (`scripts/flaky_report.py`).
+It only detects: nothing is re-run to green, and it is not a required check. A test it lists starts at step 1.
 
 1. **Do not re-run to green.** Record the failure with the flaky-test template (§6).
 2. Reproduce: run the test alone and in its collection, 20 times. Use `qe-reviewer` to triage.
