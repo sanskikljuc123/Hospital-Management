@@ -18,15 +18,18 @@ tests check their requests and mocks against it (docs/testing/TEST_STRATEGY.md Â
   account (`PUT /api/User/{id}/link`). Until linked, they see empty lists and get 403 on individual records.
   A patient gets 403 for any patient, appointment or medical record id that is not theirs, whether or not it
   exists, so ids cannot be probed. Staff get 404 for an id that does not exist.
-- **Common responses.**
+- **Common responses.** Since 2026-11-23 every error that has a reason to give is ProblemDetails
+  (application/problem+json) with the message in `detail`; model validation adds `errors` per field. Which
+  action returns which error is in `contracts/openapi.json`.
 
-  | Status | Meaning |
-  |---|---|
-  | 400 | Validation failed (problem details) or a business rule was violated (plain text message) |
-  | 401 | Missing, expired or invalid token |
-  | 403 | Authenticated but the role or ownership check failed, or the account is deactivated |
-  | 404 | Record not found (plain text message) |
-  | 409 | Conflict: double booking, duplicate name, or the record is still referenced by other data |
+  | Status | Meaning | Body |
+  |---|---|---|
+  | 400 | Validation failed, or a business rule was violated | ProblemDetails (`errors` per field for validation) |
+  | 401 | Missing, expired or invalid token | empty |
+  | 403 | The role or ownership check failed | empty, on purpose: it reveals nothing about the record (R-004) |
+  | 403 | Refused for a stated reason: account deactivated, account not linked to a doctor profile, only a doctor may mark an appointment `Completed` | ProblemDetails |
+  | 404 | Record not found | ProblemDetails |
+  | 409 | Conflict: double booking, duplicate name, or the record is still referenced by other data | ProblemDetails |
 
 - **Formats.** JSON, camelCase. Dates are ISO 8601 and stored in UTC. Enums are strings.
 - **Time zones.** An appointment time (`scheduledAt`) must say which time zone it is in: end it with `Z`

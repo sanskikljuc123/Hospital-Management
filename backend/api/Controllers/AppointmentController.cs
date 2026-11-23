@@ -39,6 +39,7 @@ namespace api.Controllers
 
         [HttpGet("{id}")]
         [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetAppointmentById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
@@ -49,6 +50,8 @@ namespace api.Controllers
         /// <summary>Staff can book for any patient; a patient can only book for themselves.</summary>
         [HttpPost]
         [ProducesResponseType<AppointmentDto>(StatusCodes.Status201Created)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> CreateAppointment([FromBody] AppointmentCreateDto dto, CancellationToken cancellationToken)
         {
             // The patient id comes from the request: a patient may only name their own record.
@@ -64,12 +67,19 @@ namespace api.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.Staff)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> UpdateAppointment([FromRoute] int id, [FromBody] AppointmentUpdateDto dto, CancellationToken cancellationToken) =>
             FromResult(await _appointments.UpdateAsync(id, dto, cancellationToken));
 
         /// <summary>Staff can cancel any appointment; a patient can cancel their own.</summary>
         [HttpPost("{id}/cancel")]
         [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> CancelAppointment([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
@@ -83,6 +93,9 @@ namespace api.Controllers
         [HttpPost("{id}/correct-status")]
         [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> CorrectAppointmentStatus([FromRoute] int id,
             [FromBody] AppointmentStatusCorrectionDto dto, CancellationToken cancellationToken) =>
             FromResult(await _appointments.CorrectStatusAsync(id, dto, cancellationToken));
@@ -90,9 +103,10 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> DeleteAppointment([FromRoute] int id, CancellationToken cancellationToken) =>
             await _appointments.DeleteAsync(id, cancellationToken)
                 ? NoContent()
-                : NotFound($"Appointment with ID {id} not found");
+                : NotFoundProblem($"Appointment with ID {id} not found");
     }
 }

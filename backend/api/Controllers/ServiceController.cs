@@ -25,16 +25,18 @@ namespace api.Controllers
 
         [HttpGet("{id}")]
         [ProducesResponseType<ServiceDto>(StatusCodes.Status200OK)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> GetServiceById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var service = await _services.GetByIdAsync(id, cancellationToken);
-            return service == null ? NotFound($"Service with ID {id} not found") : Ok(service);
+            return service == null ? NotFoundProblem($"Service with ID {id} not found") : Ok(service);
         }
 
         /// <summary>Binds a DTO, not the entity: extra fields such as patients or doctors are ignored.</summary>
         [HttpPost]
         [ProducesResponseType<ServiceDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
         public async Task<IActionResult> CreateService([FromBody] ServiceDto dto, CancellationToken cancellationToken)
         {
             var result = await _services.CreateAsync(dto, cancellationToken);
@@ -46,6 +48,8 @@ namespace api.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType<ServiceDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] ServiceDto dto, CancellationToken cancellationToken) =>
             FromResult(await _services.UpdateAsync(id, dto, cancellationToken));
 
@@ -53,6 +57,9 @@ namespace api.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
+        [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json")]
         public async Task<IActionResult> DeleteService([FromRoute] int id, CancellationToken cancellationToken)
         {
             var result = await _services.DeleteAsync(id, cancellationToken);

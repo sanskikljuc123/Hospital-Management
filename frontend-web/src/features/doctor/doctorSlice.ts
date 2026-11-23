@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { RootState } from "../../store/store";
 import { Doctor } from "../../types/Dctor";
 import api from "../../api/AxiosConfig";
+import { apiErrorMessage } from "../../api/apiError";
 
 interface DoctorsState {
   doctors: Doctor[];
@@ -16,65 +17,50 @@ const initialState: DoctorsState = {
   count: 0,
 };
 
-export const fetchDoctors = createAsyncThunk<{ doctors: Doctor[] }>("doctors/fetchDoctors", async () => {
-  try {
-    const response = await api.get("/doctor");
+export const fetchDoctors = createAsyncThunk<{ doctors: Doctor[] }, void, { rejectValue: string }>(
+  "doctors/fetchDoctors",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get("/doctor");
+      return { doctors: response.data };
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
+  },
+);
 
-    return {
-      doctors: response.data,
-    };
-  } catch (error: any) {
-    throw error;
-  }
-});
-
-export const addDoctor = createAsyncThunk<Doctor, Partial<Doctor>, { state: RootState }>(
+export const addDoctor = createAsyncThunk<Doctor, Partial<Doctor>, { state: RootState; rejectValue: string }>(
   "doctors/addDoctor",
-  async (newDoctor) => {
-    return new Promise<Doctor>((resolve, reject) => {
-      api
-        .post("/doctor", newDoctor)
-        .then((response) => {
-          resolve(response.data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (newDoctor, { rejectWithValue }) => {
+    try {
+      return (await api.post("/doctor", newDoctor)).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const deleteDoctor = createAsyncThunk<string, string, { state: RootState }>(
+export const deleteDoctor = createAsyncThunk<string, string, { state: RootState; rejectValue: string }>(
   "doctors/deleteDoctor",
-  async (doctorId) => {
-    const prom = new Promise<string>((resolve, reject) => {
-      api
-        .delete(`/doctor/${doctorId}`)
-        .then(() => {
-          resolve(doctorId);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
-    return prom;
+  async (doctorId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/doctor/${doctorId}`);
+      return doctorId;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const updateDoctor = createAsyncThunk<Doctor, Doctor, { state: RootState }>(
+export const updateDoctor = createAsyncThunk<Doctor, Doctor, { state: RootState; rejectValue: string }>(
   "doctors/updateDoctor",
-  async (updatedDoctor) => {
-    let { id, ...newDoctor } = updatedDoctor;
-    return new Promise<Doctor>((resolve, reject) => {
-      api
-        .put("/doctor/" + id, newDoctor)
-        .then((response) => {
-          resolve(response.data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (updatedDoctor, { rejectWithValue }) => {
+    const { id, ...newDoctor } = updatedDoctor;
+    try {
+      return (await api.put("/doctor/" + id, newDoctor)).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
@@ -93,7 +79,7 @@ const doctorSlice = createSlice({
       })
       .addCase(fetchDoctors.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(addDoctor.pending, (state) => {
         state.status = "loading";
@@ -109,7 +95,7 @@ const doctorSlice = createSlice({
       })
       .addCase(addDoctor.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(deleteDoctor.pending, (state) => {
         state.status = "loading";
@@ -124,7 +110,7 @@ const doctorSlice = createSlice({
       })
       .addCase(deleteDoctor.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(updateDoctor.pending, (state) => {
         state.status = "loading";
@@ -141,7 +127,7 @@ const doctorSlice = createSlice({
       })
       .addCase(updateDoctor.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       });
   },
 });

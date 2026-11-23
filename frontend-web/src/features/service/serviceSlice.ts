@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { RootState } from "../../store/store";
 import api from "../../api/AxiosConfig";
+import { apiErrorMessage } from "../../api/apiError";
 import { service } from "../../types/Service";
 
 interface serviceState {
@@ -22,77 +23,59 @@ const initialState: serviceState = {
   },
 };
 
-export const fetchServices = createAsyncThunk<service[]>("services/fetchServices", async () => {
-  try {
-    const response = await api.get("/Service");
-    return response.data;
-  } catch (error: any) {
-    throw error;
-  }
-});
+export const fetchServices = createAsyncThunk<service[], void, { rejectValue: string }>(
+  "services/fetchServices",
+  async (_, { rejectWithValue }) => {
+    try {
+      return (await api.get("/Service")).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
+  },
+);
 
-export const addService = createAsyncThunk<service, Partial<service>, { state: RootState }>(
+export const addService = createAsyncThunk<service, Partial<service>, { state: RootState; rejectValue: string }>(
   "services/addService",
-  async (newService) => {
-    return new Promise<service>((resolve, reject) => {
-      api
-        .post("/service", newService)
-        .then((response) => {
-          resolve(response.data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (newService, { rejectWithValue }) => {
+    try {
+      return (await api.post("/service", newService)).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const deleteService = createAsyncThunk<string, string, { state: RootState }>(
+export const deleteService = createAsyncThunk<string, string, { state: RootState; rejectValue: string }>(
   "services/deleteService",
-  async (serviceId) => {
-    const prom = new Promise<string>((resolve, reject) => {
-      api
-        .delete(`/service/${serviceId}`)
-        .then(() => {
-          resolve(serviceId);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
-    return prom;
+  async (serviceId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/service/${serviceId}`);
+      return serviceId;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const updateService = createAsyncThunk<service, service, { state: RootState }>(
+export const updateService = createAsyncThunk<service, service, { state: RootState; rejectValue: string }>(
   "services/updateService",
-  async (updatedService) => {
-    return new Promise<service>((resolve, reject) => {
-      api
-        .put("/service/" + updatedService.id, updatedService)
-        .then((response) => {
-          resolve(response.data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (updatedService, { rejectWithValue }) => {
+    try {
+      return (await api.put("/service/" + updatedService.id, updatedService)).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
-export const getServiceById = createAsyncThunk<service, number, { state: RootState }>(
+export const getServiceById = createAsyncThunk<service, number, { state: RootState; rejectValue: string }>(
   "services/getServiceById",
-  async (id) => {
-    return new Promise<service>((resolve, reject) => {
-      api
-        .get("/service/" + id)
-        .then((response) => {
-          resolve(response.data);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  async (id, { rejectWithValue }) => {
+    try {
+      return (await api.get("/service/" + id)).data;
+    } catch (error) {
+      return rejectWithValue(apiErrorMessage(error));
+    }
   },
 );
 
@@ -111,7 +94,7 @@ const serviceSlice = createSlice({
       })
       .addCase(fetchServices.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(addService.pending, (state) => {
         state.status = "loading";
@@ -127,7 +110,7 @@ const serviceSlice = createSlice({
       })
       .addCase(addService.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(deleteService.pending, (state) => {
         state.status = "loading";
@@ -142,7 +125,7 @@ const serviceSlice = createSlice({
       })
       .addCase(deleteService.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(updateService.pending, (state) => {
         state.status = "loading";
@@ -160,7 +143,7 @@ const serviceSlice = createSlice({
       })
       .addCase(updateService.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       })
       .addCase(getServiceById.pending, (state) => {
         state.status = "loading";
@@ -171,7 +154,7 @@ const serviceSlice = createSlice({
       })
       .addCase(getServiceById.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload ?? action.error.message;
       });
   },
 });

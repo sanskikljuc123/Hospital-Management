@@ -7,7 +7,9 @@ import contract from "../../../contracts/openapi.json";
  * API unnoticed: a method or path the API does not have, a field of the wrong type, a mock with fields the API does
  * not return.
  *
- * Not described yet, so not checked: error responses (4xx, 5xx) and query parameters.
+ * Error responses are checked too: a status the contract describes (400, 404, 409, a 403 with a reason) must be a
+ * ProblemDetails body; any other error status must have an empty body, as the API's ownership and role checks
+ * answer (401, 403). Not described yet, so not checked: query parameters and 5xx.
  */
 
 type Schema = {
@@ -94,9 +96,23 @@ function find(method: string, url: string) {
   return { label: `${method} ${route.template}`, operation };
 }
 
+/** A body that is not JSON, e.g. the plain-text errors the API sent before ProblemDetails. */
+class NotJson {
+  constructor(readonly text: string) {}
+}
+
 async function jsonBody(message: Request | Response): Promise<unknown> {
   const text = await message.clone().text();
-  return text ? JSON.parse(text) : undefined;
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return new NotJson(text);
+  }
+}
+
+function notJson(where: string, body: unknown): string[] {
+  return body instanceof NotJson ? [`${where} is not JSON: ${JSON.stringify(body.text.slice(0, 60))}`] : [];
 }
 
 /** Problems of a request the frontend sends. */
@@ -106,18 +122,32 @@ export async function checkRequest(request: Request): Promise<string[]> {
   const schema = operation!.requestBody?.content?.["application/json"]?.schema;
   const body = await jsonBody(request);
   if (!schema || body === undefined) return [];
+  if (body instanceof NotJson) return notJson(`${label} request body`, body);
   return validate(schema, body).map((p) => `${label} request body: ${p}`);
 }
 
-/** Problems of a response a test mocks. Error responses are not in the contract yet and pass unchecked. */
+/** The schema of a described response, whatever its JSON media type (application/json, application/problem+json). */
+function responseSchema(spec: Media): Schema | undefined {
+  const media = Object.entries(spec.content ?? {}).find(([type]) => type.includes("json"));
+  return media?.[1].schema;
+}
+
+/** Problems of a response a test mocks. */
 export async function checkMockedResponse(request: Request, response: Response): Promise<string[]> {
   const { problem, label, operation } = find(request.method, request.url);
-  if (problem || response.status >= 400) return [];
+  if (problem || response.status >= 500) return [];
   const described = operation!.responses ?? {};
   const spec = described[String(response.status)];
-  if (!spec) return [`${label} is mocked with ${response.status}; the API answers ${Object.keys(described).join(", ")}`];
-  const schema = spec.content?.["application/json"]?.schema;
   const body = await jsonBody(response);
+  if (!spec) {
+    // 401 and the 403 of an ownership or role check are not in the contract: the API sends them with no body.
+    if (response.status >= 400)
+      return body === undefined ? [] : [`${label} ${response.status} has no body in the API, the mock sends one`];
+    return [`${label} is mocked with ${response.status}; the API answers ${Object.keys(described).join(", ")}`];
+  }
+  const schema = responseSchema(spec);
   if (!schema) return body === undefined ? [] : [`${label} ${response.status} has no body in the API, the mock sends one`];
+  if (body === undefined) return [`${label} ${response.status} has a body in the API, the mock sends none`];
+  if (body instanceof NotJson) return notJson(`${label} ${response.status} mocked body`, body);
   return validate(schema, body).map((p) => `${label} ${response.status} mocked body: ${p}`);
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { message } from "antd";
 import DrawerComponent from "../../components/atoms/drawer/DrawerComponent";
 import DoctorDetails from "./content/Details/DoctorDetails";
 import DoctorForm from "./content/Form/DoctorForm";
@@ -24,7 +25,8 @@ const Doctorc: React.FC = () => {
   const [drawerContent, setDrawerContent] = useState<"create" | "update" | "details">();
   const [drawerTitle, setDrawerTitle] = useState<string>("");
   useEffect(() => {
-    store.dispatch(fetchDoctors());
+    // A list that cannot be loaded says so, instead of looking empty (UI_TEST_DESIGN D-6).
+    store.dispatch(fetchDoctors()).unwrap().catch((error: string) => message.error(error));
   }, []);
 
   return (
@@ -42,7 +44,12 @@ const Doctorc: React.FC = () => {
           setIsDrawerOpen(true);
         }}
         handleDeleteDoctor={(id) => {
-          store.dispatch(deleteDoctor(id));
+          // The row goes only when the API confirms; a refusal (e.g. 409, still in use) is shown (D-6).
+          store
+            .dispatch(deleteDoctor(id))
+            .unwrap()
+            .then(() => message.success("Doctor deleted"))
+            .catch((error: string) => message.error(error));
         }}
         handleViewDoctor={(doctor) => {
           setDoctorDetails(doctor);
@@ -61,11 +68,17 @@ const Doctorc: React.FC = () => {
         content={
           drawerContent === "create" || drawerContent === "update" ? (
             <DoctorForm
-              onSubmit={(doctor) => {
-                if (drawerContent === "create") store.dispatch(addDoctor(doctor));
-                else if (drawerContent === "update") store.dispatch(updateDoctor(doctor));
-                setIsDrawerOpen(false);
-                //TODO add popup created successfuly
+              onSubmit={async (doctor) => {
+                // The drawer closes only when the API saved the doctor; otherwise it stays open with the
+                // user's input and shows the API's reason (UI_TEST_DESIGN D-6).
+                try {
+                  if (drawerContent === "create") await store.dispatch(addDoctor(doctor)).unwrap();
+                  else if (drawerContent === "update") await store.dispatch(updateDoctor(doctor)).unwrap();
+                  message.success(drawerContent === "create" ? "Doctor created" : "Doctor saved");
+                  setIsDrawerOpen(false);
+                } catch (error) {
+                  message.error(error as string);
+                }
               }}
               doctor={drawerContent === "update" ? doctorToUpdate : undefined}
             />

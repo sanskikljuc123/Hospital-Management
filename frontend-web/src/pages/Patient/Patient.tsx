@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { message } from "antd";
 import DrawerComponent from "../../components/atoms/drawer/DrawerComponent";
 import { store } from "../../store/store";
 import PatientDetails from "./content/Details/PatientDetails";
@@ -24,7 +25,8 @@ const PatientC: React.FC = () => {
   const [drawerContent, setDrawerContent] = useState<"create" | "update" | "details">();
   const [drawerTitle, setDrawerTitle] = useState<string>("");
   useEffect(() => {
-    store.dispatch(fetchPatients());
+    // A list that cannot be loaded says so, instead of looking empty (UI_TEST_DESIGN D-6).
+    store.dispatch(fetchPatients()).unwrap().catch((error: string) => message.error(error));
   }, []);
 
   return (
@@ -42,7 +44,12 @@ const PatientC: React.FC = () => {
           setIsDrawerOpen(true);
         }}
         handleDeletePatient={(id) => {
-          store.dispatch(deletePatient(id));
+          // The row goes only when the API confirms; a refusal (e.g. 409, still in use) is shown (D-6).
+          store
+            .dispatch(deletePatient(id))
+            .unwrap()
+            .then(() => message.success("Patient deleted"))
+            .catch((error: string) => message.error(error));
         }}
         handleViewPatient={(patient) => {
           setPatientDetails(patient);
@@ -61,11 +68,17 @@ const PatientC: React.FC = () => {
         content={
           drawerContent === "create" || drawerContent === "update" ? (
             <PatientForm
-              onSubmit={(patient) => {
-                if (drawerContent === "create") store.dispatch(addPatient(patient));
-                else if (drawerContent === "update") store.dispatch(updatePatient(patient));
-                setIsDrawerOpen(false);
-                //TODO add popup created successfuly
+              onSubmit={async (patient) => {
+                // The drawer closes only when the API saved the patient; otherwise it stays open with the
+                // user's input and shows the API's reason (UI_TEST_DESIGN D-6).
+                try {
+                  if (drawerContent === "create") await store.dispatch(addPatient(patient)).unwrap();
+                  else if (drawerContent === "update") await store.dispatch(updatePatient(patient)).unwrap();
+                  message.success(drawerContent === "create" ? "Patient created" : "Patient saved");
+                  setIsDrawerOpen(false);
+                } catch (error) {
+                  message.error(error as string);
+                }
               }}
               patient={drawerContent === "update" ? patientToUpdate : undefined}
             />
