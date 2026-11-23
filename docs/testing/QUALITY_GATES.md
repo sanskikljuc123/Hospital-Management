@@ -13,7 +13,7 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, a Component risk by a frontend component test (tag `@R-xxx` in its title or `describe`), an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
-| G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, the compose files, `e2e/`, the E2E workflow) or the web frontend (`frontend-web/src/`, `index.html`, `package.json` and its lock file, the Vite and TypeScript config), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
+| G7 | E2E | every PR that changes something the E2E stack runs: anything except docs and Markdown, `.claude/`, tests of other levels (`backend/tests/`, frontend component tests), gate scripts and tool manifests (`scripts/`, `dotnet-tools.json`), the other workflows, the Aspire AppHost and repository housekeeping; PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
 | G9 | Mutation of changed code | every PR that changes `backend/Services/` (or the mutation setup) | no mutant on a line the PR changed goes undetected by the unit tests; a truly equivalent one is accepted in the code with `// Stryker disable once <Mutator> : <reason>`, reviewed in the diff. The file's overall score does not count, so old survivors never block an unrelated change (TEST_STRATEGY §11) | job summary, Stryker report artifact |
 
@@ -27,13 +27,16 @@ be updated in the same pull request, or every later pull request waits for a che
 **G9 is not in the ruleset yet** (added 2026-11-23). Until the test owner adds the check `Mutation testing of changed code` to *Protect master*, a failing G9 shows on the pull request but does not block the merge. The check reports *Skipped* (counted as passed) on pull requests that change no service code.
 
 **G7 on pull requests.** API tests sign tokens with a test key, so only the E2E journeys exercise the real
-Keycloak sign-in; and the web frontend's pages have no tests below E2E (UI_TEST_DESIGN §5), so a frontend change
-runs them too (since 2026-11-23, after edit bugs in the pages passed every other gate). The job
-`Does this change touch sign-in or the web frontend?` (plain `git diff`) decides whether they run: a pull
-request that touches one of the G7 paths runs them and cannot merge until they pass; any other pull request
-reports the E2E check as *Skipped*, which GitHub counts as passed. If that detection step fails, the journeys
-run anyway, because a skipped required check would pass. A change elsewhere that could still affect sign-in can
-ask for the journeys with the `e2e` label.
+Keycloak sign-in, and they are the only tests that run the API, the database, Keycloak and the production
+frontend together. Since 2026-11-23 they run on **every pull request that changes something that stack runs**
+(before: only sign-in paths, then also the frontend). The job `Does this change reach the E2E stack?` (plain
+`git diff`) lists what may be **skipped**, not what must run: docs, tests of other levels, gate scripts, the other
+workflows, the AppHost and housekeeping. Any other path, including one added later, runs the journeys, and the
+pull request cannot merge until they pass. A pull request that changes only skippable files reports the E2E
+check as *Skipped*, which GitHub counts as passed. If the detection step fails, the journeys run anyway. The
+job took 115–148 s on GitHub after the speed-up (*E2E job duration* below) and runs in parallel with CI, so it adds little
+waiting. Applied to the ten pull requests before this change, the rule runs the journeys for the three that
+changed the stack (#44, #50, #51) and skips the seven that changed only docs, tests, tooling or the AppHost.
 
 **Accepted exception — single maintainer (since 2026-11-20).** The repository has one code owner, and
 GitHub does not let authors approve their own pull requests, so the ruleset requires **0 approvals** and

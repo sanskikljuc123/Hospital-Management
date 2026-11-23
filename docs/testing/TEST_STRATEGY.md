@@ -22,7 +22,7 @@ level cannot see it.
 | **Unit** | `backend/tests/HospitalManagement.UnitTests` | A business rule in one service: double booking, scheduling in the past, status rules, audit entry written | none | EF Core on a real PostgreSQL container is preferred over the in-memory provider when queries matter; otherwise plain objects | all on every branch push that changes the backend, and on every PR |
 | **API** | `backend/tests/HospitalManagement.ApiTests` | The HTTP contract: status codes, the role-by-endpoint matrix, per-record access (BOLA), validation, error bodies | PostgreSQL (Testcontainers), the real API pipeline (`WebApplicationFactory<Program>`) | Keycloak is replaced by a local test token issuer (§5) | all on every branch push that changes the backend, and on every PR |
 | **Component** | `frontend-web/src/**/*.test.ts(x)` (Vitest) | A frontend form, table or Redux slice: the payload a form sends (every field the API's `PUT` replaces), the date it sends, the HTTP method and path a slice calls, form validation | none (jsdom) | the API is mocked at the network boundary by MSW, and an unexpected request fails the test; Keycloak is mocked (`src/test/setup.ts`) | all on every branch push that changes `frontend-web/`, and on every PR (G2) |
-| **E2E** | `e2e/HospitalManagement.E2E` | A whole journey works with the real identity provider and deployment wiring | PostgreSQL, Keycloak, API (docker-compose stack) | nothing | merge to `master`, nightly, PR label `e2e` |
+| **E2E** | `e2e/HospitalManagement.E2E` | A whole journey works with the real identity provider and deployment wiring | PostgreSQL, Keycloak, API (docker-compose stack) | nothing | every PR that changes what the stack runs (QUALITY_GATES G7), merge to `master`, nightly, PR label `e2e` |
 
 `.github/workflows/smoke.yml` gives early feedback on pushes to branches other than `master`, before a pull
 request exists; it is not a required merge gate. It runs **all** unit and API tests when backend code or its
@@ -176,7 +176,8 @@ How they run:
 - **Configuration from the environment:** `E2E_USERS_PASSWORD` (or `DEV_USERS_PASSWORD`),
   `E2E_KEYCLOAK_ADMIN_PASSWORD` (or `KEYCLOAK_ADMIN_PASSWORD`), optional `E2E_FRONTEND_URL`, `E2E_API_URL`,
   `E2E_KEYCLOAK_URL`, `E2E_HEADED=1`.
-- **CI:** `.github/workflows/e2e.yml` (gate G7) on merges to `master`, nightly, on demand and on pull requests
+- **CI:** `.github/workflows/e2e.yml` (gate G7) on every pull request that changes what the stack runs, on merges
+  to `master`, nightly, on demand and on pull requests
   labelled `e2e`, with fresh random passwords per run.
 
 ## 10. What makes a test "done"
