@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Applies to every .NET project in the repository (backend/ and e2e/) (QUALITY_GATES G1, R-040).
+    NuGet audit checks direct and transitive packages at restore; a package with a known high or critical
+    vulnerability fails the restore, locally and in CI. Low and moderate stay warnings.
+    An exception is a pinned, patched version in the project that pulls the package in, never a NoWarn.
+  -->
+  <PropertyGroup>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1903;NU1904</WarningsAsErrors>
+  </PropertyGroup>
+</Project>

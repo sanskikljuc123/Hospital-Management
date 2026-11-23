@@ -19,6 +19,9 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="Microsoft.Playwright" Version="1.48.0" />
     <PackageReference Include="Reqnroll.xUnit" Version="2.1.0" />
+    <!-- Pulled in transitively at 8.0.4 (GHSA-8g4q-xg66-9fp4, high); 8.0.5 is the first patched version.
+         Remove once the package that pulls it in depends on a patched version. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.6" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
