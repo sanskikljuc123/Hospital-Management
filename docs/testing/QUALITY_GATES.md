@@ -15,6 +15,7 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
 | G7 | E2E | every PR that touches sign-in (`backend/api/Auth/`, `backend/api/Program.cs`, `keycloak/`, the compose files, `e2e/`, the E2E workflow) or the web frontend (`frontend-web/src/`, `index.html`, `package.json` and its lock file, the Vite and TypeScript config), PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
+| G9 | Mutation of changed code | every PR that changes `backend/Services/` (or the mutation setup) | no mutant on a line the PR changed goes undetected by the unit tests; a truly equivalent one is accepted in the code with `// Stryker disable once <Mutator> : <reason>`, reviewed in the diff. The file's overall score does not count, so old survivors never block an unrelated change (TEST_STRATEGY §11) | job summary, Stryker report artifact |
 
 **Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G6
 binding, not advisory: changes reach `master` only through a pull request, the four CI checks
@@ -22,6 +23,8 @@ binding, not advisory: changes reach `master` only through a pull request, the f
 `Secret scan (G6)`) and the E2E check `End-to-end journeys (G7)` must pass, and force pushes and deleting
 `master` are blocked. The bypass list is empty. Renaming a CI job changes its check name, so the ruleset must
 be updated in the same pull request, or every later pull request waits for a check that never runs.
+
+**G9 is not in the ruleset yet** (added 2026-11-23). Until the test owner adds the check `Mutation testing of changed code` to *Protect master*, a failing G9 shows on the pull request but does not block the merge. The check reports *Skipped* (counted as passed) on pull requests that change no service code.
 
 **G7 on pull requests.** API tests sign tokens with a test key, so only the E2E journeys exercise the real
 Keycloak sign-in; and the web frontend's pages have no tests below E2E (UI_TEST_DESIGN §5), so a frontend change
