@@ -1,12 +1,24 @@
 # Weekly dependency updates (R-040). Each update is an ordinary pull request: the CI gates run on it and a person
 # reviews and merges it (QUALITY_GATES G8). Actions are pinned to commit SHAs; Dependabot moves the SHA and the
 # version comment together. Minor and patch updates are grouped to keep the number of pull requests small.
+#
+# No major versions for NuGet and npm: a major upgrade is a deliberate change a person makes and tests (as the
+# Vite 8 upgrade in #32 was). For .NET it is also a runtime decision: the API runs on .NET 8, and the
+# Microsoft.EntityFrameworkCore.*, Microsoft.Extensions.* and Microsoft.AspNetCore.* majors follow the .NET major,
+# so version 9 or later of them does not build against .NET 8 (CS1705, #35, #36).
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /backend
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # OpenTelemetry 1.21 pulls Microsoft.Extensions.* 11 in transitively, which does not build against .NET 8
+      # or 10 (CS1705, #33). Lift this when the API moves to a .NET version those packages support.
+      - dependency-name: "OpenTelemetry*"
+        versions: [">=1.21.0"]
     groups:
       nuget-minor-and-patch:
         update-types: [minor, patch]
@@ -15,6 +27,9 @@ updates:
     directory: /e2e
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       e2e-minor-and-patch:
         update-types: [minor, patch]
@@ -23,6 +38,9 @@ updates:
     directory: /frontend-web
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
