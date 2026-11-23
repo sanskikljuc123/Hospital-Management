@@ -43,6 +43,7 @@ public class BolaTests : IAsyncLifetime
     [InlineData("/api/Patient/{0}")]
     [InlineData("/api/Appointment/{0}")]
     [InlineData("/api/MedicalRecord/{0}")]
+    [Trait("Suite", "Smoke")]
     [Trait("Risk", "R-001")]
     [Trait("Risk", "R-002")]
     [Trait("Risk", "R-003")]

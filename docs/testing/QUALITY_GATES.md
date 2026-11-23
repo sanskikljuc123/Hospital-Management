@@ -66,9 +66,14 @@ public async Task GetDoctor_DoesNotExposeAccountLink() { ... }
 The fix removes the `Skip` and the `KnownGap` trait in the same pull request, and the test must pass. A
 known-gap test never asserts the current, wrong behavior. It does not count for G4 (a).
 
+**Branch smoke (early feedback, not a merge gate):** `.github/workflows/smoke.yml` runs risk/skip and
+documentation-reference checks on every push to branches other than `master`. Selected unit and API tests run
+when backend code or its build configuration changes; the frontend build runs when `frontend-web/` changes.
+It does not replace the full unit/API suites required on every PR.
+
 **What does not gate:** coverage percentage, number of tests, test duration (tracked, not gated).
 
-**Mutation score (weekly, not per pull request):** `.github/workflows/mutation.yml` fails when the Stryker score
+**Mutation score (nightly, not per pull request):** `.github/workflows/mutation.yml` fails when the Stryker score
 of the core services drops below 90 % (TEST_STRATEGY §11). A failure there means tests stopped noticing broken
 rules; it is handled like a failure on `master` (§4).
 
