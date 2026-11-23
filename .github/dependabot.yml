@@ -3,9 +3,8 @@
 # version comment together. Minor and patch updates are grouped to keep the number of pull requests small.
 #
 # No major versions for NuGet and npm: a major upgrade is a deliberate change a person makes and tests (as the
-# Vite 8 upgrade in #32 was). For .NET it is also a runtime decision: the API runs on .NET 8, and the
-# Microsoft.EntityFrameworkCore.*, Microsoft.Extensions.* and Microsoft.AspNetCore.* majors follow the .NET major,
-# so version 9 or later of them does not build against .NET 8 (CS1705, #35, #36).
+# Vite 8 upgrade in #32 was). For .NET, Microsoft.EntityFrameworkCore.*, Microsoft.Extensions.* and
+# Microsoft.AspNetCore.* package majors must match the solution's .NET 10 target.
 version: 2
 updates:
   - package-ecosystem: nuget
@@ -15,8 +14,8 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-      # OpenTelemetry 1.21 pulls Microsoft.Extensions.* 11 in transitively, which does not build against .NET 8
-      # or 10 (CS1705, #33). Lift this when the API moves to a .NET version those packages support.
+      # OpenTelemetry 1.21 pulls Microsoft.Extensions.* 11 in transitively, which does not build against .NET 10
+      # (CS1705, #33). Lift this when the .NET 10-compatible OpenTelemetry package set is available.
       - dependency-name: "OpenTelemetry*"
         versions: [">=1.21.0"]
     groups:
