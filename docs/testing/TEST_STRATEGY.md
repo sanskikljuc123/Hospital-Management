@@ -19,9 +19,16 @@ level cannot see it.
 
 | Level | Project | Proves | Real dependencies | Fakes | Runs |
 |---|---|---|---|---|---|
-| **Unit** | `backend/tests/HospitalManagement.UnitTests` | A business rule in one service: double booking, scheduling in the past, status rules, audit entry written | none | EF Core on a real PostgreSQL container is preferred over the in-memory provider when queries matter; otherwise plain objects | every PR |
-| **API** | `backend/tests/HospitalManagement.ApiTests` | The HTTP contract: status codes, the role-by-endpoint matrix, per-record access (BOLA), validation, error bodies | PostgreSQL (Testcontainers), the real API pipeline (`WebApplicationFactory<Program>`) | Keycloak is replaced by a local test token issuer (§5) | every PR |
+| **Unit** | `backend/tests/HospitalManagement.UnitTests` | A business rule in one service: double booking, scheduling in the past, status rules, audit entry written | none | EF Core on a real PostgreSQL container is preferred over the in-memory provider when queries matter; otherwise plain objects | smoke on every branch push; all on every PR |
+| **API** | `backend/tests/HospitalManagement.ApiTests` | The HTTP contract: status codes, the role-by-endpoint matrix, per-record access (BOLA), validation, error bodies | PostgreSQL (Testcontainers), the real API pipeline (`WebApplicationFactory<Program>`) | Keycloak is replaced by a local test token issuer (§5) | smoke on every branch push; all on every PR |
 | **E2E** | `e2e/HospitalManagement.E2E` | A whole journey works with the real identity provider and deployment wiring | PostgreSQL, Keycloak, API (docker-compose stack) | nothing | merge to `master`, nightly, PR label `e2e` |
+
+The branch smoke suite is selected by `[Trait("Suite", "Smoke")]` and runs via
+`.github/workflows/smoke.yml` on pushes to branches other than `master`. It is early feedback, not a required
+merge gate: the full unit and API suites remain required on every pull request. Risk/skip validation and
+documentation-reference checks run on every branch push. Backend smoke tests run only when backend code or its
+build configuration changes; they still start the real PostgreSQL Testcontainer. The frontend production build
+runs only when a push changes `frontend-web/`.
 
 ### Where a check belongs
 
@@ -179,7 +186,7 @@ some unit test fails. A change that no test notices is a test that is missing.
 | Scope | `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` — the business, access-identity and reliability rules |
 | Config | `backend/tests/HospitalManagement.UnitTests/stryker-config.json`; tool pinned in `dotnet-tools.json` |
 | Run locally | `dotnet tool restore`, then `dotnet tool run dotnet-stryker --concurrency 2` in that folder (about 25 minutes; report in `StrykerOutput/`) |
-| CI | `.github/workflows/mutation.yml`: weekly (Monday 03:00 UTC) and on demand; HTML report as an artifact. Not on every pull request — too slow |
+| CI | `.github/workflows/mutation.yml`: nightly (03:00 UTC) and on demand; HTML report as an artifact. Not on every pull request — too slow |
 | Threshold | The run fails below **90 %** (`break`) |
 | SDK | Pinned to 10.0.x in `global.json`. The GitHub runner also has a newer SDK preinstalled; built with it, the VSTest that Stryker 4.16 ships aborts test discovery (`NullReferenceException` in `GetTestHostPath`, 0 tests found), while `dotnet test` itself still works. The same pin keeps local and CI builds on one SDK |
 
