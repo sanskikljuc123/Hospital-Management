@@ -38,6 +38,8 @@ public sealed class HospitalApi : IDisposable
         return (response.StatusCode, await ReadAsync(response));
     }
 
+    public async Task<HttpStatusCode> DeleteAsync(string path) => (await _http.DeleteAsync(path)).StatusCode;
+
     /// <summary>The body as JSON, or an empty element for empty or non-JSON bodies.</summary>
     private static async Task<JsonElement> ReadAsync(HttpResponseMessage response)
     {

@@ -38,7 +38,11 @@ public sealed class Hooks
     [BeforeScenario]
     public async Task OpenContextAsync()
     {
-        _context = await _browser!.NewContextAsync();
+        // A tag such as @timezone:Europe/Sarajevo (on a scenario or an Examples block) runs the browser in that
+        // time zone, whatever the machine's zone is; dates in the UI depend on it (R-060).
+        var timezone = _scenario.ScenarioInfo.CombinedTags
+            .FirstOrDefault(t => t.StartsWith("timezone:", StringComparison.Ordinal))?["timezone:".Length..];
+        _context = await _browser!.NewContextAsync(new() { TimezoneId = timezone });
         _context.SetDefaultTimeout(15_000);
         await _context.Tracing.StartAsync(new() { Screenshots = true, Snapshots = true });
         _container.RegisterInstanceAs(new BrowserSession(await _context.NewPageAsync()));

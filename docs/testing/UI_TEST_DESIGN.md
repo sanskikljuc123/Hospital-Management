@@ -2,8 +2,9 @@
 
 A risk-based design for testing the web frontend: what can go wrong for a user, which test would catch it,
 at which level, and what is still unknown. It follows [TEST_STRATEGY.md](TEST_STRATEGY.md) and the
-evidence rules (every statement is a **Fact**, an **Assumption** or a **Question**). Nothing here is
-implemented yet. Every rating is a **proposal** for the test owner ([RISK_REGISTER.md](RISK_REGISTER.md) §1).
+evidence rules (every statement is a **Fact**, an **Assumption** or a **Question**). Implemented so far:
+UI-HP-04, UI-HP-05, UI-HP-06 and UI-BND-07 in `CatalogueEditing.feature`; the rest is design. Every rating is a
+**proposal** for the test owner ([RISK_REGISTER.md](RISK_REGISTER.md) §1).
 
 Written 2026-11-23 from the code at `frontend-web/src/` and from replaying the frontend's own requests
 against a running stack (Aspire, sample users, synthetic data). Records created for that replay were deleted
@@ -33,8 +34,12 @@ These were found by reading the code and confirmed by sending the frontend's exa
 (Chromium, Playwright, signed in as `admin.user` through Keycloak) in the time zones Europe/Sarajevo and
 America/New_York: edit doctor, patient and service, then compare with the API; create a doctor with a picked
 birthday. 12 of 12 checks passed. A first run caught that D-2 and D-3 had a second cause: the tables copied only
-their visible columns into each row, and Edit passed that trimmed row to the form. The checks are a script in
-the session, not yet tests in `e2e/` (UI-HP-04 … 06, UI-BND-07 remain to be written).
+their visible columns into each row, and Edit passed that trimmed row to the form.
+
+These checks are now E2E scenarios in `CatalogueEditing.feature` (risks R-059, R-060). Red evidence: with the
+frontend fix reverted, all five scenarios failed, each on the defect it targets — `PATCH` instead of `PUT`,
+email `null`, department `null`, birthday `1980-01-01` instead of `1980-01-02` (UTC+1), and the birthday field
+missing from the edit form (UTC−5). With the fix, three full runs in a row passed.
 
 | # | Label | Defect | Evidence |
 |---|---|---|---|
@@ -54,6 +59,7 @@ the session, not yet tests in `e2e/` (UI-HP-04 … 06, UI-BND-07 remain to be wr
 | D-14 | Fact | An unknown URL shows an empty page instead of "not found" | `PrivateRoutes.tsx:57-62` (no catch-all route) |
 | D-15 | Fact | API calls have no timeout: a request that never answers leaves the page loading forever | `AxiosConfig.ts:4-6` |
 | D-16 | Fact | The browser tab title is misspelled: "Hopital managment" | `index.html:8` |
+| D-17 | Fact | **Typing a service name in the service selects finds nothing** ("No data"): antd filters options on their value, which is the numeric id, not the shown name. Found while writing the E2E scenarios | Playwright trace of the first run of `CatalogueEditing.feature`; `DoctorForm.tsx:83` (`<Select mode='multiple'>` without `optionFilterProp`) |
 
 ## 4. Proposed risks
 
@@ -61,9 +67,9 @@ Existing risks reused where they fit. New ones are labelled `new` until the test
 
 | Risk | STRIDE | I | L | Severity (proposed) | Reason | Evidence |
 |---|---|---|---|---|---|---|
-| new — editing a patient, service or doctor in the UI silently erases fields the form does not show | T | 3 | 4 | **Critical (12)** | Happens on every normal edit; wrong data saved, nobody is told | D-2, D-3, D-4 |
+| R-059 — editing a patient, service or doctor in the UI silently erases fields the form does not show | T | 3 | 4 | **Critical (12)** | Happens on every normal edit; wrong data saved, nobody is told | D-2, D-3, D-4 |
 | new — a failed write looks like a successful one, so users believe data was saved | T, R | 2 | 4 | **High (8)** | Every 400/403/409/5xx in normal use; misleading | D-6 |
-| new — a date chosen in the UI is saved as a different date | T | 2 | 4 | **High (8)** | Every user east of UTC; the clinic's own time zone is UTC+1 | D-5 |
+| R-060 — a date chosen in the UI is saved as a different date | T | 2 | 4 | **High (8)** | Every user east of UTC; the clinic's own time zone is UTC+1 | D-5 |
 | new — a UI feature is broken for every user and nothing notices (no frontend tests in CI) | D | 3 | 3 | **High (9)** | D-1 shipped with every gate green; G1 only builds the frontend | D-1; QUALITY_GATES §1 G1 |
 | new — the UI offers actions the role may not use | E | 1 | 4 | Medium (4) | The API refuses them (R-005), so no access is gained; users are confused | D-7 |
 | new — work in a form is lost when the session ends | D | 1 | 2 | Low (2) | `getAccessToken` redirects to the login page without saving input | `keycloak.ts:30-38` |
@@ -108,9 +114,9 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-HP-01 | High | Admin adds a doctor with services | Admin signed in; a service the test created → Doctors → Add → fill names, address, birthday, pick the service → Create | Row appears; after reload still there; `GET /api/Doctor/{id}` has the same values and service | Empty service dropdown (redirect/CORS), wrong payload, row only in local state | E2E | P1 |
 | UI-HP-02 | High | A new service is offered in the doctor and patient forms without reload | Admin → Services → Add → open Doctors → Add | New service is an option | Stale cached service list | E2E | P2 |
 | UI-HP-03 | High | Nurse registers a patient (F-02.1) | Nurse signed in → Patients → Add → name, phone, service → Create | Row appears; API record equal | Payload mismatch, 400 swallowed | E2E | P1 |
-| UI-HP-04 | High | Admin edits a doctor's name — fixed (D-1), test still to write | Doctor created via API → Edit → change first name → Update | Table and API show the new name; birthday, department, services unchanged | 405 on PATCH; fields erased (D-4) | E2E | P1 |
-| UI-HP-05 | Critical | Staff edits a patient's name — fixed (D-2), test still to write | Patient with email created via API → Edit → change name → Update | Name changed; **email, phone, service unchanged** in the API | Silent field erasure | E2E | P1 |
-| UI-HP-06 | Critical | Admin edits a service description — fixed (D-3), test still to write | Service with department created via API → Edit → change description → Update | Description changed; **department unchanged** | Silent field erasure | E2E | P1 |
+| UI-HP-04 | High | Admin edits a doctor's name — fixed (D-1), tested in `CatalogueEditing.feature` | Doctor created via API → Edit → change first name → Update | Table and API show the new name; birthday, department, services unchanged | 405 on PATCH; fields erased (D-4) | E2E | P1 |
+| UI-HP-05 | Critical | Staff edits a patient's name — fixed (D-2), tested in `CatalogueEditing.feature` | Patient with email created via API → Edit → change name → Update | Name changed; **email, phone, service unchanged** in the API | Silent field erasure | E2E | P1 |
+| UI-HP-06 | Critical | Admin edits a service description — fixed (D-3), tested in `CatalogueEditing.feature` | Service with department created via API → Edit → change description → Update | Description changed; **department unchanged** | Silent field erasure | E2E | P1 |
 | UI-HP-07 | Medium | Admin deletes an unused service | Service created via API → Delete → confirm | Row gone; reload: still gone; API 404 | Row removed only locally | E2E | P2 |
 | UI-HP-08 | Medium | Details drawer shows what the API holds — **fails today (D-8)** | Doctor, patient, service created via API → View each | Every shown value equals the API value | Wrong field bound | Comp | P2 |
 | UI-HP-09 | Low | Navigation: every menu item opens its page | Signed in → click each menu item; open `/patient` directly | Right page, header title and highlighted item | Broken route, wrong title | E2E | P3 |
@@ -140,7 +146,7 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-BND-04 | High | Phone numbers: 8 digits, 11 digits with country code, leading zero, `1e5`, negative — **11 digits fails today (D-11)** | Patient form | Agreed format accepted; others refused with a message; value round-trips unchanged | Overflow, lost leading zero, number notation | Comp + E2E | P2 (after Q-c) |
 | UI-BND-05 | Medium | Unicode round trip: `Đorđe Šćepanović`, `Zoë`, Arabic, emoji | Create doctor and patient with these names | Shown and stored exactly as typed | Encoding loss | E2E | P2 |
 | UI-BND-06 | Medium | Whitespace-only names `"   "` | Any form | Refused in the form | antd `required` passes spaces; API 400 swallowed | Comp | P2 |
-| UI-BND-07 | High | Birthday in UTC+1, UTC−5 and on a DST change — fixed (D-5), test still to write | Playwright context with `TimezoneId` → pick 2 Jan 1980 | API and table show 1980-01-02 in every zone | Off-by-one day | E2E | P1 |
+| UI-BND-07 | High | Birthday in UTC+1, UTC−5 and on a DST change — fixed (D-5), tested in `CatalogueEditing.feature` (UTC+1 and UTC−5; DST change not yet) | Playwright context with `TimezoneId` → pick 2 Jan 1980 | API and table show 1980-01-02 in every zone | Off-by-one day | E2E | P1 |
 | UI-BND-08 | Low | Empty lists | No services exist (fresh stack) | Empty-state text and working "Add" | Broken layout, wrong count | Comp | P3 |
 | UI-BND-09 | Medium | 500 rows (R-037) | 500 services created via API → open page | Renders in < 2 s on CI hardware; scroll reaches the last row | Freeze; table with `pagination={false}` (`Doctors.tsx:121`) | E2E | P3 |
 | UI-BND-10 | Low | Doctor with no service | Doctor form | Behavior per Q-d | Form and API disagree (form requires one, API allows none) | Comp | P3 |
@@ -187,7 +193,7 @@ page (the `Deque.AxeCore.Playwright` package for .NET).
 | ID | Sev | Test | Preconditions → Steps | Expected | Failure modes detected | Lvl | Auto |
 |---|---|---|---|---|---|---|---|
 | UI-A11Y-01 | Medium | axe scan of every page and every open drawer | Signed in as admin | No `serious` or `critical` violations | Missing labels, roles, contrast | E2E | P2 |
-| UI-A11Y-02 | Medium | Icon-only View, Edit, Delete buttons have names | Tables | Each button has an accessible name ("Edit Dr. …") | *Assumption:* the Tooltip alone gives none | E2E | P2 |
+| UI-A11Y-02 | Medium | Icon-only View, Edit, Delete buttons have names | Tables | Each button has an accessible name ("Edit Dr. …") | Fixed in part on 2026-11-23: the buttons are named View, Edit, Delete (`Doctors.tsx:72`); the name does not yet say which row | E2E | P2 |
 | UI-A11Y-03 | Medium | Keyboard only: add a patient | Tab through menu → Add → fill → submit → Esc | Every step reachable; focus returns to "Add" when the drawer closes | Keyboard traps, lost focus | E2E | P2 |
 | UI-A11Y-04 | Low | Delete confirmation by keyboard | Focus Delete → Enter → confirm with keyboard | Works; focus moves sensibly | Popconfirm unreachable | E2E | P3 |
 | UI-A11Y-05 | Medium | Form errors are announced and linked to fields | Submit empty form | Errors have `aria-describedby` / live region | Silent errors for screen readers | Comp | P3 |
@@ -285,9 +291,9 @@ All use Playwright route interception on API requests; the stack itself stays re
 
 | Risk | Tests | Lvl | Today |
 |---|---|---|---|
-| new — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; no test yet |
+| R-059 — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; HP-04 … 06 pass; UI-DI-02 not written |
 | new — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-NEG-09, UI-DI-03, UI-REL-01, UI-REL-03 | Comp, E2E | **fails** |
-| new — date saved as a different date (High) | UI-BND-07 | E2E | fixed; no test yet |
+| R-060 — date saved as a different date (High) | UI-BND-07 | E2E | fixed; passes |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | **fails** |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |

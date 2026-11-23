@@ -151,6 +151,7 @@ must produce the same shape, and the test host must trust only the test key.
 | Feature | Scenarios |
 |---|---|
 | `SignIn.feature` | each role signs in and sees its name; no password-reset link; an account without a hospital role sees "No access" and its token gets 403; sign-out ends the Keycloak session |
+| `CatalogueEditing.feature` | in the web application the administrator renames a doctor, renames a patient and changes a service's description, and every field the form does not change stays as stored (R-059); a birthday picked in the UTC+1 and UTC−5 time zones is stored and shown as that day (R-060). Browser time zone set per scenario with an `@timezone:` tag |
 | `ClinicalJourney.feature` | a patient books and sees only own appointments; cannot book for another patient; the doctor's diagnosis reaches the patient with the linked doctor as author, another patient's and a missing record give 403; an amendment shows in the history for clinical staff and is refused to the patient |
 
 How they run:

@@ -53,10 +53,11 @@ const Services: React.FC<ServicesProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button onClick={() => handleViewService(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button aria-label='View' onClick={() => handleViewService(record)} className='table--action-btn' icon={<HiOutlineEye />} />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button
+              aria-label='Edit'
               onClick={() => handleEditService(record)}
               className='table--action-btn'
               icon={<HiOutlinePencilAlt />}
@@ -64,7 +65,7 @@ const Services: React.FC<ServicesProps> = ({
           </Tooltip>
           <Tooltip title='Delete'>
             <Popconfirm title='Sure to delete?' onConfirm={() => handleDeleteService(record.id)}>
-              <Button className='table--action-btn' icon={<HiOutlineTrash />} />
+              <Button aria-label='Delete' className='table--action-btn' icon={<HiOutlineTrash />} />
             </Popconfirm>
           </Tooltip>
         </Space>

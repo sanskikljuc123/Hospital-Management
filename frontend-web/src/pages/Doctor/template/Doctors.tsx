@@ -69,10 +69,11 @@ const Doctors: React.FC<DoctorsProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button onClick={() => handleViewDoctor(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button aria-label='View' onClick={() => handleViewDoctor(record)} className='table--action-btn' icon={<HiOutlineEye />} />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button
+              aria-label='Edit'
               onClick={() => handleEditDoctor(record)}
               className='table--action-btn'
               icon={<HiOutlinePencilAlt />}
@@ -80,7 +81,7 @@ const Doctors: React.FC<DoctorsProps> = ({
           </Tooltip>
           <Tooltip title='Delete'>
             <Popconfirm title='Sure to delete?' onConfirm={() => handleDeleteDoctor(record.id)}>
-              <Button className='table--action-btn' icon={<HiOutlineTrash />} />
+              <Button aria-label='Delete' className='table--action-btn' icon={<HiOutlineTrash />} />
             </Popconfirm>
           </Tooltip>
         </Space>
