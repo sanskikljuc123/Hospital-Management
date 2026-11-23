@@ -59,7 +59,15 @@ ProblemDetails (`HospitalControllerBase`), and the controllers declare which sta
 `ErrorContractTests.cs` pins the format (status, application/problem+json, `detail`). In the component tests a
 mocked error must match the contract: a described status needs a ProblemDetails body, and any other status
 (401, the 403 of an ownership check) must be empty, as the API sends it. A plain-text error mock fails as "not
-JSON". Still not described, so not checked: query parameters and 5xx.
+JSON".
+
+**URL parameters are checked too** (since 2026-11-23). Every query parameter a component test sends must be one
+the endpoint declares (names compared without case, as ASP.NET Core binds them), appear once unless it is a list,
+and have a value of its type (32-bit integer, ISO 8601 date-time, …); every path parameter (`{id}`) must have its
+type. This matters because the API silently ignores an unknown query parameter: `?patient=5` instead of
+`?patientId=5` would return every patient's appointments. The checker has tests of its own (`contract.test.ts`);
+switching the parameter check off makes exactly its six reporting tests fail. Still not described, so not
+checked: 5xx.
 
 Component tests render antd without animations (`render.tsx`), so a closing drawer is gone at once rather than
 after an animation whose length depends on machine load. A test of the drawer closing failed once in a full run
