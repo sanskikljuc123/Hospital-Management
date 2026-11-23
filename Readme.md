@@ -41,15 +41,18 @@ The backend is an ASP.NET Core API with PostgreSQL and Keycloak. See [ARCHITECTU
 
 Sample sign-ins: `admin.user`, `doctor.user`, `nurse.user`, `patient.user`, all with the password you set in `DEV_USERS_PASSWORD`.
 
-**Option 2: .NET Aspire (API from source, with dashboard).** Requires Docker Desktop and the .NET 10 SDK.
+**Option 2: .NET Aspire (API and web frontend from source, with dashboard).** Requires Docker Desktop, the .NET 10 SDK and Node.js.
 
 1. Set the sample users' password once: `dotnet user-secrets set "Parameters:dev-users-password" "<your password>" --project backend/HospitalManagement.AppHost`.
-2. Run `dotnet run --project backend/HospitalManagement.AppHost`.
-3. Open the dashboard link printed in the console; the API is at `http://localhost:5117/swagger`.
+2. Run `dotnet run --project backend/HospitalManagement.AppHost`. This starts PostgreSQL, Keycloak, the API and the web
+   frontend (Aspire runs `npm install` and `npm run dev` itself), so the frontend steps below are not needed.
+3. Open the dashboard link printed in the console. The frontend is at `http://localhost:3000`, the API at `http://localhost:5117/swagger`.
 
 Both options use port 8080 for Keycloak, so run one at a time. Migrations and sample data are applied automatically on startup.
 
 #### Setting up the Frontend (Web):
+
+Only needed with Option 1; Aspire (Option 2) starts the frontend for you.
 
 Open the frontend-web directory. `cd frontend-web`
 Optional: copy `.envExample` to `.env` to change the API or Keycloak address (`.env` is git-ignored; without
