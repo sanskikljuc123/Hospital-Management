@@ -67,11 +67,17 @@ Or using docker:
     If you find any bugs or would like to optimize the code, feel free to contribute. Pull requests are welcome!
 
 
-## Project Screenshots
-![Screenshot 2024-07-18 123447](https://github.com/user-attachments/assets/d3dce57d-29a5-4774-87b8-383db5565f5b)
-<img width="561" alt="Services_managment" src="https://github.com/user-attachments/assets/efd2b663-b4a6-4042-9683-25c358e8b590">
-<img width="563" alt="patient_managment" src="https://github.com/user-attachments/assets/4c114898-6d85-408a-aed9-e6906ab7a04d">
-<img width="872" alt="HospitalManagement_swagger" src="https://github.com/user-attachments/assets/736e5268-7094-4550-8176-f45b96feac70">
-<img width="569" alt="edit_doctor" src="https://github.com/user-attachments/assets/198b0399-ace2-4c54-bc31-b270798395f7">
-<img width="615" alt="doctors_managment" src="https://github.com/user-attachments/assets/dbb4ff38-ad75-44f4-99ac-c4b95c1caf89">
-<img width="614" alt="doctor_details" src="https://github.com/user-attachments/assets/9b85f401-79bf-47a3-a107-8c23e3e015cd">
+## Quality and testing
+
+Every change is tested against the risks it could cause, and a person makes every decision. AI agents help to
+find risks, design tests and review changes, but they only advise; the automated checks in CI never call an AI.
+
+![How a change is tested: ten steps from input to monitoring](docs/images/testing-flow-overview.png)
+
+In short: a change starts as a requirement or a finding (1). It is analysed for risks (2), and the test owner
+rates them in the risk register (3). Tests are designed at the lowest level that can prove each risk (4), written
+together with the code (5) and reviewed (6). Every pull request must pass the automated gates (7) before the code
+owner merges it (8); a risk counts as covered only once a passing test proves it (9). Nightly runs keep watching
+(10), and any failure starts the loop again at step 2.
+
+Details: [docs/testing/README.md](docs/testing/README.md).
