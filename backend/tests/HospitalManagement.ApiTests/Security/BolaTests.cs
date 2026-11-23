@@ -132,6 +132,26 @@ public class BolaTests : IAsyncLifetime
         Assert.Empty(items.EnumerateArray());
     }
 
+    // A patient account not linked to any patient record owns nothing: asking for a real patient's item by id must be
+    // refused exactly like asking for someone else's item, with nothing in the body (F-10.3, SECURITY_TESTING §3).
+    [Theory]
+    [InlineData("/api/Patient/{0}")]
+    [InlineData("/api/Appointment/{0}")]
+    [InlineData("/api/MedicalRecord/{0}")]
+    [Trait("Risk", "R-001")]
+    [Trait("Risk", "R-002")]
+    [Trait("Risk", "R-003")]
+    [Trait("Scenario", "F-10.3")]
+    public async Task UnlinkedPatient_ReadsAPatientsItem_Returns403_AndNothingLeaks(string pathFormat)
+    {
+        using var client = _factory.ClientFor(TestUser.Patient());
+
+        var response = await client.GetAsync(string.Format(pathFormat, OwnId(pathFormat)));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     [Trait("Risk", "R-002")]
     [Trait("Scenario", "F-03.8")]

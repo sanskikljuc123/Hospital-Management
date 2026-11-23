@@ -36,8 +36,11 @@ public class AuthorizationMatrixTests
             case "401": Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode); break;
             case "403": Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode); break;
             default:
-                Assert.True(status != 401 && status != 403,
-                    $"{identity} must pass authorization on {method} {template}, got {status}");
+                // Passing authorization means the request reached the endpoint and got a normal answer: success,
+                // or a 4xx about the request itself (400 for the empty body, 404 for the missing id, 409).
+                // A 5xx is a server failure that hid the result, so it does not count as "allowed".
+                Assert.True(status is not (401 or 403) && status < 500,
+                    $"{identity} must pass authorization on {method} {template} and get a normal answer, got {status}");
                 break;
         }
     }

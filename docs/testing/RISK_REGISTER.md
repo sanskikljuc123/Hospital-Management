@@ -49,7 +49,7 @@ on gate G4 fails if a Covered risk loses its last active test. Risks whose tests
 stay below `Covered` (R-008: no check against linking the wrong patient; R-021: depends on admins linking
 accounts; R-024, R-039, R-041, R-042, R-043: partial or configuration-only evidence), and so do risks whose
 only test is an E2E scenario, because E2E does not run on every pull request.
-No row is `Covered` yet: the test projects arrive in phases 2–4. "Evidence" is where the current control is.
+"Evidence" is where the current control is; "Tests" names the test classes that prove it.
 
 **Ratings assume real patient data.** The system holds only synthetic data, but it is built and tested as if
 it were in production with real patients (Q-007, [BUSINESS_FLOWS.md](BUSINESS_FLOWS.md#operating-principle)),
