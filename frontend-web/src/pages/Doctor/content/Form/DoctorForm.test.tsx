@@ -16,7 +16,7 @@ const stored: Doctor = {
   serviceIds: [1],
 };
 
-describe("DoctorForm @R-059 @R-060", () => {
+describe("DoctorForm @R-059 @R-060 @R-061", () => {
   it("sends back every field the API replaces when a doctor is saved unchanged", async () => {
     const onSubmit = vi.fn();
     const { user } = renderWithStore(<DoctorForm doctor={stored} onSubmit={onSubmit} />);

@@ -3,6 +3,7 @@ using api.Infrastructure;
 using Domain.Constants;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.AppointmentService;
 
@@ -25,6 +26,7 @@ namespace api.Controllers
 
         /// <summary>Staff see all appointments (optionally filtered); patients only see their own.</summary>
         [HttpGet]
+        [ProducesResponseType<IReadOnlyList<AppointmentDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAppointments([FromQuery] int? patientId, [FromQuery] int? doctorId,
             [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken cancellationToken)
         {
@@ -36,6 +38,7 @@ namespace api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAppointmentById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
@@ -45,6 +48,7 @@ namespace api.Controllers
 
         /// <summary>Staff can book for any patient; a patient can only book for themselves.</summary>
         [HttpPost]
+        [ProducesResponseType<AppointmentDto>(StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateAppointment([FromBody] AppointmentCreateDto dto, CancellationToken cancellationToken)
         {
             // The patient id comes from the request: a patient may only name their own record.
@@ -58,12 +62,14 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.Staff)]
         public async Task<IActionResult> UpdateAppointment([FromRoute] int id, [FromBody] AppointmentUpdateDto dto, CancellationToken cancellationToken) =>
             FromResult(await _appointments.UpdateAsync(id, dto, cancellationToken));
 
         /// <summary>Staff can cancel any appointment; a patient can cancel their own.</summary>
         [HttpPost("{id}/cancel")]
+        [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> CancelAppointment([FromRoute] int id, CancellationToken cancellationToken)
         {
             var appointment = await _appointments.GetByIdAsync(id, cancellationToken);
@@ -75,12 +81,14 @@ namespace api.Controllers
 
         /// <summary>Admin only: corrects a final status set by mistake, with a mandatory reason.</summary>
         [HttpPost("{id}/correct-status")]
+        [ProducesResponseType<AppointmentDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> CorrectAppointmentStatus([FromRoute] int id,
             [FromBody] AppointmentStatusCorrectionDto dto, CancellationToken cancellationToken) =>
             FromResult(await _appointments.CorrectStatusAsync(id, dto, cancellationToken));
 
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteAppointment([FromRoute] int id, CancellationToken cancellationToken) =>
             await _appointments.DeleteAsync(id, cancellationToken)

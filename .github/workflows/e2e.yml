@@ -46,7 +46,7 @@ jobs:
           changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
           echo "Changed files:"; echo "$changed"
           docs='docs/|.*\.md$|\.claude/'
-          other_tests='backend/tests/|frontend-web/src/test/|frontend-web/src/.*\.test\.tsx?$|frontend-web/vitest\.config\.ts$'
+          other_tests='backend/tests/|contracts/|frontend-web/src/test/|frontend-web/src/.*\.test\.tsx?$|frontend-web/vitest\.config\.ts$'
           tooling='scripts/|dotnet-tools\.json$|backend/HospitalManagement\.AppHost/|\.github/workflows/(ci|smoke|mutation|flaky)\.yml$'
           housekeeping='\.github/(CODEOWNERS|dependabot\.yml)$|\.gitignore$|\.gitattributes$|\.editorconfig$|LICENSE'
           reaching="$(echo "$changed" | grep -Ev "^($docs|$other_tests|$tooling|$housekeeping)" | grep -v '^$' || true)"

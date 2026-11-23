@@ -2,6 +2,7 @@
 using api.Infrastructure;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.DoctorService;
 
@@ -18,10 +19,12 @@ namespace api.Controllers
         public DoctorController(IDoctorService doctors) => _doctors = doctors;
 
         [HttpGet]
+        [ProducesResponseType<IReadOnlyList<DoctorDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllDoctors(CancellationToken cancellationToken) =>
             Ok(await _doctors.GetAllAsync(cancellationToken));
 
         [HttpGet("{id}")]
+        [ProducesResponseType<DoctorDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetDoctorById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var doctor = await _doctors.GetByIdAsync(id, cancellationToken);
@@ -29,6 +32,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType<DoctorDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> CreateDoctor([FromBody] DoctorCreationDto dto, CancellationToken cancellationToken)
         {
@@ -39,12 +43,14 @@ namespace api.Controllers
         }
 
         [HttpPut("{id}")]
+        [ProducesResponseType<DoctorDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> UpdateDoctor([FromRoute] int id, [FromBody] DoctorCreationDto dto, CancellationToken cancellationToken) =>
             FromResult(await _doctors.UpdateAsync(id, dto, cancellationToken));
 
         /// <summary>204 when deleted; 409 while the doctor has appointments or medical records.</summary>
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         [Authorize(Policy = Policies.AdminOnly)]
         public async Task<IActionResult> DeleteDoctor([FromRoute] int id, CancellationToken cancellationToken) =>
             await _doctors.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound($"Doctor with ID {id} not found");

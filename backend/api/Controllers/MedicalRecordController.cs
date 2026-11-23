@@ -3,6 +3,7 @@ using api.Infrastructure;
 using Domain.Constants;
 using Domain.Dtos;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.MedicalRecordService;
 using Services.UserService;
@@ -31,6 +32,7 @@ namespace api.Controllers
 
         /// <summary>Doctors and nurses see all records (optionally filtered); patients only their own.</summary>
         [HttpGet]
+        [ProducesResponseType<IReadOnlyList<MedicalRecordDto>>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMedicalRecords([FromQuery] int? patientId, CancellationToken cancellationToken)
         {
             var scope = await _access.ListScopeAsync(StaffScope.ClinicalStaff, cancellationToken);
@@ -41,6 +43,7 @@ namespace api.Controllers
         }
 
         [HttpGet("{id}")]
+        [ProducesResponseType<MedicalRecordDto>(StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMedicalRecordById([FromRoute] int id, CancellationToken cancellationToken)
         {
             var record = await _records.GetByIdAsync(id, cancellationToken);
@@ -49,6 +52,7 @@ namespace api.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType<MedicalRecordDto>(StatusCodes.Status201Created)]
         [Authorize(Policy = Policies.DoctorOnly)]
         public async Task<IActionResult> CreateMedicalRecord([FromBody] MedicalRecordCreateDto dto, CancellationToken cancellationToken)
         {
@@ -65,6 +69,7 @@ namespace api.Controllers
 
         /// <summary>Any doctor may edit any record; every change is kept as a new revision with its editor.</summary>
         [HttpPut("{id}")]
+        [ProducesResponseType<MedicalRecordDto>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.DoctorOnly)]
         public async Task<IActionResult> UpdateMedicalRecord([FromRoute] int id, [FromBody] MedicalRecordUpdateDto dto, CancellationToken cancellationToken)
         {
@@ -77,6 +82,7 @@ namespace api.Controllers
 
         /// <summary>Every version of the record with who changed what and when. Doctors and nurses only.</summary>
         [HttpGet("{id}/history")]
+        [ProducesResponseType<IReadOnlyList<MedicalRecordRevisionDto>>(StatusCodes.Status200OK)]
         [Authorize(Policy = Policies.ClinicalStaff)]
         public async Task<IActionResult> GetMedicalRecordHistory([FromRoute] int id, CancellationToken cancellationToken)
         {
