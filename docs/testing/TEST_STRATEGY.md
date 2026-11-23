@@ -196,9 +196,26 @@ some unit test fails. A change that no test notices is a test that is missing.
 | Scope | `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` — the business, access-identity and reliability rules |
 | Config | `backend/tests/HospitalManagement.UnitTests/stryker-config.json`; tool pinned in `dotnet-tools.json` |
 | Run locally | `dotnet tool restore`, then `dotnet tool run dotnet-stryker --concurrency 2` in that folder (about 25 minutes; report in `StrykerOutput/`) |
-| CI | `.github/workflows/mutation.yml`: nightly (03:00 UTC) and on demand; HTML report as an artifact. Not on every pull request — too slow |
+| CI | `.github/workflows/mutation.yml`: the four services in full nightly (03:00 UTC) and on demand; HTML report as an artifact. On every pull request that changes service code: only the changed files, any service (G9, below) |
 | Threshold | The run fails below **90 %** (`break`) |
 | SDK | Pinned to 10.0.x in `global.json`. The GitHub runner also has a newer SDK preinstalled; built with it, the VSTest that Stryker 4.16 ships aborts test discovery (`NullReferenceException` in `GetTestHostPath`, 0 tests found), while `dotnet test` itself still works. The same pin keeps local and CI builds on one SDK |
+
+### Mutation testing of changed code (G9)
+
+On a pull request that changes `backend/Services/`, Stryker mutates only the files changed since the base commit
+(`--since`), in any service, not only the four above. `scripts/mutation_summary.py` then fails the job when a
+mutant on a line the pull request changed went undetected, and lists every undetected mutant in the job summary,
+changed lines first. The rule is about the change, not the file: a file's score includes old survivors (some
+reviewed as equivalent, see below), so a score threshold would block changes for code they never touched.
+
+Checked on 2026-11-23 in a clone of this repository: a new, untested rule in `DepartmentService` (description
+at most 500 characters) failed the gate on its two comparison mutants (`>` to `>=` and `<`); with a unit test for
+500 and 501 characters the gate passed. Stryker mutated only that file (530 other mutants filtered out); about
+2½ minutes locally. The same run showed that `DepartmentService` as a whole scores 54.5 %: its existing code has
+untested branches, which the nightly scope does not cover.
+
+Locally, `--since` needs the full base SHA, a normal clone (Stryker's git library does not follow `git worktree`)
+and, on Windows, `core.autocrlf=false` in that clone; put `--output` outside the repository.
 
 **Not mutated, on purpose:** error-message strings (the text is not a business rule) and logging calls (they do
 not change behavior).

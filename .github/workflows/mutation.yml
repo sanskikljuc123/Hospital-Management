@@ -1,20 +1,107 @@
-# Phase 5 (docs/testing/TEST_STRATEGY.md §3, QUALITY_GATES §1): mutation testing with Stryker.NET on the services
-# that carry the core business and reliability rules. It measures whether the unit tests would notice a broken
-# rule. Slow, so it runs nightly and on demand, not on every pull request. It fails when the mutation score drops
-# below the "break" threshold in backend/tests/HospitalManagement.UnitTests/stryker-config.json.
+# Phase 5 (docs/testing/TEST_STRATEGY.md §3, §11; QUALITY_GATES §1): mutation testing with Stryker.NET. It measures
+# whether the unit tests would notice a broken rule.
+# - Nightly and on demand: the four services with the core business and reliability rules, in full. Fails when the
+#   score drops below the "break" threshold in backend/tests/HospitalManagement.UnitTests/stryker-config.json.
+# - On a pull request that changes backend/Services: only the changed files, any service. Fails when a mutant on a
+#   line the pull request changed goes undetected (scripts/mutation_summary.py), so new code arrives with tests
+#   that would notice it break, while old survivors elsewhere in the file never block.
 name: Mutation
 
 on:
   schedule:
     - cron: "0 3 * * *"
   workflow_dispatch:
+  pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Does this pull request change service code? Plain git, no third-party action.
+  changes:
+    name: Does this change touch service code?
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    outputs:
+      services: ${{ steps.diff.outputs.services }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
+          pattern='^(backend/Services/.*\.cs$|backend/tests/HospitalManagement\.UnitTests/stryker-config\.json$|scripts/mutation_summary\.py$|\.github/workflows/mutation\.yml$|dotnet-tools\.json$)'
+          if echo "$changed" | grep -Eq "$pattern"; then
+            echo "services=true" >> "$GITHUB_OUTPUT"; echo "Service code changed: mutation testing of the changed files runs."
+          else
+            echo "services=false" >> "$GITHUB_OUTPUT"; echo "No service code changed: skipped."
+          fi
+
+  changed-code:
+    name: Mutation testing of changed code
+    needs: changes
+    # Fail-safe: if the change detection itself failed, run rather than skip.
+    if: >-
+      !cancelled() && (needs.changes.outputs.services == 'true' || needs.changes.result != 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # --since compares with the base commit
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      # --since: only files changed since the base commit are mutated (and mutants covered by changed tests are
+      # tested again). It needs the full base SHA. --mutate widens the nightly scope to every service file;
+      # --break-at 0 because the gate below decides, on changed lines only. The output goes outside the checkout:
+      # Stryker diffs the working tree, and files it writes there meanwhile make that diff fail.
+      - name: Run Stryker on the changed files
+        working-directory: backend/tests/HospitalManagement.UnitTests
+        env:
+          VSTEST_CONNECTION_TIMEOUT: "300"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >
+          dotnet tool run dotnet-stryker --concurrency 2 --since:"$BASE_SHA" --break-at 0
+          --mutate "**/*.cs" --output "$RUNNER_TEMP/stryker-changed"
+
+      - name: Undetected mutants on changed lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          report="$RUNNER_TEMP/stryker-changed/reports/mutation-report.json"
+          if [ ! -f "$report" ]; then
+            echo "Stryker wrote no report: no mutable code in the changed files." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 -I scripts/mutation_summary.py "$report" "$BASE_SHA" --fail-on-changed | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload the mutation report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-report-changed
+          path: ${{ runner.temp }}/stryker-changed/reports
+          if-no-files-found: ignore
+          retention-days: 14
+
   stryker:
     name: Stryker.NET mutation score
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
