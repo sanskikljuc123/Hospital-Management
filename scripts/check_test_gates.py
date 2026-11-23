@@ -154,7 +154,8 @@ def main():
     uncovered = [
         f"  {risk}  {severity}  level {level}  status {status}  active tests: {sum(active.get(risk, {}).values())}"
         for risk, (severity, level, status) in sorted(risks.items())
-        if severity.startswith(("Critical", "High")) and level in ("API", "Unit", "CI") and status != "Covered"
+        if severity.startswith(("Critical", "High")) and level in ("API", "Unit", "CI")
+        and status not in ("Covered", "Closed")  # Closed: the risk no longer applies
     ]
 
     print(f"Register: {len(risks)} risks. Tests: {len(tests)} test methods, {len(skips)} skipped.")
