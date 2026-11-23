@@ -10,7 +10,7 @@ with docker-compose or .NET Aspire. The endpoint-by-endpoint reference is in
 flowchart LR
     user([Browser / API client])
     subgraph platform [Platform]
-        api[Hospital API<br/>ASP.NET Core 8]
+        api[Hospital API<br/>ASP.NET Core 10]
         kc[Keycloak 26<br/>HospitalRealm]
         pg[(PostgreSQL 17<br/>hospitaldb + keycloak)]
     end
@@ -463,8 +463,8 @@ records what the architecture provides for it.
 | `backend/tests/HospitalManagement.UnitTests` | Services depend on interfaces (`ICurrentUserContext`, `IAuditService`, `INotificationService`) and on `TimeProvider`, so business rules run with fakes and a fixed clock |
 | `backend/tests/HospitalManagement.ApiTests` | `public partial class Program` lets `WebApplicationFactory<Program>` host the real pipeline; only the JWT signing key is replaced, so issuer, audience, lifetime and role mapping are the production code; PostgreSQL through Testcontainers |
 
-`.github/workflows/ci.yml` builds the solution and the front end and runs both test projects (the API tests
-on .NET 8 and .NET 10), the risk-coverage check and a secret scan on every pull request.
+`.github/workflows/ci.yml` builds the solution and the front end and runs both test projects on .NET 10,
+the risk-coverage check and a secret scan on every pull request.
 
 ## 11. Decision log
 
@@ -487,5 +487,5 @@ blocks the gap named next to it.
 | D-12 | Concurrency control mechanism | **Open** |
 | D-13 | Time-zone contract of the API (offsets required?) | **Open** (R-051) |
 | D-14 | Data lifecycle: soft or hard delete of patients, retention of audit log and revisions | **Open** |
-| D-15 | Reference runtime: .NET 8 (API, container) vs. .NET 10 (AppHost) and the upgrade path | **Open** |
+| D-15 | Reference runtime: .NET 10 for the API, container, AppHost and tests | Taken |
 | D-16 | One service contract for every module: DTOs in and out, `ServiceResult<T>`, cancellation, audit of every change (§1) | Taken (architecture review C-2) |

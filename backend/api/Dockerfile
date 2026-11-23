@@ -1,5 +1,5 @@
 # Build context is the backend/ folder:  docker build -f api/Dockerfile .
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore first so the package layer is cached until a project file changes.
@@ -17,7 +17,7 @@ COPY HospitalManagement.ServiceDefaults/ HospitalManagement.ServiceDefaults/
 COPY api/ api/
 RUN dotnet publish api/api.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 # Non-root user provided by the base image.
