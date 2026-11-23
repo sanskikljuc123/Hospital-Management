@@ -32,7 +32,8 @@ DOCUMENTS = (
     + [ROOT / "docs" / "API_ENDPOINTS.md", ROOT / "ARCHITECTURE.md"]
 )
 # Agent and skill files also get their code names checked; elsewhere backticks hold too many plain words.
-SYMBOL_DOCUMENTS = {p for p in DOCUMENTS if ".claude" in p.parts}
+# Relative to the root: a checkout that itself lives under a .claude folder (a session worktree) is not an agent file.
+SYMBOL_DOCUMENTS = {p for p in DOCUMENTS if p.relative_to(ROOT).parts[0] == ".claude"}
 CODE_DIRS = ["backend", "e2e", "frontend-web/src", "keycloak", "scripts", ".github"]
 CODE_SUFFIXES = {".cs", ".ts", ".tsx", ".feature", ".json", ".yml", ".yaml", ".py", ".csproj"}
 
