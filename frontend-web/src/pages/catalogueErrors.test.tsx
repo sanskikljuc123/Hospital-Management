@@ -62,7 +62,7 @@ describe("catalogue pages show the API's errors @R-061 @R-062", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Create Doctor" })).not.toBeInTheDocument());
   });
 
-  it("says the user is not allowed when the list is refused with an empty 403", async () => {
+  it("says the user is not allowed when the list is refused with an empty 403 @R-064", async () => {
     server.use(http.get(`${API}/Patient`, () => new HttpResponse(null, { status: 403 })));
 
     renderWithStore(<Patient />);
@@ -70,7 +70,7 @@ describe("catalogue pages show the API's errors @R-061 @R-062", () => {
     expect(await screen.findByText("You are not allowed to do this.")).toBeInTheDocument();
   });
 
-  it("says the server cannot be reached when the request fails on the network", async () => {
+  it("says the server cannot be reached when the request fails on the network @R-064", async () => {
     server.use(http.get(`${API}/doctor`, () => HttpResponse.error()));
 
     renderWithStore(<Doctor />);
