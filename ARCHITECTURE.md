@@ -464,8 +464,8 @@ records what the architecture provides for it.
 | `backend/tests/HospitalManagement.UnitTests` | Services depend on interfaces (`ICurrentUserContext`, `IAuditService`, `INotificationService`) and on `TimeProvider`, so business rules run with fakes and a fixed clock |
 | `backend/tests/HospitalManagement.ApiTests` | `public partial class Program` lets `WebApplicationFactory<Program>` host the real pipeline; only the JWT signing key is replaced, so issuer, audience, lifetime and role mapping are the production code; PostgreSQL through Testcontainers |
 
-`.github/workflows/ci.yml` builds the solution and the front end and runs both test projects on .NET 10,
-the risk-coverage check and a secret scan on every pull request.
+Which checks run on a pull request, and which of them block the merge, is kept in one place:
+[QUALITY_GATES.md §1](docs/testing/QUALITY_GATES.md#1-gates).
 
 ## 11. Decision log
 

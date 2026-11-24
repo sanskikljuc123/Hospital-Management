@@ -279,25 +279,7 @@ Actions: `User.Login`, `User.Provisioned`, `User.Activated`, `User.Deactivated`,
 
 ## Role matrix
 
-| Area | Admin | Doctor | Nurse | Patient |
-|---|---|---|---|---|
-| Doctors, services, departments: read | ✔ | ✔ | ✔ | ✔ |
-| Doctors, services, departments: write | ✔ | – | – | – |
-| Patients: read | ✔ | ✔ | ✔ | own |
-| Patients: create, update | ✔ | ✔ | ✔ | – |
-| Patients: delete | ✔ | – | – | – |
-| Appointments: read | ✔ | ✔ | ✔ | own |
-| Appointments: book | ✔ | ✔ | ✔ | own |
-| Appointments: update | ✔ | ✔ | ✔ | – |
-| Appointments: mark Completed | – | ✔ | – | – |
-| Appointments: cancel | ✔ | ✔ | ✔ | own |
-| Appointments: correct a final status | ✔ | – | – | – |
-| Appointments: delete | ✔ | – | – | – |
-| Medical records: read | – | ✔ | ✔ | own |
-| Medical records: write | – | ✔ (linked) | – | – |
-| Medical records: history | – | ✔ | ✔ | – |
-| Users: manage | ✔ | – | – | – |
-| Own profile (`/api/User/me`) | ✔ | ✔ | ✔ | ✔ |
-| Audit log | ✔ | – | – | – |
-
-A user with a valid token but none of these four roles gets 403 on every `/api/*` endpoint.
+Who may call which endpoint, endpoint by endpoint, with the per-record rules (*Own*, *Linked*) and the answer for
+a token without a hospital role: [SECURITY_TESTING.md §2](testing/SECURITY_TESTING.md#2-role-by-endpoint-matrix).
+It is kept there only, next to the test that checks it (`AuthorizationMatrix.cs`), so the two cannot drift apart.
+What each sample user can do in the web frontend: the root [Readme](../Readme.md).

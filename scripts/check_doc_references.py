@@ -21,7 +21,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SKIP_DIRS = {".git", "bin", "obj", "node_modules", "dist", "TestResults", ".vs", "__pycache__", "StrykerOutput"}
+SKIP_DIRS = {".git", "bin", "obj", "node_modules", "dist", "TestResults", ".vs", "__pycache__", "StrykerOutput", ".stryker-tmp"}
 # Local git worktrees of Claude Code sessions: other checkouts, not this one. Never in CI; skipped so a local run
 # (scripts/verify.sh) neither checks their copies of the documents nor resolves a citation against them.
 WORKTREES = ROOT / ".claude" / "worktrees"

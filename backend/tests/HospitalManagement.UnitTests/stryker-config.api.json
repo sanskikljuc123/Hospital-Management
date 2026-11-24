@@ -1,0 +1,14 @@
+{
+  "stryker-config": {
+    "project": "api.csproj",
+    "test-projects": [ "HospitalManagement.UnitTests.csproj" ],
+    "mutate": [
+      "**/Auth/PatientAccessPolicy.cs"
+    ],
+    "ignore-mutations": [ "string" ],
+    "ignore-methods": [ "*.LogInformation", "*.LogWarning", "*.LogError" ],
+    "reporters": [ "progress", "html", "json" ],
+    "thresholds": { "high": 95, "low": 90, "break": 90 },
+    "concurrency": 4
+  }
+}

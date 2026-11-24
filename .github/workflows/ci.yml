@@ -1,4 +1,5 @@
-# Quality gates G1–G6 (docs/testing/QUALITY_GATES.md §1). No step calls an AI agent.
+# Quality gates G1–G6 (docs/testing/QUALITY_GATES.md §1; G7 is e2e.yml, G9 mutation.yml, G10 codeql.yml).
+# No step calls an AI agent.
 name: CI
 
 on:
@@ -11,7 +12,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # A newer push to the same pull request cancels the older run. Every other run (a merge to master, nightly,
+  # on demand) has a group of its own commit: GitHub also cancels a *pending* run of the same group, so a
+  # shared group on master would leave some merge commits unverified.
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -79,6 +83,10 @@ jobs:
           npm audit --audit-level=high
           || echo "::warning title=Build-tool vulnerabilities::npm audit reports high or critical issues in dev dependencies"
       - run: npm run build
+      # ESLint (G1): defects that compile and that tests may not reach, e.g. a hook inside an if or with missing
+      # dependencies (it found the patient details drawer showing the previous patient's service, R-063).
+      - name: Lint (G1)
+        run: npm run lint
       # Component tests (G2): forms, tables and slices in jsdom, the API mocked with MSW. The job keeps its name
       # "Frontend build (G1)" because the ruleset requires that check by name (QUALITY_GATES §1).
       - name: Component tests (G2)
@@ -97,6 +105,9 @@ jobs:
       # Part of the same job, so the required check name in the ruleset stays the same.
       - name: Cited paths, lines and code names still exist (G4 c)
         run: python3 -I scripts/check_doc_references.py
+      # The required check names in QUALITY_GATES are real jobs, and every gate job is documented there.
+      - name: Required check names match the workflows (G4 d)
+        run: python3 -I scripts/check_gate_names.py
       # Shows the person who merges every rating and status change in the register; never fails (G8).
       - name: Risk register changes in this pull request
         if: always() && github.event_name == 'pull_request'
@@ -114,9 +125,11 @@ jobs:
           fetch-depth: 0
       # Scans the checked-out files. Old commits still hold the removed legacy password (R-030); scanning
       # them would fail every run, so history before this pull request is out of scope.
+      # The image is pinned to a digest (R-040). Dependabot does not see a `docker run`: move tag and digest
+      # together by hand, here and in scripts/verify.sh.
       - name: gitleaks, files
         run: >
-          docker run --rm -v "${{ github.workspace }}:/repo:ro" zricethezav/gitleaks:v8.21.2
+          docker run --rm -v "${{ github.workspace }}:/repo:ro" zricethezav/gitleaks:v8.21.2@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
           detect --no-git --source /repo --redact --no-banner -v
       # Every commit of the pull request: a secret added in one commit and deleted in a later one is not in the
       # files any more, but it stays in the history once merged. safe.directory: the mount belongs to another user.
@@ -127,5 +140,5 @@ jobs:
         run: >
           docker run --rm -v "${{ github.workspace }}:/repo:ro"
           -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*'
-          zricethezav/gitleaks:v8.21.2
+          zricethezav/gitleaks:v8.21.2@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
           detect --source /repo --log-opts="$BASE_SHA..HEAD" --redact --no-banner -v

@@ -5,8 +5,8 @@ export interface DoctorsProps {
   status: "idle" | "loading" | "failed";
   search?: string;
   handleFilterChange: (filter: string) => void;
-  handleEditDoctor: (doctor: any) => void;
-  handleDeleteDoctor: (doctor: any) => void;
-  handleViewDoctor: (doctor: any) => void;
+  handleEditDoctor: (doctor: Doctor) => void;
+  handleDeleteDoctor: (id: number) => void;
+  handleViewDoctor: (doctor: Doctor) => void;
   handleCreateDoctor: () => void;
 }

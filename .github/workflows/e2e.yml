@@ -20,7 +20,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  # A newer push to the same pull request cancels the older run. Every other run (a merge to master, nightly,
+  # on demand) has a group of its own commit: GitHub also cancels a *pending* run of the same group, so a
+  # shared group on master would leave some merge commits unverified.
+  group: e2e-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -47,7 +50,7 @@ jobs:
           echo "Changed files:"; echo "$changed"
           docs='docs/|.*\.md$|\.claude/'
           other_tests='backend/tests/|contracts/|frontend-web/src/test/|frontend-web/src/.*\.test\.tsx?$|frontend-web/vitest\.config\.ts$'
-          tooling='scripts/|dotnet-tools\.json$|backend/HospitalManagement\.AppHost/|\.github/workflows/(ci|smoke|mutation|flaky)\.yml$'
+          tooling='scripts/|dotnet-tools\.json$|backend/HospitalManagement\.AppHost/|\.github/workflows/(ci|smoke|mutation|flaky|codeql)\.yml$|frontend-web/(eslint\.config\.js|stryker\.config\.mjs)$'
           housekeeping='\.github/(CODEOWNERS|dependabot\.yml)$|\.gitignore$|\.gitattributes$|\.editorconfig$|LICENSE'
           reaching="$(echo "$changed" | grep -Ev "^($docs|$other_tests|$tooling|$housekeeping)" | grep -v '^$' || true)"
           if [ -n "$reaching" ]; then

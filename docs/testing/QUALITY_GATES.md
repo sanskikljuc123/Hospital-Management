@@ -7,15 +7,16 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 
 | # | Gate | Runs on | Passes when | Evidence |
 |---|---|---|---|---|
-| G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds; no package with a known high or critical vulnerability: NuGet audit at restore for every .NET project, including transitive packages (`Directory.Build.props`), and `npm audit --omit=dev` for what ships to the browser. Build-tool (dev) vulnerabilities are reported as a warning, not gated. A vulnerable package is fixed by pinning a patched version, never by silencing the warning | CI log |
+| G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds and `npm run lint` (ESLint, `frontend-web/eslint.config.js`: TypeScript rules and the React hook rules) reports no error; no package with a known high or critical vulnerability: NuGet audit at restore for every .NET project, including transitive packages (`Directory.Build.props`), and `npm audit --omit=dev` for what ships to the browser. Build-tool (dev) vulnerabilities are reported as a warning, not gated. A vulnerable package is fixed by pinning a patched version, never by silencing the warning | CI log |
 | G2 | Unit and component tests | every PR | all pass; none skipped without a ticket (G5). Backend unit tests in the backend job; frontend component tests (`npm test`, Vitest) in the `Frontend build (G1)` job, which keeps its name because the ruleset requires that check by name | test results (TRX), Vitest output |
 | G3 | API tests | every PR | all pass against real PostgreSQL; none skipped without a ticket. Includes the API contract check: `contracts/openapi.json` equals what the API offers (TEST_STRATEGY §2) | test results (TRX) |
-| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, a Component risk by a frontend component test (tag `@R-xxx` in its title or `describe`), an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
+| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, a Component risk by a frontend component test (tag `@R-xxx` in its title or `describe`), an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only); (d) every required check named in §1 is a job in `.github/workflows/`, and every job with a gate number in its name is named in this document (`scripts/check_gate_names.py`). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
 | G7 | E2E | every PR that changes something the E2E stack runs: anything except docs and Markdown, `.claude/`, tests of other levels (`backend/tests/`, frontend component tests), gate scripts and tool manifests (`scripts/`, `dotnet-tools.json`), the other workflows, the Aspire AppHost and repository housekeeping; PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
 | G8 | Review | every PR | a code owner approved; the PR template's test section is filled in | GitHub review |
-| G9 | Mutation of changed code | every PR that changes `backend/Services/` (or the mutation setup) | no mutant on a line the PR changed goes undetected by the unit tests; a truly equivalent one is accepted in the code with `// Stryker disable once <Mutator> : <reason>`, reviewed in the diff. The file's overall score does not count, so old survivors never block an unrelated change (TEST_STRATEGY §11) | job summary, Stryker report artifact |
+| G9 | Mutation of changed code | every PR; it mutates only what the PR changed in `backend/Services/` (Stryker.NET, unit tests), `backend/api/Auth/PatientAccessPolicy.cs` (Stryker.NET, unit tests) and `frontend-web/src/` outside the tests (StrykerJS, component tests) | no mutant on a line the PR changed goes undetected by the tests; a truly equivalent one is accepted in the code with `// Stryker disable once <Mutator> : <reason>`, reviewed in the diff. The file's overall score does not count, so old survivors never block an unrelated change (TEST_STRATEGY §11) | job summary, Stryker report artifact |
+| G10 | Static analysis | every PR, merge to `master`, weekly | CodeQL (`security-and-quality` queries, C# and TypeScript, `.github/workflows/codeql.yml`) reports no new alert of severity high or above; a false positive is dismissed in the Security tab by a person, with a reason | code scanning alerts |
 
 **Enforcement on GitHub.** The ruleset *Protect master* (repository settings → Rulesets) makes G1–G7 and G9
 binding, not advisory: changes reach `master` only through a pull request, the four CI checks
@@ -23,11 +24,21 @@ binding, not advisory: changes reach `master` only through a pull request, the f
 `Secret scan (G6)`), the E2E check `End-to-end journeys (G7)` and the mutation check
 `Mutation testing of changed code` (G9) must pass, and force pushes and deleting
 `master` are blocked. The bypass list is empty. Renaming a CI job changes its check name, so the ruleset must
-be updated in the same pull request, or every later pull request waits for a check that never runs.
+be updated in the same pull request, or every later pull request waits for a check that never runs;
+`scripts/check_gate_names.py` (in the G4 job) fails when a check named here is not a job in `.github/workflows/`.
 
-**G9 in the ruleset** (since 2026-11-23). A pull request that changes service code cannot merge while a mutant
-on one of its changed lines goes undetected. A pull request that changes no service code reports the check as
-*Skipped*, which GitHub counts as passed. Before the check became required it had run on GitHub: on #52 Stryker
+**Not in the ruleset yet** (added 2026-11-24; the test owner changes the ruleset, an implementer never does):
+
+- **Branches must be up to date before merging** (*Require branches to be up to date*). Until it is on, two pull
+  requests can each pass every gate and still break `master` together; the run on `master` then finds it after the
+  merge. With it on, a pull request is tested on top of the current `master`.
+- **G10:** the checks `CodeQL (G10) csharp` and `CodeQL (G10) javascript-typescript`, or a code scanning rule for
+  alerts of severity high and above. Until then an alert shows on the pull request but does not block the merge.
+
+**G9 in the ruleset** (since 2026-11-23). A pull request cannot merge while a mutant on one of its changed lines
+goes undetected. Since 2026-11-24 the check runs on every pull request and covers three areas, each only when the
+pull request changes it: services, the patient access policy and the web frontend. A pull request that changes
+none of them passes at once; if the change detection itself fails, the check fails rather than pass unchecked. Before the check became required it had run on GitHub: on #52 Stryker
 found the four changed files, none of them service code, and passed; on #53 and #54 it was skipped.
 
 **G7 on pull requests.** API tests sign tokens with a test key, so only the E2E journeys exercise the real
@@ -90,13 +101,16 @@ Playwright version, and system packages are installed only if the browser report
 
 **What does not gate:** coverage percentage, number of tests, test duration (tracked, not gated).
 
-**Mutation score (nightly, not per pull request):** `.github/workflows/mutation.yml` fails when the Stryker score
-of the core services drops below 90 % (TEST_STRATEGY §11). A failure there means tests stopped noticing broken
+**Mutation score of whole files (nightly; per pull request only the changed lines count, G9):**
+`.github/workflows/mutation.yml` fails when the Stryker score of the core services or of the patient access
+policy drops below 90 % (TEST_STRATEGY §11). A failure there means tests stopped noticing broken
 rules; it is handled like a failure on `master` (§4).
 
 **Run the gates locally:** `scripts/verify.sh` (Git Bash, Linux, macOS) or `scripts/verify.ps1` (PowerShell, runs
-the same script) runs G1–G6 in the CI order and stops at the first failure, so green locally means green in CI.
-It needs the .NET 10 SDK, Node 20, Docker and Python 3; `--no-frontend` skips the frontend part of G1.
+the same script) runs every step of `ci.yml` (G1–G6: builds including the E2E project, audits, lint, unit,
+component and API tests, gate scripts, gitleaks) in the CI order and stops at the first failure, so green locally
+means `ci.yml` green. G7, G9 and G10 run on the pull request. It needs the .NET 10 SDK, Node 24 (as CI), Docker
+and Python 3; `--no-frontend` skips the frontend part.
 
 **Dependencies:** `.github/dependabot.yml` proposes NuGet, npm and GitHub Actions updates weekly. Actions are
 pinned to a commit SHA with the version as a comment, so a moved tag cannot change what runs. Each update is an
@@ -154,7 +168,8 @@ deleting the test.
 
 ## 5. Definition of done for a change
 
-- G1–G6 and G8 pass; G7 passes on `master`.
+- Every gate in §1 passes on the pull request (the required ones block the merge), and G8: a code owner merged it.
+- Every new or changed line in the areas of G9 has a test that fails when the line breaks.
 - Risks touched by the change are in the register with a status; new Critical/High risks are `Covered`.
 - Open questions the change answers are closed in the register.
 
