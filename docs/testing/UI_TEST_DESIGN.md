@@ -86,7 +86,7 @@ Existing risks reused where they fit. New ones are labelled `new` until the test
 | R-062 — a failed write looks like a successful one, so users believe data was saved | T, R | 2 | 4 | **High (8)** | Every 400/403/409/5xx in normal use; misleading | D-6 |
 | R-060 — a date chosen in the UI is saved as a different date | T | 2 | 4 | **High (8)** | Every user east of UTC; the clinic's own time zone is UTC+1 | D-5 |
 | new — a UI feature is broken for every user and nothing notices (no frontend tests in CI) | D | 3 | 3 | **High (9)** | D-1 shipped with every gate green; G1 only builds the frontend | D-1; QUALITY_GATES §1 G1 |
-| new — the UI offers actions the role may not use | E | 1 | 4 | Medium (4) | The API refuses them (R-005), so no access is gained; users are confused | D-7 |
+| R-067 — the UI offers actions the role may not use | E | 1 | 4 | Medium (4) — proposed | The API refuses them (R-005), so no access is gained; users are confused. Expected: hidden (Q-015) | D-7 |
 | new — work in a form is lost when the session ends | D | 1 | 2 | Low (2) | `getAccessToken` redirects to the login page without saving input | `keycloak.ts:30-38` |
 | R-023 — XSS steals the access token | I, E | 4 | 1 | Medium (4) | Existing; still `Proposed`, no test | §6.10 |
 | R-049 — the same person registered twice | T | 3 | 3 | High (9) | Existing; the UI adds a way: a double click submits a form twice (D-21: shown on the service form; two patient records assumed until UI-CON-01) | §6.5 |
@@ -149,9 +149,9 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-NEG-01 | Medium | Required fields empty | Any form → submit empty | Field messages; **no request sent** | Request sent with empty body | Comp | P2 |
 | UI-NEG-02 | High | Delete a service still in use (R-019) — fixed (D-6); component half in `catalogueErrors.test.tsx` ("shows why a service cannot be deleted and keeps its row (409)"), E2E not written | Service used by a patient → Delete → confirm | Message "still used…"; row stays | 409 swallowed | Comp + E2E | P1 |
 | UI-NEG-03 | High | Delete a patient who has appointments — fixed (D-6), no test yet | Patient with an appointment → Delete | Message; row stays | 409 swallowed | E2E | P2 |
-| UI-NEG-04 | Medium | Doctor, nurse, patient cannot change doctors or services — **fails today (D-7)** | Each role → Doctors and Services pages | Add/Edit/Delete hidden (or disabled with a reason); forcing the request shows "not allowed" | Actions shown to wrong roles; 403 swallowed | Comp + E2E | P1 |
-| UI-NEG-05 | Critical | A patient sees no other patient (R-003) | `patient.user` → Patients page | No patient data in the page **or in any network response**; an explanation instead of an empty table | Data leak through UI; confusing empty page | E2E | P1 |
-| UI-NEG-06 | Medium | Nurse cannot delete a patient | Nurse → Patients | Delete hidden; forced request shows "not allowed"; row stays | Wrong role mapping in UI | Comp | P2 |
+| UI-NEG-04 | Medium | Doctor, nurse, patient cannot change doctors or services — **fails today (D-7)** | Each role → Doctors and Services pages | Add/Edit/Delete not shown (Q-015); forcing the request shows "not allowed" | Actions shown to wrong roles; 403 swallowed | Comp + E2E | P1 |
+| UI-NEG-05 | Critical | A patient sees no other patient (R-003) | `patient.user` → Patients page | No patient data in the page **or in any network response**; a short explanation instead of an empty table (Q-015) | Data leak through UI; confusing empty page | E2E | P1 |
+| UI-NEG-06 | Medium | Nurse cannot delete a patient | Nurse → Patients | Delete not shown (Q-015); forced request shows "not allowed"; row stays | Wrong role mapping in UI | Comp | P2 |
 | UI-NEG-07 | Low | Unknown URL — **fails today (D-14)** | Signed in → `/does-not-exist` | "Page not found" with a link home | Blank page | Comp | P3 |
 | UI-NEG-08 | Medium | Account without a hospital role (R-015) | Covered by `SignIn.feature` | "No access", token gets 403 | — | E2E | exists |
 | UI-NEG-09 | High | API down when a page opens — **fails in part today (D-23)**: the toast is shown ("says the server cannot be reached…" in `catalogueErrors.test.tsx`), the lasting error state is not | API stopped / route aborted → open Doctors | Error state with "Try again" that stays; **not** "Total Doctors number : 0" | Error shown as empty data | Comp + E2E fault | P2 |
@@ -166,7 +166,7 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-BND-01 | Medium | Service name 200 vs 201 characters — **201 fails silently today (D-12)** | Service form | 200 saved; 201 blocked in the form with a message | UI and API limits disagree | Comp | P2 |
 | UI-BND-02 | Medium | Doctor names 100/101, address 300/301 | Doctor form | Limit enforced in the form with the API's numbers | Same | Comp | P3 |
 | UI-BND-03 | Medium | Patient name 200/201; email format | Patient form | Limit and email format checked in the form | Same; email cannot even be entered today | Comp | P3 |
-| UI-BND-04 | High | Phone numbers: 8 digits, 11 digits with country code, leading zero, `1e5`, negative — **11 digits fails today (D-11)** | Patient form | Agreed format accepted; others refused with a message; value round-trips unchanged | Overflow, lost leading zero, number notation | Comp + E2E | P2 (after Q-c) |
+| UI-BND-04 | High | Phone numbers in E.164 (Q-016) — **fails today (D-11)** | Patient form and API | Accepted and returned unchanged as text: `+38761123456`, `+12025550123`; 8 and 15 digits after `+` (boundaries). Refused with a message: 7 and 16 digits, no `+`, `+0…`, letters, spaces or dashes inside, `1e5`, negative, empty | Overflow, lost leading zero, number notation, too-loose or too-strict pattern | Comp + E2E | P2 (after the remodel in R-044) |
 | UI-BND-05 | Medium | Unicode round trip: `Đorđe Šćepanović`, `Zoë`, Arabic, emoji | Create doctor and patient with these names | Shown and stored exactly as typed | Encoding loss | E2E | P2 |
 | UI-BND-06 | Medium | Whitespace-only names `"   "` — **fails today (D-22)** | Any form | Refused in the form (`whitespace: true` or trimming), and trimmed values sent | antd `required` passes spaces; a 400 for the name, a blank description saved (*Assumption*, D-22) | Comp | P2 |
 | UI-BND-07 | High | Birthday in UTC+1, UTC−5 and on a DST change — fixed (D-5), tested in `CatalogueEditing.feature` (UTC+1 and UTC−5; DST change not yet) | Playwright context with `TimezoneId` → pick 2 Jan 1980 | API and table show 1980-01-02 in every zone | Off-by-one day | E2E | P1 |
@@ -258,7 +258,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 |---|---|---|---|---|---|---|---|
 | UI-SEC-01 | Medium | Stored XSS (R-023) | Create service, doctor, patient with `<img src=x onerror=alert(1)>` and `<script>` in every text field → view list and details | Shown as text; no dialog, no extra request | Script execution, token theft | E2E | P1 |
 | UI-SEC-02 | Medium | Token not reachable from storage (R-023) | Signed in → read `localStorage`, `sessionStorage`, `document.cookie` | No access or refresh token | Token persisted where XSS can read it | E2E | P2 |
-| UI-SEC-03 | High | Visible actions match the role matrix (D-7) | Each of the four roles → each page | Only actions in `docs/API_ENDPOINTS.md` → *Role matrix* | Wrong role mapping | Comp | P1 |
+| UI-SEC-03 | High | Visible actions match the role matrix (D-7) | Each of the four roles → each page | Only actions in `docs/API_ENDPOINTS.md` → *Role matrix* are shown; the others are not in the page at all (Q-015) | Wrong role mapping | Comp | P1 |
 | UI-SEC-04 | Critical | A patient's browser never receives another patient's data (R-001–R-003) | Linked patient → every page | No foreign patient id or name in any response body | Leak through a list endpoint | E2E | P1 |
 | UI-SEC-05 | Medium | Sign-in redirect cannot be bent to another site | Auth URL with `redirect_uri=https://example.org/` | Keycloak refuses ("Invalid redirect uri") | Open redirect via realm config | E2E | P3 |
 | UI-SEC-06 | Low | No request leaves the known origins | Record all requests during a full journey | Only frontend, API, Keycloak | Third-party calls (the unused users slice that called a public placeholder API was removed on 2026-11-24) | E2E | P3 |
@@ -270,8 +270,8 @@ All use Playwright route interception on API requests; the stack itself stays re
 | # | Label | Gap | Affects |
 |---|---|---|---|
 | Q-a | Answered | Add a **component test level** for `frontend-web` (Vitest + Testing Library + MSW) and run it on every PR? | Every **Comp** row; the "no frontend tests" risk — **Yes** (2026-11-23): Vitest, Testing Library, MSW; on every PR in the frontend job |
-| Q-b | Question | How must a refused or failed action look: hidden button, disabled button with a reason, a message after the click? | UI-NEG-02 … 06, UI-SEC-03 |
-| Q-c | Question | What is a valid phone number (format, length, country code)? Today it is an `int` (R-044) | UI-BND-04 |
+| Q-b | Answered | How must an action the role may not use look? — **Hidden**; a page the role may not open shows a short explanation (2026-11-24, RISK_REGISTER Q-015). An action the API refuses for another reason (409, 400) keeps showing the API's message (D-6) | UI-NEG-04 … 06, UI-SEC-03, R-067 |
+| Q-c | Answered | What is a valid phone number? — **International, as text, E.164**: `+`, country code, 8 to 15 digits in all (2026-11-24, RISK_REGISTER Q-016). Needs the API, database and form change of R-044 | UI-BND-04 |
 | Q-d | Question | May a doctor have no services, and is a service description required? The form and the API disagree (D-12) | UI-BND-10, UI-BND-01 |
 | Q-e | Question | When the session ends during editing, must input be kept? | UI-ST-06 |
 | Q-f | Question | Two people editing the same record: must the second see a conflict? Must other tabs refresh? | UI-CON-03, UI-ST-03 |
@@ -331,7 +331,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | component level runs on every PR (Q-a); D-8, D-18, D-20 … D-22 were still found only by a probe |
 | R-065 — data reads as a different value (Medium) | UI-HP-08, UI-DI-06, UI-DI-07 | Comp (register level: Component, E2E; no E2E test designed yet) | **fails** (D-8, D-18, D-19) |
 | R-066 — stored value cannot be removed (Medium) | UI-NEG-11 | Comp, E2E | **fails** (D-20) |
-| new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
+| R-067 — actions offered to the wrong role (Medium, proposed) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp, E2E | **fails** (D-7) |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |
 | R-001, R-002, R-003 | UI-NEG-05, UI-SEC-04 | E2E | expected to pass (API enforces) |
 | R-015 | UI-NEG-08 (`SignIn.feature`) | E2E | passes |
