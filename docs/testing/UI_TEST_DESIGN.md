@@ -93,7 +93,7 @@ Existing risks reused where they fit. New ones are labelled `new` until the test
 | R-044 — the patient model cannot hold real patients | T | 3 | 3 | High (9) | Existing; the UI shows it (D-11) | §6.3 |
 | R-064 — a list that fails to load looks empty | T, R | 2 | 3 | Medium (6) — rated by the test owner (Q-013) | R-062 covers refused saves and deletes, which are fixed; a failed list shows "0" after the toast disappears (D-23) | §6.2 UI-NEG-09, §6.9 UI-REL-01 |
 | R-065 — the UI shows data that reads as a different value | I | 2 | 3 | Medium (6) — rated by the test owner (Q-014) | Services 1 and 2 read as service 12 (D-18); first name shown as last name (D-8); ids instead of names (D-19). Staff act on what they read | §6.6 UI-DI-06, UI-DI-07, §6.1 UI-HP-08 |
-| R-066 — a stored value cannot be removed through the UI | T | 2 | 3 | Medium (6) — proposed | Clearing an email sends `""`, the API refuses it (D-20), although removal is allowed (Q-012); an outdated address stays and notifications go to it | §6.2 UI-NEG-11 |
+| R-066 — a stored value cannot be removed through the UI | T | 2 | 3 | Medium (6) — rated by the test owner (Q-012) | Clearing an email sends `""`, the API refuses it (D-20), although removal is allowed (Q-012); an outdated address stays and notifications go to it | §6.2 UI-NEG-11 |
 
 **Abuse case (new, Critical):** As a nurse I open a patient whose email is on file, correct a typo in the
 name and click "Update Patient", so that the patient's email is deleted and appointment notifications stop.
@@ -330,7 +330,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | R-060 — date saved as a different date (High) | UI-BND-07 | Comp, E2E | fixed; passes (DST change not tested) |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | component level runs on every PR (Q-a); D-8, D-18, D-20 … D-22 were still found only by a probe |
 | R-065 — data reads as a different value (Medium) | UI-HP-08, UI-DI-06, UI-DI-07 | Comp | **fails** (D-8, D-18, D-19) |
-| R-066 — stored value cannot be removed (Medium, proposed) | UI-NEG-11 | Comp, E2E | **fails** (D-20) |
+| R-066 — stored value cannot be removed (Medium) | UI-NEG-11 | Comp, E2E | **fails** (D-20) |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |
 | R-001, R-002, R-003 | UI-NEG-05, UI-SEC-04 | E2E | expected to pass (API enforces) |
