@@ -48,8 +48,10 @@ Read these and follow them throughout:
 6. **For an uncovered risk or a surviving mutant:** name the missing assertion or input that would have
    caught it, at which level. Surviving mutants come from the Stryker report (TEST_STRATEGY §11); a mutant
    listed there as accepted needs no test.
-   Rules in `AppointmentService`, `MedicalRecordService`, `OutboxProcessor` and `UserService` need unit tests for
-   **every new branch and every boundary** (`<` vs `<=` at the exact value), or the weekly mutation run drops.
+   Every new or changed line in `backend/Services/`, `backend/api/Auth/PatientAccessPolicy.cs` and
+   `frontend-web/src/` needs a test that would fail if the line broke: **every new branch and every boundary**
+   (`<` vs `<=` at the exact value), or the pull request's mutation check (G9) fails. Compare with literal
+   expected values, never with the factory or constant under test (that comparison survives every mutant).
    Behavior that depends on real transactions, SQL or the unique indexes belongs in the API tests.
 7. **For a triaged failure:** design the smallest test that reproduces it before the fix.
 

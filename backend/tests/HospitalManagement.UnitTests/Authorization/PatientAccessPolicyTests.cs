@@ -32,7 +32,10 @@ public class PatientAccessPolicyTests
     {
         _caller.ActAs(role);
 
-        Assert.Equal(PatientScope.All, await Policy.ListScopeAsync(scope));
+        // Compared with literal values, not with PatientScope.All: a broken factory would change both sides.
+        var list = await Policy.ListScopeAsync(scope);
+        Assert.Equal(new PatientScope(AllPatients: true, OnlyPatientId: null), list);
+        Assert.False(list.IsEmpty);
         Assert.Equal(AccessDecision.Allow, await Policy.CheckAsync(OtherPatient, scope));
         Assert.Equal(AccessDecision.NotFound, await Policy.CheckAsync(null, scope));
     }
@@ -43,7 +46,9 @@ public class PatientAccessPolicyTests
     {
         _caller.ActAs(Roles.Admin);
 
-        Assert.Equal(PatientScope.Nobody, await Policy.ListScopeAsync(StaffScope.ClinicalStaff));
+        var list = await Policy.ListScopeAsync(StaffScope.ClinicalStaff);
+        Assert.Equal(new PatientScope(AllPatients: false, OnlyPatientId: null), list);
+        Assert.True(list.IsEmpty);
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(OtherPatient, StaffScope.ClinicalStaff));
     }
 
@@ -59,7 +64,9 @@ public class PatientAccessPolicyTests
         _caller.ActAs(Roles.Patient);
         _users.OwnPatientId = OwnPatient;
 
-        Assert.Equal(PatientScope.Only(OwnPatient), await Policy.ListScopeAsync(scope));
+        var list = await Policy.ListScopeAsync(scope);
+        Assert.Equal(new PatientScope(AllPatients: false, OnlyPatientId: OwnPatient), list);
+        Assert.False(list.IsEmpty);
         Assert.Equal(AccessDecision.Allow, await Policy.CheckAsync(OwnPatient, scope));
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(OtherPatient, scope));
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(null, scope));
@@ -73,7 +80,9 @@ public class PatientAccessPolicyTests
         _caller.ActAs(Roles.Patient);
         _users.OwnPatientId = null;
 
-        Assert.True((await Policy.ListScopeAsync(StaffScope.Staff)).IsEmpty);
+        var list = await Policy.ListScopeAsync(StaffScope.Staff);
+        Assert.Equal(new PatientScope(AllPatients: false, OnlyPatientId: null), list);
+        Assert.True(list.IsEmpty);
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(OwnPatient, StaffScope.Staff));
     }
 

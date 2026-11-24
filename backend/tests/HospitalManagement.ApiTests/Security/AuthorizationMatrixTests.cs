@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text;
 using HospitalManagement.ApiTests.Infrastructure;
-using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -45,16 +44,25 @@ public class AuthorizationMatrixTests
         }
     }
 
-    /// <summary>A new endpoint without a matrix row fails here, so the matrix cannot fall behind the code.</summary>
+    /// <summary>The anonymous endpoints outside the matrix, tested by <see cref="HealthEndpoints_AreAnonymous"/>.</summary>
+    private static readonly string[] HealthEndpoints = ["ANY /health", "ANY /alive"];
+
+    /// <summary>
+    /// A new endpoint without a matrix row fails here, so the matrix cannot fall behind the code. Every routed
+    /// endpoint counts, not only controller actions: one added with <c>app.MapGet</c> needs a row too. An endpoint
+    /// that accepts any method (health checks) is listed as <c>ANY</c>.
+    /// </summary>
     [Fact]
     [Trait("Risk", "R-005")]
-    public void EveryControllerEndpoint_HasAMatrixRow()
+    public void EveryEndpoint_HasAMatrixRow()
     {
         var endpoints = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()
-            .Where(e => e.Metadata.GetMetadata<ControllerActionDescriptor>() != null)
-            .SelectMany(e => (e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? Array.Empty<string>())
-                .Select(m => $"{m} /{e.RoutePattern.RawText}"))
+            .SelectMany(e => (e.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods is { Count: > 0 } methods
+                    ? methods
+                    : ["ANY"])
+                .Select(m => $"{m} /{e.RoutePattern.RawText?.TrimStart('/')}"))
+            .Except(HealthEndpoints, StringComparer.OrdinalIgnoreCase)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var matrix = AuthorizationMatrix.Rows.Select(r => $"{r.Method} {r.Template}").ToHashSet(StringComparer.OrdinalIgnoreCase);

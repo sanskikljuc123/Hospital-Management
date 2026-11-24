@@ -5,8 +5,8 @@ export interface PatientsProps {
   status: "idle" | "loading" | "failed";
   search?: string;
   handleFilterChange: (filter: string) => void;
-  handleEditPatient: (order: any) => void;
-  handleDeletePatient: (order: any) => void;
-  handleViewPatient: (order: any) => void;
+  handleEditPatient: (patient: Patient) => void;
+  handleDeletePatient: (id: number) => void;
+  handleViewPatient: (patient: Patient) => void;
   handleCreatePatient: () => void;
 }

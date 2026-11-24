@@ -51,3 +51,27 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  # Container images are pinned to a digest (R-040); Dependabot moves the tag's digest and proposes newer tags.
+  # Major versions follow the runtime (.NET 10, Node 24, PostgreSQL 17, Keycloak 26) and are changed by a person.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      compose-images:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories: [/backend/api, /frontend-web]
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      base-images:
+        patterns: ["*"]

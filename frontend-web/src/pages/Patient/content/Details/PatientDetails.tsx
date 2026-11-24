@@ -7,13 +7,15 @@ interface PatientDetailsProps {
   patient: Patient;
 }
 const PatientDetails: React.FC<PatientDetailsProps> = ({ patient }) => {
-  if (patient.serviceId) {
-    patient.service = useSelector(selectService);
-
-    useEffect(() => {
-      store.dispatch(getServiceById(patient.serviceId!));
-    }, []);
-  }
+  // Hooks run on every render, in the same order (rules of hooks; they were inside an if). The service is loaded
+  // again when another patient is shown.
+  const selected = useSelector(selectService);
+  const serviceId = patient.serviceId;
+  useEffect(() => {
+    if (serviceId) store.dispatch(getServiceById(serviceId));
+  }, [serviceId]);
+  // Only the service of this patient: the store may still hold the one loaded for the patient shown before.
+  const service = serviceId && selected.id === serviceId ? selected : patient.service;
 
   return (
     <>
@@ -24,17 +26,17 @@ const PatientDetails: React.FC<PatientDetailsProps> = ({ patient }) => {
         <strong>Patient Name:</strong> {patient.userName}
       </p>
 
-      {patient.service && (
+      {service && (
         <div>
           <h3>Service details:</h3>
           <p>
-            <strong>Service ID:</strong> {patient.service.id}
+            <strong>Service ID:</strong> {service.id}
           </p>
           <p>
-            <strong>Service Name:</strong> {patient.service.name}
+            <strong>Service Name:</strong> {service.name}
           </p>
           <p>
-            <strong>Service Description:</strong> {patient.service.description}
+            <strong>Service Description:</strong> {service.description}
           </p>
         </div>
       )}

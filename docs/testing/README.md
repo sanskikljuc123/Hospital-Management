@@ -48,10 +48,10 @@ quality engineering.
 | 4 | Design tests | `qe-test-designer` | Picks the lowest level that can prove each risk (unit, API or E2E) and drafts test cases, Gherkin and code as text. |
 | 5 | Implement | Developer | Writes the code and the tests, each tagged `[Trait("Risk", "R-xxx")]`. `scripts/verify.sh` runs the CI gates locally; branch smoke checks run on every push. |
 | 6 | Review | `qe-reviewer` | Looks for removed, skipped or weakened tests, missing risk tags and auth changes without security tests, and checks the other agents' output. The PR template asks for red evidence. |
-| 7 | Pull request gates | CI | G1 build and package audit, G2 unit tests, G3 API tests, G4 risk coverage, G5 no silent skips, G6 secret scan, G7 E2E when sign-in is touched ([QUALITY_GATES.md](QUALITY_GATES.md)). |
+| 7 | Pull request gates | CI | Every gate in [QUALITY_GATES.md §1](QUALITY_GATES.md#1-gates) (the list is kept there only): build, lint and audits, unit, component and API tests, risk coverage, skips, secrets, E2E, mutation of the changed lines, static analysis. |
 | 8 | Merge | Code owner | Reviews the change and merges it once every gate is green (G8). |
 | 9 | Covered | Test owner | Sets the risk to `Covered` when a passing test proves it; from then on G4 fails if that test disappears. |
-| 10 | Monitor | CI | Nightly mutation testing (score at least 90 %), repeated runs that find flaky tests, nightly E2E; Dependabot proposes updates weekly. |
+| 10 | Monitor | CI | Nightly mutation testing of whole files (score at least 90 %), repeated runs that find flaky tests, nightly E2E, weekly CodeQL; Dependabot proposes updates weekly. |
 
 A failure in step 7 or 10 starts the loop again at step 2. The reviewer also validates the analyst's and the test
 designer's output, so no agent checks its own work, and no CI gate calls an AI agent.
@@ -167,8 +167,8 @@ e2e/HospitalManagement.E2E/                    sign-in and clinical journeys —
                                                API, PostgreSQL and the production frontend build
 ```
 
-Mutation testing (phase 5 ✅) checks that the unit tests notice broken rules: Stryker.NET, nightly in CI,
-score 95.32 %, fails below 90 % — see [TEST_STRATEGY.md §11](TEST_STRATEGY.md#11-mutation-testing).
+Mutation testing (phase 5 ✅) checks that the tests notice broken rules: on every pull request for the lines it
+changes (G9), and nightly for whole files — see [TEST_STRATEGY.md §11](TEST_STRATEGY.md#11-mutation-testing).
 
 Risk/skip and documentation-reference checks run on every push to a non-`master` branch. All unit and API tests
 run when backend code changes, and the frontend build and component tests run when `frontend-web/` changes. These provide early
@@ -191,6 +191,5 @@ dotnet test backend/tests/HospitalManagement.ApiTests
 python3 scripts/check_test_gates.py
 ```
 
-The API and every test project target .NET 10. CI: [.github/workflows/ci.yml](../../.github/workflows/ci.yml) (G1–G6) and
-[.github/workflows/e2e.yml](../../.github/workflows/e2e.yml) (G7). See [TEST_STRATEGY.md](TEST_STRATEGY.md)
+The API and every test project target .NET 10. Which workflow runs which gate: [QUALITY_GATES.md §1](QUALITY_GATES.md#1-gates). See [TEST_STRATEGY.md](TEST_STRATEGY.md)
 for what belongs where.

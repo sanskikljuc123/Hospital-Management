@@ -35,7 +35,7 @@ Check and report each item:
    `UserSyncMiddleware.cs`), a controller's use of `IPatientAccessPolicy` (`ListScopeAsync`, `CheckAsync`,
    `StaffScope`), or how a doctor is resolved (`GetCurrentDoctorIdAsync`) — with no matching change in
    `PatientAccessPolicyTests`, `BolaTests`, `AuthorizationMatrix.cs` or the SECURITY_TESTING matrix.
-4. **New endpoints** missing from `AuthorizationMatrix.cs` (the API test `EveryControllerEndpoint_HasAMatrixRow`
+4. **New endpoints** missing from `AuthorizationMatrix.cs` (the API test `EveryEndpoint_HasAMatrixRow`
    fails then) and from the matrix in SECURITY_TESTING §2.
 5. **Architecture rules** (`ARCHITECTURE.md` §11):
    - D-16: a service that returns an EF entity, binds an entity in a controller, swallows an exception, ignores an
@@ -49,9 +49,16 @@ Check and report each item:
    (`BUSINESS_FLOWS.md`) the change affects without a `Scenario` trait or Gherkin tag.
 7. **Test conventions** from TEST_STRATEGY §4 and §8 (determinism) that the new tests break, including a known-gap
    test that asserts the current wrong behavior instead of the correct one.
-8. **Mutation testing:** a change to `AppointmentService`, `MedicalRecordService`, `OutboxProcessor` or
-   `UserService` without unit tests for its new branches — the weekly Stryker run (TEST_STRATEGY §11) fails below
-   90 %.
+8. **Mutation testing (G9, TEST_STRATEGY §11):** a changed line in `backend/Services/`,
+   `backend/api/Auth/PatientAccessPolicy.cs` or `frontend-web/src/` (not tests) with no test that would fail if the
+   line broke — the pull request's check `Mutation testing of changed code` fails then. Also a new
+   `Stryker disable` comment: its reason must show the mutant is truly equivalent, not just inconvenient.
+9. **Frontend and the API contract (R-061):** a changed route, method, query parameter or field in
+   `frontend-web/src/` or in a controller without the matching change in `contracts/openapi.json`; a component test
+   that mocks an answer the contract does not allow; a new or changed frontend behavior without a component test
+   (Vitest, tagged `@R-xxx` in its title or `describe`).
+10. **Lint and static analysis:** an `eslint-disable` added in `frontend-web/`, or a CodeQL alert dismissed in the
+   pull request, without a stated reason.
 
 Output section: **Review comments** — one per finding, with `file:line`, and a suggested PR-template answer
 the author can confirm.

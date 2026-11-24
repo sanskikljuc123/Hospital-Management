@@ -10,6 +10,9 @@ went undetected. The file's score does not matter: old survivors (some reviewed 
 never block a change that does not touch their lines. A mutant that is truly equivalent is accepted in the code
 with Stryker's own comment, e.g. `// Stryker disable once Equality : <reason>`, so the reason is reviewed in the diff.
 
+Works on both Stryker.NET (backend) and StrykerJS (frontend-web) reports: both use the mutation-testing report
+schema. Fails when it cannot map a mutant to the diff, rather than passing a change it could not check.
+
 Reads files and runs `git diff` only.
 Usage: python3 -I scripts/mutation_summary.py <mutation-report.json> [<base commit>] [--fail-on-changed]
 """
@@ -21,18 +24,28 @@ import sys
 
 DETECTED = {"Killed", "Timeout"}
 UNDETECTED = {"Survived", "NoCoverage"}
+REPO = pathlib.Path(__file__).resolve().parent.parent
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.M)
 
 
 def changed_lines(base, path):
-    """Line numbers of `path` added or changed since `base`, from `git diff -U0`."""
+    """
+    Line numbers of `path` added or changed since `base`, from `git diff -U0`.
+
+    Fails closed: when git cannot diff the file (unknown base, a path outside the repository) the gate cannot tell
+    which mutants are new, so it stops instead of reporting "no changed lines" and passing.
+    """
     if not base:
         return set()
+    if not path.is_file():
+        raise SystemExit(f"mutation_summary: the report names {path}, which does not exist. Cannot map mutants "
+                         "to changed lines, so the gate cannot decide.")
     try:
         diff = subprocess.run(["git", "diff", "-U0", base, "--", str(path)],
-                              capture_output=True, text=True, check=True).stdout
-    except (OSError, subprocess.CalledProcessError):
-        return set()
+                              capture_output=True, text=True, check=True, cwd=path.parent).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise SystemExit(f"mutation_summary: git diff {base} -- {path} failed ({error}). Cannot map mutants to "
+                         "changed lines, so the gate cannot decide.")
     lines = set()
     for start, count in HUNK.findall(diff):
         first, length = int(start), int(count) if count else 1
@@ -54,7 +67,7 @@ def main():
     fail_on_changed = "--fail-on-changed" in sys.argv[1:]
     report = json.loads(pathlib.Path(args[0]).read_text(encoding="utf-8"))
     base = args[1] if len(args) > 1 else None
-    root = pathlib.Path(report.get("projectRoot") or ".")
+    root = pathlib.Path(report.get("projectRoot") or ".").resolve()
 
     rows, survivors = [], []
     for name, data in sorted(report["files"].items()):
@@ -62,8 +75,9 @@ def main():
         file_score, tested = score(mutants)
         if not tested:
             continue
-        path = pathlib.Path(name)
-        shown = path.relative_to(root).as_posix() if path.is_absolute() and root in path.parents else path.as_posix()
+        # Stryker.NET writes absolute paths, StrykerJS paths relative to its project root (frontend-web).
+        path = pathlib.Path(name) if pathlib.Path(name).is_absolute() else root / name
+        shown = path.relative_to(REPO).as_posix() if REPO in path.parents else path.as_posix()
         changed = changed_lines(base, path)
         new_gaps = 0
         for m in mutants:

@@ -46,7 +46,7 @@ const PatientC: React.FC = () => {
         handleDeletePatient={(id) => {
           // The row goes only when the API confirms; a refusal (e.g. 409, still in use) is shown (D-6).
           store
-            .dispatch(deletePatient(id))
+            .dispatch(deletePatient(String(id)))
             .unwrap()
             .then(() => message.success("Patient deleted"))
             .catch((error: string) => message.error(error));

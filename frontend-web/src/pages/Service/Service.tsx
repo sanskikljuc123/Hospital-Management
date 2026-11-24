@@ -46,7 +46,7 @@ const Service: React.FC = () => {
         handleDeleteService={(id) => {
           // The row goes only when the API confirms; a refusal (e.g. 409, still in use) is shown (D-6).
           store
-            .dispatch(deleteService(id))
+            .dispatch(deleteService(String(id)))
             .unwrap()
             .then(() => message.success("Service deleted"))
             .catch((error: string) => message.error(error));

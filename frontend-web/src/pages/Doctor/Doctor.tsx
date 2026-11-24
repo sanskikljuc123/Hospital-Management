@@ -46,7 +46,7 @@ const Doctorc: React.FC = () => {
         handleDeleteDoctor={(id) => {
           // The row goes only when the API confirms; a refusal (e.g. 409, still in use) is shown (D-6).
           store
-            .dispatch(deleteDoctor(id))
+            .dispatch(deleteDoctor(String(id)))
             .unwrap()
             .then(() => message.success("Doctor deleted"))
             .catch((error: string) => message.error(error));

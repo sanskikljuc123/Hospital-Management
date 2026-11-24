@@ -5,8 +5,8 @@ export interface ServicesProps {
   status: "idle" | "loading" | "failed";
   search?: string;
   handleFilterChange: (filter: string) => void;
-  handleEditService: (order: any) => void;
-  handleDeleteService: (order: any) => void;
-  handleViewService: (order: any) => void;
+  handleEditService: (service: service) => void;
+  handleDeleteService: (id: number) => void;
+  handleViewService: (service: service) => void;
   handleCreateService: () => void;
 }

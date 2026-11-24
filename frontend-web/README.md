@@ -1,21 +1,10 @@
-# React Boilerplate with TypeScript, Redux Toolkit, Axios, Routing, Docker, Prettier
+# frontend-web
 
-## Features
+The web frontend of Hospital Management: React 18, TypeScript, Redux Toolkit, antd, Vite, signed in through Keycloak.
 
-- **TypeScript**: Strongly typed language for enhanced code quality and developer productivity.
-- **Redux Toolkit**: Simplifies the process of managing state in your application with Redux.
-- **Axios**: Promise-based HTTP client for making requests to your backend server.
-- **Routing**: Utilizes React Router for declarative routing in your single-page applications.
-- **Docker**: Containerizes your application for consistent development and deployment.
-- **Prettier**: Ensures consistent code style and formatting across your project.
-
-## Getting Started
-
-1. Clone this repository to your local machine.
-2. Install dependencies using npm or yarn:
-
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
+- **Run it:** the root [Readme](../Readme.md) → *Setting up the Frontend (Web)*.
+- **Scripts:** `npm run dev`, `npm run build`, `npm run lint` (ESLint), `npm test` (component tests, Vitest),
+  `npx stryker run --mutate <files>` (mutation testing; it changes files in place while it runs, so commit or stash
+  first).
+- **How it is tested:** [docs/testing/TEST_STRATEGY.md](../docs/testing/TEST_STRATEGY.md); the gates a change must
+  pass: [docs/testing/QUALITY_GATES.md §1](../docs/testing/QUALITY_GATES.md#1-gates).

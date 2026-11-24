@@ -1,10 +1,13 @@
-# Phase 5 (docs/testing/TEST_STRATEGY.md §3, §11; QUALITY_GATES §1): mutation testing with Stryker.NET. It measures
-# whether the unit tests would notice a broken rule.
-# - Nightly and on demand: the four services with the core business and reliability rules, in full. Fails when the
-#   score drops below the "break" threshold in backend/tests/HospitalManagement.UnitTests/stryker-config.json.
-# - On a pull request that changes backend/Services: only the changed files, any service. Fails when a mutant on a
-#   line the pull request changed goes undetected (scripts/mutation_summary.py), so new code arrives with tests
-#   that would notice it break, while old survivors elsewhere in the file never block.
+# Phase 5 (docs/testing/TEST_STRATEGY.md §3, §11; QUALITY_GATES §1): mutation testing. It measures whether the tests
+# would notice a broken rule.
+# - Nightly and on demand: the four services with the core business and reliability rules, and the patient access
+#   policy (backend/api/Auth/PatientAccessPolicy.cs), in full. Fails when a score drops below the "break" threshold
+#   in backend/tests/HospitalManagement.UnitTests/stryker-config.json or stryker-config.api.json.
+# - On every pull request (G9): the changed code of three areas, each only when it changed: any service in
+#   backend/Services (Stryker.NET, unit tests), the patient access policy (Stryker.NET, unit tests) and the web
+#   frontend's source in frontend-web/src (StrykerJS, component tests). Fails when a mutant on a line the pull
+#   request changed goes undetected (scripts/mutation_summary.py), so new code arrives with tests that would notice
+#   it break, while old survivors elsewhere in a file never block.
 name: Mutation
 
 on:
@@ -17,17 +20,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: mutation-${{ github.ref }}
+  # A newer push to the same pull request cancels the older run. Every other run (a merge to master, nightly,
+  # on demand) has a group of its own commit: GitHub also cancels a *pending* run of the same group, so a
+  # shared group on master would leave some merge commits unverified.
+  group: mutation-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: true
 
 jobs:
-  # Does this pull request change service code? Plain git, no third-party action.
+  # Which areas with a mutation gate does this pull request change? Plain git, no third-party action.
   changes:
-    name: Does this change touch service code?
+    name: Does this change touch mutation-tested code?
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     outputs:
       services: ${{ steps.diff.outputs.services }}
+      api: ${{ steps.diff.outputs.api }}
+      frontend: ${{ steps.diff.outputs.frontend }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,65 +45,122 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          changed="$(git diff --name-only "$BASE_SHA"...HEAD)"
-          pattern='^(backend/Services/.*\.cs$|backend/tests/HospitalManagement\.UnitTests/stryker-config\.json$|scripts/mutation_summary\.py$|\.github/workflows/mutation\.yml$|dotnet-tools\.json$)'
-          if echo "$changed" | grep -Eq "$pattern"; then
-            echo "services=true" >> "$GITHUB_OUTPUT"; echo "Service code changed: mutation testing of the changed files runs."
-          else
-            echo "services=false" >> "$GITHUB_OUTPUT"; echo "No service code changed: skipped."
-          fi
+          # Deleted files have nothing left to mutate.
+          changed="$(git diff --name-only --diff-filter=d "$BASE_SHA"...HEAD)"
+          echo "Changed files:"; echo "$changed"
+          setup='scripts/mutation_summary\.py$|\.github/workflows/mutation\.yml$|dotnet-tools\.json$'
+          services="^(backend/Services/.*\\.cs\$|backend/tests/HospitalManagement\\.UnitTests/stryker-config\\.json\$|$setup)"
+          api="^(backend/api/Auth/PatientAccessPolicy\\.cs\$|backend/tests/HospitalManagement\\.UnitTests/stryker-config\\.api\\.json\$|$setup)"
+          if echo "$changed" | grep -Eq "$services"; then echo "services=true" >> "$GITHUB_OUTPUT"; fi
+          if echo "$changed" | grep -Eq "$api"; then echo "api=true" >> "$GITHUB_OUTPUT"; fi
+          # The changed lines of the frontend source (not tests, not test support), as StrykerJS line ranges
+          # (src/a.tsx:10-18,src/a.tsx:29-29): StrykerJS has no --since, and mutating whole files takes minutes per
+          # file. The ranges come from the same diff scripts/mutation_summary.py checks against.
+          frontend=""
+          for f in $(echo "$changed" | grep -E '^frontend-web/src/.*\.tsx?$' \
+              | grep -Ev '\.test\.tsx?$|^frontend-web/src/test/|\.d\.ts$' || true); do
+            ranges="$(git diff -U0 "$BASE_SHA" -- "$f" | sed -nE 's/^@@ -[0-9,]+ \+([0-9]+)(,([0-9]+))? @@.*/\1 \3/p' \
+              | awk -v f="${f#frontend-web/}" '{ c = ($2 == "" ? 1 : $2); if (c > 0) printf "%s%s:%d-%d", (n++ ? "," : ""), f, $1, $1 + c - 1 }')"
+            if [ -n "$ranges" ]; then frontend="${frontend:+$frontend,}$ranges"; fi
+          done
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "Frontend lines to mutate: ${frontend:-none}"
 
+  # Runs on every pull request, so the required check never hangs on a skipped job. Each area's steps run only
+  # when that area changed; a pull request that changes none of them passes after the first step.
   changed-code:
     name: Mutation testing of changed code
     needs: changes
-    # Fail-safe: if the change detection itself failed, run rather than skip.
-    if: >-
-      !cancelled() && (needs.changes.outputs.services == 'true' || needs.changes.result != 'success')
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      SERVICES: ${{ needs.changes.outputs.services }}
+      API: ${{ needs.changes.outputs.api }}
+      FRONTEND: ${{ needs.changes.outputs.frontend }}
+      # Stryker.NET starts several vstest hosts; on a busy runner the default 90 s connection timeout is too short.
+      VSTEST_CONNECTION_TIMEOUT: "300"
     steps:
+      # Fail closed: without a working change detection the gate cannot know what to mutate, so it fails rather
+      # than passing a change it never checked.
+      - name: Change detection succeeded
+        env:
+          RESULT: ${{ needs.changes.result }}
+        run: |
+          if [ "$RESULT" != success ]; then echo "Change detection: $RESULT. G9 cannot decide."; exit 1; fi
+          echo "services=${SERVICES:-false} access-policy=${API:-false} frontend=${FRONTEND:-none}"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.SERVICES == 'true' || env.API == 'true' || env.FRONTEND != ''
         with:
-          fetch-depth: 0 # --since compares with the base commit
+          fetch-depth: 0 # --since and the changed-line check compare with the base commit
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        if: env.SERVICES == 'true' || env.API == 'true'
         with:
           dotnet-version: 10.0.x
 
       - name: Restore tools
+        if: env.SERVICES == 'true' || env.API == 'true'
         run: dotnet tool restore
 
       # --since: only files changed since the base commit are mutated (and mutants covered by changed tests are
       # tested again). It needs the full base SHA. --mutate widens the nightly scope to every service file;
       # --break-at 0 because the gate below decides, on changed lines only. The output goes outside the checkout:
       # Stryker diffs the working tree, and files it writes there meanwhile make that diff fail.
-      - name: Run Stryker on the changed files
+      - name: Services, Stryker.NET on the changed files
+        if: env.SERVICES == 'true'
         working-directory: backend/tests/HospitalManagement.UnitTests
-        env:
-          VSTEST_CONNECTION_TIMEOUT: "300"
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: >
           dotnet tool run dotnet-stryker --concurrency 2 --since:"$BASE_SHA" --break-at 0
-          --mutate "**/*.cs" --output "$RUNNER_TEMP/stryker-changed"
+          --mutate "**/*.cs" --output "$RUNNER_TEMP/stryker-services"
 
-      - name: Undetected mutants on changed lines
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      - name: Access policy, Stryker.NET on the changed file
+        if: env.API == 'true'
+        working-directory: backend/tests/HospitalManagement.UnitTests
+        run: >
+          dotnet tool run dotnet-stryker --config-file stryker-config.api.json --concurrency 2
+          --since:"$BASE_SHA" --break-at 0 --output "$RUNNER_TEMP/stryker-api"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: env.FRONTEND != ''
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend-web/package-lock.json
+
+      # --mutate gets exactly the changed lines (frontend-web/stryker.config.mjs has the rest of the setup).
+      - name: Frontend, StrykerJS on the changed lines
+        if: env.FRONTEND != ''
+        working-directory: frontend-web
         run: |
-          report="$RUNNER_TEMP/stryker-changed/reports/mutation-report.json"
-          if [ ! -f "$report" ]; then
-            echo "Stryker wrote no report: no mutable code in the changed files." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          python3 -I scripts/mutation_summary.py "$report" "$BASE_SHA" --fail-on-changed | tee -a "$GITHUB_STEP_SUMMARY"
-          exit "${PIPESTATUS[0]}"
+          npm ci
+          npx stryker run --mutate "$FRONTEND"
 
-      - name: Upload the mutation report
+      # One summary for every area that ran. A missing report means Stryker found no mutable code there.
+      - name: Undetected mutants on changed lines
+        if: env.SERVICES == 'true' || env.API == 'true' || env.FRONTEND != ''
+        run: |
+          status=0
+          for report in "$RUNNER_TEMP/stryker-services/reports/mutation-report.json" \
+                        "$RUNNER_TEMP/stryker-api/reports/mutation-report.json" \
+                        frontend-web/reports/mutation/mutation.json; do
+            [ -f "$report" ] || continue
+            python3 -I scripts/mutation_summary.py "$report" "$BASE_SHA" --fail-on-changed | tee -a "$GITHUB_STEP_SUMMARY"
+            [ "${PIPESTATUS[0]}" = 0 ] || status=1
+          done
+          exit "$status"
+
+      - name: Upload the mutation reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mutation-report-changed
-          path: ${{ runner.temp }}/stryker-changed/reports
+          path: |
+            ${{ runner.temp }}/stryker-services/reports
+            ${{ runner.temp }}/stryker-api/reports
+            frontend-web/reports/mutation
           if-no-files-found: ignore
           retention-days: 14
 
@@ -104,6 +169,9 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      # Stryker starts several vstest hosts; on a busy runner the default 90 s connection timeout is too short.
+      VSTEST_CONNECTION_TIMEOUT: "300"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -114,12 +182,18 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
-      - name: Run Stryker
+      - name: Run Stryker on the services
         working-directory: backend/tests/HospitalManagement.UnitTests
-        env:
-          # Stryker starts several vstest hosts; on a busy runner the default 90 s connection timeout is too short.
-          VSTEST_CONNECTION_TIMEOUT: "300"
         run: dotnet tool run dotnet-stryker --concurrency 2
+
+      # The patient access policy decides which patient's data a caller reaches (BOLA). Runs even when the
+      # services run failed, so both scores are known.
+      - name: Run Stryker on the patient access policy
+        if: ${{ !cancelled() }}
+        working-directory: backend/tests/HospitalManagement.UnitTests
+        run: >
+          dotnet tool run dotnet-stryker --config-file stryker-config.api.json --concurrency 2
+          --output StrykerOutput/access-policy
 
       - name: Upload the mutation report
         if: always()

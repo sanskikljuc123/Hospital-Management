@@ -18,7 +18,8 @@ name: hospitalmanagement
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # Pinned to a digest so a moved tag cannot change what runs (R-040); Dependabot updates tag and digest together.
+    image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-hospital}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
@@ -37,7 +38,7 @@ services:
     restart: unless-stopped
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.4
+    image: quay.io/keycloak/keycloak:26.4@sha256:9409c59bdfb65dbffa20b11e6f18b8abb9281d480c7ca402f51ed3d5977e6007
     # start-dev: HTTP only, no build step. Use "start" with TLS for a real deployment.
     command: ["start-dev", "--import-realm"]
     environment:

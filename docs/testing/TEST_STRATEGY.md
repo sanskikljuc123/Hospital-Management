@@ -98,7 +98,9 @@ in a row since.
 | Frontend component tests | Vitest in jsdom, React Testing Library and user-event, MSW for the API, jest-dom matchers |
 | E2E scenarios | Reqnroll (Gherkin) |
 | E2E driver | Playwright for .NET: browser for user journeys through `frontend-web`, API request context for API-only journeys |
-| Mutation testing (phase 5) | Stryker.NET on `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` (§11) |
+| Mutation testing (phase 5) | Stryker.NET on the services and the patient access policy; StrykerJS (Vitest runner) on `frontend-web` (§11) |
+| Lint | ESLint with typescript-eslint and the React hook rules (`frontend-web/eslint.config.js`) |
+| Static analysis | CodeQL, C# and TypeScript (`.github/workflows/codeql.yml`, G10) |
 | Secret scanning | gitleaks in CI |
 
 ## 4. Project layout and conventions
@@ -233,17 +235,20 @@ some unit test fails. A change that no test notices is a test that is missing.
 
 | | |
 |---|---|
-| Scope | `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` — the business, access-identity and reliability rules |
-| Config | `backend/tests/HospitalManagement.UnitTests/stryker-config.json`; tool pinned in `dotnet-tools.json` |
+| Scope | `AppointmentService`, `MedicalRecordService`, `OutboxProcessor`, `UserService` — the business, access-identity and reliability rules; `PatientAccessPolicy` — which patient's data a caller reaches (BOLA, R-001 … R-004) |
+| Config | `backend/tests/HospitalManagement.UnitTests/stryker-config.json` (services) and `stryker-config.api.json` (access policy, `--config-file`); tool pinned in `dotnet-tools.json`. Frontend: `frontend-web/stryker.config.mjs` |
 | Run locally | `dotnet tool restore`, then `dotnet tool run dotnet-stryker --concurrency 2` in that folder (about 25 minutes; report in `StrykerOutput/`) |
-| CI | `.github/workflows/mutation.yml`: the four services in full nightly (03:00 UTC) and on demand; HTML report as an artifact. On every pull request that changes service code: only the changed files, any service (G9, below) |
+| CI | `.github/workflows/mutation.yml`: the four services and the access policy in full nightly (03:00 UTC) and on demand; HTML report as an artifact. On every pull request: only what it changed (G9, below) |
 | Threshold | The run fails below **90 %** (`break`) |
 | SDK | Pinned to 10.0.x in `global.json`. The GitHub runner also has a newer SDK preinstalled; built with it, the VSTest that Stryker 4.16 ships aborts test discovery (`NullReferenceException` in `GetTestHostPath`, 0 tests found), while `dotnet test` itself still works. The same pin keeps local and CI builds on one SDK |
 
 ### Mutation testing of changed code (G9)
 
-On a pull request that changes `backend/Services/`, Stryker mutates only the files changed since the base commit
-(`--since`), in any service, not only the four above. `scripts/mutation_summary.py` then fails the job when a
+On every pull request the job mutates only what the pull request changed, in three areas: the files changed in
+`backend/Services/` (`--since`, any service, not only the four above), `PatientAccessPolicy.cs` when it changed
+(`--since`, unit tests), and the changed lines of `frontend-web/src/` outside the tests (StrykerJS gets them as
+line ranges such as src/a.tsx:10-18, and runs the component tests). StrykerJS runs in place, not in a sandbox copy,
+because the component tests read `contracts/openapi.json` outside `frontend-web`. `scripts/mutation_summary.py` then fails the job when a
 mutant on a line the pull request changed went undetected, and lists every undetected mutant in the job summary,
 changed lines first. The rule is about the change, not the file: a file's score includes old survivors (some
 reviewed as equivalent, see below), so a score threshold would block changes for code they never touched.
@@ -257,8 +262,16 @@ untested branches, which the nightly scope does not cover.
 Locally, `--since` needs the full base SHA, a normal clone (Stryker's git library does not follow `git worktree`)
 and, on Windows, `core.autocrlf=false` in that clone; put `--output` outside the repository.
 
-**Not mutated, on purpose:** error-message strings (the text is not a business rule) and logging calls (they do
-not change behavior).
+Checked on 2026-11-24, before this setup was merged: the access policy scored 85 % because its tests compared the
+result with `PatientScope.All` itself, so a broken factory changed both sides; with literal expected values it
+scores 100 %. On the frontend change of the same pull request the gate found one undetected mutant on a changed
+line (an optional chaining on a value that is never null; the `?.` was removed), and passed after that. StrykerJS
+took about 2 minutes for 16 mutants on changed lines, and about 9 minutes for a whole slice file (72 mutants),
+which is why the pull request mutates lines, not files. Mutation scores of whole frontend files are low (21 % for
+`doctorSlice.ts`); the gate does not ask old code to catch up, only new lines to be tested.
+
+**Not mutated, on purpose:** error-message strings and, in the frontend, all string literals (texts and CSS class
+names are not business rules), and logging calls (they do not change behavior).
 
 **History.** First run 67.19 %: survivors showed missing tests for start-time boundaries (`<=` vs `<`), list
 filters and ordering, notifications, unknown references, deletes, audit details, session and cache handling,
