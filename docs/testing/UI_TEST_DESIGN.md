@@ -329,7 +329,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | R-064 — failed list looks empty (Medium) | UI-NEG-09, UI-REL-01 | Comp, E2E | toast shown (two tests in `catalogueErrors.test.tsx`, tagged `@R-064`); lasting error state **fails** (D-23) |
 | R-060 — date saved as a different date (High) | UI-BND-07 | Comp, E2E | fixed; passes (DST change not tested) |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | component level runs on every PR (Q-a); D-8, D-18, D-20 … D-22 were still found only by a probe |
-| R-065 — data reads as a different value (Medium) | UI-HP-08, UI-DI-06, UI-DI-07 | Comp | **fails** (D-8, D-18, D-19) |
+| R-065 — data reads as a different value (Medium) | UI-HP-08, UI-DI-06, UI-DI-07 | Comp (register level: Component, E2E; no E2E test designed yet) | **fails** (D-8, D-18, D-19) |
 | R-066 — stored value cannot be removed (Medium) | UI-NEG-11 | Comp, E2E | **fails** (D-20) |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |
