@@ -29,9 +29,8 @@ be updated in the same pull request, or every later pull request waits for a che
 
 **Not in the ruleset yet** (added 2026-11-24; the test owner changes the ruleset, an implementer never does):
 
-- **Branches must be up to date before merging** (*Require branches to be up to date*). Until it is on, two pull
-  requests can each pass every gate and still break `master` together; the run on `master` then finds it after the
-  merge. With it on, a pull request is tested on top of the current `master`.
+- **Branches must be up to date before merging** (*Require branches to be up to date*): off on purpose for now,
+  see *Accepted exception — branches not kept up to date* below.
 - **G10:** the checks `CodeQL (G10) csharp` and `CodeQL (G10) javascript-typescript`, or a code scanning rule for
   alerts of severity high and above. Until then an alert shows on the pull request but does not block the merge.
 
@@ -61,6 +60,18 @@ G8 is met by the code owner reviewing and merging the pull request themselves. C
 implementer still need that person's review and merge (README → *The implementer*). The exception ends
 when a second maintainer joins: then the ruleset requires 1 approval and review from code owners, and
 `/backend/api/Auth/` and `/keycloak/` get a second reviewer in CODEOWNERS.
+
+**Accepted exception — branches not kept up to date (since 2026-11-24, decided by the test owner).** The ruleset
+does not require a pull request to be up to date with `master` before it merges. With one maintainer, keeping every
+open pull request up to date after each merge (a new CI round each time, E2E included) costs more than it finds.
+**What is accepted:** two pull requests that each pass every gate can still break `master` together, because nobody
+tests their combination before the second one merges. Dependabot opens several pull requests at once, so this
+happens even with one maintainer. **What still catches it:** CI, E2E and mutation run again on every merge commit on
+`master` (each in a concurrency group of its own, so none is cancelled), and a failure there is handled as in §4.
+**To lower the risk without the setting:** merge pull requests that change the same files one after another, and
+update the second one before merging it. **The exception ends** when a second maintainer joins, or when a failure on
+`master` comes from two pull requests that were green on their own; then *Require branches to be up to date* is
+switched on again.
 
 G4 and G5 are small scripts in `scripts/`. They read the register and the test source; they do not judge
 test quality — that is G8.
@@ -114,8 +125,11 @@ component and API tests, gate scripts, gitleaks) in the CI order and stops at th
 means `ci.yml` green. G7, G9 and G10 run on the pull request. It needs the .NET 10 SDK, Node 24 (as CI), Docker
 and Python 3; `--no-frontend` skips the frontend part.
 
-**Dependencies:** `.github/dependabot.yml` proposes NuGet, npm and GitHub Actions updates weekly. Actions are
-pinned to a commit SHA with the version as a comment, so a moved tag cannot change what runs. Each update is an
+**Dependencies:** `.github/dependabot.yml` proposes NuGet, npm, GitHub Actions and container image updates weekly,
+and only versions published at least 14 days earlier (cooldown, since 2026-11-24): a hijacked or broken release is
+usually found and pulled within days. Security updates for a known vulnerability are not delayed. Actions are
+pinned to a commit SHA and images to a digest, with the version as a comment or tag, so a moved tag cannot change
+what runs. Each update is an
 ordinary pull request through all the gates and a person's merge. Dependabot proposes no major versions of NuGet or
 npm packages: a major upgrade is a deliberate change made and tested by a person, and for .NET the
 `Microsoft.EntityFrameworkCore.*`, `Microsoft.Extensions.*` and `Microsoft.AspNetCore.*` majors follow the .NET

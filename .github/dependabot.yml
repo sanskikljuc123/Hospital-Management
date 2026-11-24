@@ -5,12 +5,17 @@
 # No major versions for NuGet and npm: a major upgrade is a deliberate change a person makes and tests (as the
 # Vite 8 upgrade in #32 was). For .NET, Microsoft.EntityFrameworkCore.*, Microsoft.Extensions.* and
 # Microsoft.AspNetCore.* package majors must match the solution's .NET 10 target.
+# Cooldown: a version is proposed only once it has been published for 14 days. A hijacked or broken release is
+# usually found and pulled within days; waiting keeps it out of this repository. Security updates for a known
+# vulnerability are not delayed by the cooldown, and the G1 audit still fails a vulnerable package at once.
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /backend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -26,6 +31,8 @@ updates:
     directory: /e2e
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -37,6 +44,8 @@ updates:
     directory: /frontend-web
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -48,6 +57,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     groups:
       actions:
         patterns: ["*"]
@@ -58,6 +69,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -69,6 +82,8 @@ updates:
     directories: [/backend/api, /frontend-web]
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
