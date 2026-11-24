@@ -325,7 +325,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Risk | Tests | Lvl | Today |
 |---|---|---|---|
 | R-059 — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; all four written and passing |
-| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-DI-03, UI-REL-03 | Comp, E2E | writes fixed, component tests pass; E2E not written |
+| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-DI-03, UI-REL-03 | Comp, E2E | writes fixed, component tests pass; E2E not written. Note: the gate also credits R-062 with the two list-load tests (R-064), because the `@R-062` tag on the `describe` in `catalogueErrors.test.tsx` applies to every test in the file; they must not count when R-062 is set to `Covered` |
 | R-064 — failed list looks empty (Medium) | UI-NEG-09, UI-REL-01 | Comp, E2E | toast shown (two tests in `catalogueErrors.test.tsx`, tagged `@R-064`); lasting error state **fails** (D-23) |
 | R-060 — date saved as a different date (High) | UI-BND-07 | Comp, E2E | fixed; passes (DST change not tested) |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | component level runs on every PR (Q-a); D-8, D-18, D-20 … D-22 were still found only by a probe |
@@ -404,7 +404,8 @@ the way to measure them.
 ## 10. Not covered
 
 - D-1 to D-5 were checked in a real browser (§3). How every other defect was found or confirmed is listed
-  in the §3 intro; none of them was clicked through in a browser. Not sent to a running API: the
+  in the §3 intro; D-17 was seen in a Playwright trace of an E2E run, none of the others was clicked through
+  in a browser. Not sent to a running API: the
   API half of D-20 (`""` refused by `[EmailAddress]`) and of D-22 (whitespace name and description). D-21 was
   shown at form level only; the number of requests and records was not counted. The probe was not committed,
   so its checks have to be written again as the §6 tests. The accessibility assumptions (UI-A11Y-02, UI-A11Y-08) still need a browser run with axe.
