@@ -23,7 +23,14 @@ concurrency:
   # A newer push to the same pull request cancels the older run. Every other run (a merge to master, nightly,
   # on demand) has a group of its own commit: GitHub also cancels a *pending* run of the same group, so a
   # shared group on master would leave some merge commits unverified.
-  group: e2e-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  # A label added to a pull request starts a run too, and gets a group of its own label: Dependabot adds two labels
+  # as it opens a pull request, and when those runs shared the push's group, the newest one was cancelled before it
+  # had any job. GitHub reads a required check from the newest run of a workflow, so the check "End-to-end
+  # journeys (G7)" then waited as "Expected" forever although an older run had passed (#58).
+  group: >-
+    e2e-${{ github.event_name != 'pull_request' && github.sha
+    || github.event.action == 'labeled' && format('{0}-label-{1}', github.ref, github.event.label.name)
+    || github.ref }}
   cancel-in-progress: true
 
 jobs:

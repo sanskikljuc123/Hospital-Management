@@ -48,7 +48,9 @@ frontend together. Since 2026-11-23 they run on **every pull request that change
 `git diff`) lists what may be **skipped**, not what must run: docs, tests of other levels, gate scripts, the other
 workflows, the AppHost and housekeeping. Any other path, including one added later, runs the journeys, and the
 pull request cannot merge until they pass. A pull request that changes only skippable files reports the E2E
-check as *Skipped*, which GitHub counts as passed. If the detection step fails, the journeys run anyway. The
+check as *Skipped*, which GitHub counts as passed. If the detection step fails, the journeys run anyway. A label added
+to the pull request starts its own run, which never cancels the push's run: a run cancelled before it had a
+job left the required check waiting as *Expected* on Dependabot's #58. The
 job took 115–148 s on GitHub after the speed-up (*E2E job duration* below) and runs in parallel with CI, so it adds little
 waiting. Applied to the ten pull requests before this change, the rule runs the journeys for the three that
 changed the stack (#44, #50, #51) and skips the seven that changed only docs, tests, tooling or the AppHost.
