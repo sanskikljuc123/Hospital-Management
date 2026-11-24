@@ -33,9 +33,11 @@ responsive, reliability and security cases.
 
 ## 3. Defects found while designing
 
-D-1 to D-17 were found by reading the code and confirmed by sending the frontend's exact requests to the API as
-`admin.user`. D-18 to D-23 (2026-11-24) were found by reading the code; the Evidence column says which were
-also confirmed by the component probe. Each has a test in §6 that fails until it is fixed.
+How each defect was found or confirmed is in its Evidence column. In short: D-1 to D-5 by sending the
+frontend's exact requests to the API as `admin.user` and then in a real browser; D-7, D-11 and D-12 by
+requests to the API; D-13 by ESLint; D-17 by a Playwright trace; D-8, D-18 and D-20 to D-22 by a component
+probe; the rest by reading the code. Each has a test in §6 that fails until it is fixed, except D-10, whose
+expected behaviour waits for Q-h.
 
 **D-1 to D-5 are fixed** (2026-11-23, on the branch docs/ui-test-design). The fix was checked in a real browser
 (Chromium, Playwright, signed in as `admin.user` through Keycloak) in the time zones Europe/Sarajevo and
@@ -137,6 +139,8 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-HP-07 | Medium | Admin deletes an unused service | Service created via API → Delete → confirm | Row gone; reload: still gone; API 404 | Row removed only locally | E2E | P2 |
 | UI-HP-08 | Medium | Details drawer shows what the API holds — **fails today (D-8, D-19)** | Doctor, patient, service created via API → View each | Every shown value equals the API value; patient details include phone and email | Wrong field bound, field missing | Comp | P1 |
 | UI-HP-09 | Low | Navigation: every menu item opens its page | Signed in → click each menu item; open `/patient` directly | Right page, header title and highlighted item | Broken route, wrong title | E2E | P3 |
+| UI-HP-10 | Low | Table column headers name their column — **fails today (D-9)** | Doctors, Patients, Services tables | Each header matches the field shown ("Last name", not "Phone Last name") | Copy-paste header | Comp | P3 |
+| UI-HP-11 | Medium | Typing a service name in a service select finds it — **fails today (D-17)** | Doctor form and patient form → type part of an existing service name into "Select Service" | The matching service is offered and can be picked | Filter on the numeric value; select not searchable | Comp | P2 |
 
 ### 6.2 Negative — wrong input and forbidden actions are refused visibly
 
@@ -276,7 +280,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Q-i | Question | Must staff be able to remove a patient's email (clear the field), or only replace it? Today neither the form nor the API says (D-20) | UI-NEG-11 |
 | Q-j | Question | How long must an error stay visible: until dismissed, or a few seconds? Must a failed list show a retry? (D-23) | UI-NEG-09, UI-REL-01, UI-A11Y-08 |
 | Q-k | Question | Is "a list that fails to load looks empty" part of R-062 (refused saves and deletes, High (8)) or a risk of its own, and at what rating? | §4, UI-NEG-09, UI-REL-01 |
-| Q-l | Question | Do D-8 and D-18 (values that read as other values) belong under R-063 (data of another record shown) or a new risk? The new risks in §4 need IDs before UI-DI-06, UI-DI-07 and UI-NEG-11 can carry a risk tag | §4, UI-HP-08, UI-DI-06, UI-DI-07, UI-NEG-11 |
+| Q-l | Question | Do D-8 and D-18 (values that read as other values) belong under R-063 (data of another record shown) or a new risk? Does D-19 (ids instead of names, an unnamed delete confirmation) belong to the same risk, or to a separate, lower-rated one (UI-DI-07 is rated Low on that assumption)? The new risks in §4 need IDs before UI-DI-06, UI-DI-07 and UI-NEG-11 can carry a risk tag | §4, UI-HP-08, UI-DI-06, UI-DI-07, UI-NEG-11 |
 | 1 | Fact | No acceptance criteria exist for any UI page; BUSINESS_FLOWS marks F-02 "UI ✅" although editing a patient loses data (D-2) | BUSINESS_FLOWS F-02 |
 | 2 | Fact | Appointments, medical records, departments, users and audit have no pages; those flows can only be tested through the API | F-03 … F-14 |
 | 3 | Fact | No error, loading-timeout or empty-state designs exist (D-6, D-15) | §6.9 |
@@ -321,11 +325,11 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Risk | Tests | Lvl | Today |
 |---|---|---|---|
 | R-059 — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; all four written and passing |
-| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-DI-03, UI-REL-03 | Comp, E2E | fixed, component tests pass; E2E not written |
-| new — failed list looks empty (Medium, Q-k) | UI-NEG-09, UI-REL-01 | Comp, E2E | **fails** (D-23) |
+| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-DI-03, UI-REL-03; UI-NEG-09 and UI-REL-01 until Q-k is answered (their component halves are tagged `@R-062`) | Comp, E2E | writes fixed, component tests pass; E2E not written |
+| R-062 or new, per Q-k — failed list looks empty (Medium if new) | UI-NEG-09, UI-REL-01 | Comp, E2E | toast shown; lasting error state **fails** (D-23) |
 | R-060 — date saved as a different date (High) | UI-BND-07 | Comp, E2E | fixed; passes (DST change not tested) |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | component level runs on every PR (Q-a); D-8, D-18, D-20 … D-22 were still found only by a probe |
-| new — data reads as a different value (Medium, Q-l) | UI-HP-08, UI-DI-06, UI-DI-07 | Comp | **fails** (D-8, D-18, D-19) |
+| new — data reads as a different value (Medium, Q-l) | UI-HP-08, UI-DI-06; UI-DI-07 if Q-l puts D-19 here | Comp | **fails** (D-8, D-18, D-19) |
 | new — stored value cannot be removed (Medium) | UI-NEG-11 | Comp, E2E | unknown until Q-i (D-20) |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |
@@ -342,7 +346,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 
 | Category | Sign-in / shell | Doctors | Patients | Services |
 |---|---|---|---|---|
-| Happy path | exists | HP-01, 04, 08 | HP-03, 05, 08 | HP-02, 06, 07, 08 |
+| Happy path | exists | HP-01, 04, 08, 10, 11 | HP-03, 05, 08, 10, 11 | HP-02, 06, 07, 08, 10 |
 | Negative | NEG-07, 08, 10 | NEG-01, 04, 09 | NEG-01, 03, 05, 06, 11 | NEG-01, 02, 04, 12 |
 | Boundary | – | BND-02, 05, 07, 10 | BND-03, 04, 05, 06 | BND-01, 06, 08, 09 |
 | State | ST-01, 02, 04, 05, 06, 09 | ST-07, 08 | ST-07 | ST-03 |
