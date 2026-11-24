@@ -114,8 +114,11 @@ component and API tests, gate scripts, gitleaks) in the CI order and stops at th
 means `ci.yml` green. G7, G9 and G10 run on the pull request. It needs the .NET 10 SDK, Node 24 (as CI), Docker
 and Python 3; `--no-frontend` skips the frontend part.
 
-**Dependencies:** `.github/dependabot.yml` proposes NuGet, npm and GitHub Actions updates weekly. Actions are
-pinned to a commit SHA with the version as a comment, so a moved tag cannot change what runs. Each update is an
+**Dependencies:** `.github/dependabot.yml` proposes NuGet, npm, GitHub Actions and container image updates weekly,
+and only versions published at least 14 days earlier (cooldown, since 2026-11-24): a hijacked or broken release is
+usually found and pulled within days. Security updates for a known vulnerability are not delayed. Actions are
+pinned to a commit SHA and images to a digest, with the version as a comment or tag, so a moved tag cannot change
+what runs. Each update is an
 ordinary pull request through all the gates and a person's merge. Dependabot proposes no major versions of NuGet or
 npm packages: a major upgrade is a deliberate change made and tested by a person, and for .NET the
 `Microsoft.EntityFrameworkCore.*`, `Microsoft.Extensions.*` and `Microsoft.AspNetCore.*` majors follow the .NET
