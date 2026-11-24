@@ -33,8 +33,9 @@ responsive, reliability and security cases.
 
 ## 3. Defects found while designing
 
-These were found by reading the code and confirmed by sending the frontend's exact requests to the API as
-`admin.user`. Each has a test in §6 that fails until it is fixed.
+D-1 to D-17 were found by reading the code and confirmed by sending the frontend's exact requests to the API as
+`admin.user`. D-18 to D-23 (2026-11-24) were found by reading the code; the Evidence column says which were
+also confirmed by the component probe. Each has a test in §6 that fails until it is fixed.
 
 **D-1 to D-5 are fixed** (2026-11-23, on the branch docs/ui-test-design). The fix was checked in a real browser
 (Chromium, Playwright, signed in as `admin.user` through Keycloak) in the time zones Europe/Sarajevo and
@@ -65,13 +66,13 @@ missing from the edit form (UTC−5). With the fix, three full runs in a row pas
 | D-14 | Fact | An unknown URL shows an empty page instead of "not found" | `PrivateRoutes.tsx:36-42` (no catch-all route) |
 | D-15 | Fact | API calls have no timeout: a request that never answers leaves the page loading forever | `AxiosConfig.ts:4-6` |
 | D-16 | Fact | The browser tab title is misspelled: "Hopital managment" | `index.html:8` |
-| D-17 | Fact | **Typing a service name in the service selects finds nothing** ("No data"): antd filters options on their value, which is the numeric id, not the shown name. Found while writing the E2E scenarios. The patient form's select has the same setup | Playwright trace of the first run of `CatalogueEditing.feature`; `DoctorForm.tsx:83` (`<Select mode='multiple'>` without `optionFilterProp`), `PatientForm.tsx:67` |
+| D-17 | Fact | **Typing a service name in the service selects finds nothing** ("No data"): antd filters options on their value, which is the numeric id, not the shown name. Found while writing the E2E scenarios. *Assumption:* the patient form's single select (`PatientForm.tsx:67`, no `showSearch`) cannot be typed into at all, a different problem; *would be proven by* a component test typing into its "Select Service" | Playwright trace of the first run of `CatalogueEditing.feature`; `DoctorForm.tsx:83` (`<Select mode='multiple'>` without `optionFilterProp`) |
 | D-18 | Fact | **A doctor with services 1 and 2 shows "12" in the Service ID column**, the same as a doctor with service 12: the array is rendered without a separator. The column shows ids, not names | `Doctors.tsx:60-64`; probe: `serviceIds: [1, 2]` → row text `"7AB1980-01-02Probe St12"` |
-| D-19 | Fact | The Patients table shows the service **id**, although the API sends `serviceName`; patient details show neither phone nor email, so the email that D-2 protects can only be seen by opening Edit. The delete confirmation ("Sure to delete?") does not name the record | `Patients.tsx:50-54`, `Patient.ts:9`, `PatientDto` in `PatientCreationDto.cs:25`; `PatientDetails.tsx:22-27`; `Patients.tsx:73` |
-| D-20 | Fact (UI) / Assumption (API) | **A patient's email cannot be removed.** Clearing the field sends `"email": ""`, not `null`; `[EmailAddress]` refuses an empty string, so the save fails with a 400. *Would be proven by* `PUT /api/Patient/{id}` with `"email": ""` | probe payload: `{"id":4,"userName":"P","phone":"123","email":"","serviceId":1}`; `PatientCreationDto.cs:11` |
-| D-21 | Fact | **A double click on Create saves twice.** Submit buttons have no `loading` or `disabled` state, and since the D-6 fix the drawer stays open until the API answers, so the window for a second click is the whole request (R-049) | probe: `dblClick` on "Create Service" → `onSubmit` called 2 times; `DoctorForm.tsx:92`, `PatientForm.tsx:76`, `ServiceForm.tsx:48` |
-| D-22 | Fact | **Whitespace-only text passes every form**: `required` accepts `"   "`. The service then gets a blank name (or a 400 for the doctor and patient fields that have `[Required]`) | probe: name and description `"   "` → submitted as `{"name":"   ","description":"   "}`; `ServiceForm.tsx:36`, `:43` |
-| D-23 | Fact | **A list that fails to load reads as empty once the toast is gone**: status `failed` is not rendered; the page keeps "Total Doctors number : 0" and an empty table, with no way to retry except reloading. Errors and confirmations are only toasts (antd `message`) that disappear by themselves and are not tied to a field | `Doctors.tsx:95`, `:117` (only `loading` is used); `Doctor.tsx:29`, `:80`; `apiError.ts:18-20` joins field errors into one sentence |
+| D-19 | Fact | The Patients table shows the service **id**, although the API sends `serviceName`; patient details show neither phone nor email, so the email that D-2 protects can only be seen by opening Edit. The delete confirmation ("Sure to delete?") does not name the record. Found by reading the code (tests: UI-HP-08, UI-DI-07) | `Patients.tsx:50-54`, `Patient.ts:9`, `PatientDto` in `PatientCreationDto.cs:25`; `PatientDetails.tsx:22-27`; `Patients.tsx:73` |
+| D-20 | Fact (UI) / Assumption (API) / Question | **Clearing a patient's email does not remove it.** Clearing the field sends `"email": ""`, not `null`; `[EmailAddress]` refuses an empty string, so the save fails with a 400. *Would be proven by* `PUT /api/Patient/{id}` with `"email": ""`. Whether this is a defect depends on Q-i (may an email be removed?); if not, the form should say so instead of failing with a 400 | probe payload: `{"id":4,"userName":"P","phone":"123","email":"","serviceId":1}`; `PatientCreationDto.cs:11` |
+| D-21 | Fact (form) / Assumption (requests) | **A double click on Create submits the form twice.** Submit buttons have no `loading` or `disabled` state, the page handlers have no guard, and since the D-6 fix the drawer stays open until the API answers, so the window for a second click is the whole request. *Assumption:* this sends two `POST`s and creates two records (R-049); *would be proven by* UI-CON-01 | probe on the service form only: `dblClick` on "Create Service" → `onSubmit` called 2 times; `DoctorForm.tsx:92`, `PatientForm.tsx:76`, `ServiceForm.tsx:48`; `Service.tsx:71-82`, `Patient.tsx:71-82` |
+| D-22 | Fact (form) / Assumption (API) | **Whitespace-only text passes the forms**: antd `required` accepts `"   "` (probe on the service form; the same rule is used at `DoctorForm.tsx:50`, `:57`, `:64` and `PatientForm.tsx:39`). *Assumption:* the API's `[Required]` refuses a whitespace-only service name with a 400, and the description, which has no `[Required]`, is saved as `"   "`; *would be proven by* `POST /api/Service` with `{"name":"   ","description":"   "}` | probe: name and description `"   "` → submitted as `{"name":"   ","description":"   "}`; `ServiceForm.tsx:36`, `:43`; `ServiceDto.cs:12-15` |
+| D-23 | Fact | **A list that fails to load reads as empty once the toast is gone**: status `failed` is not rendered; the page keeps "Total Doctors number : 0" and an empty table, with no retry button (leaving the page and coming back loads it again). Found by reading the code. Errors and confirmations are only toasts (antd `message`) that disappear by themselves and are not tied to a field | `Doctors.tsx:95`, `:117` (only `loading` is used); `Doctor.tsx:29`, `:80`; `apiError.ts:18-20` joins field errors into one sentence |
 
 ## 4. Proposed risks
 
@@ -86,10 +87,10 @@ Existing risks reused where they fit. New ones are labelled `new` until the test
 | new — the UI offers actions the role may not use | E | 1 | 4 | Medium (4) | The API refuses them (R-005), so no access is gained; users are confused | D-7 |
 | new — work in a form is lost when the session ends | D | 1 | 2 | Low (2) | `getAccessToken` redirects to the login page without saving input | `keycloak.ts:30-38` |
 | R-023 — XSS steals the access token | I, E | 4 | 1 | Medium (4) | Existing; still `Proposed`, no test | §6.10 |
-| R-049 — the same person registered twice | T | 3 | 3 | High (9) | Existing; the UI adds a way: a double click on "Create Patient" saves twice (D-21, confirmed by probe) | §6.5 |
+| R-049 — the same person registered twice | T | 3 | 3 | High (9) | Existing; the UI adds a way: a double click submits a form twice (D-21: shown on the service form; two patient records assumed until UI-CON-01) | §6.5 |
 | R-044 — the patient model cannot hold real patients | T | 3 | 3 | High (9) | Existing; the UI shows it (D-11) | §6.3 |
-| R-062, remaining part — a list that fails to load looks empty | T, R | 2 | 3 | Medium (6) | Writes are fixed; a failed list shows "0" after the toast disappears (D-23) | §6.2 UI-NEG-09, §6.9 UI-REL-01 |
-| new — the UI shows data that reads as a different value | I | 2 | 3 | Medium (6) | Services 1 and 2 read as service 12 (D-18); first name shown as last name (D-8). Staff act on what they read | §6.6 UI-DI-06, §6.1 UI-HP-08 |
+| new — a list that fails to load looks empty (Q-k: part of R-062, or its own risk?) | T, R | 2 | 3 | Medium (6) | R-062 covers refused saves and deletes, which are fixed; a failed list shows "0" after the toast disappears (D-23) | §6.2 UI-NEG-09, §6.9 UI-REL-01 |
+| new — the UI shows data that reads as a different value (Q-l: part of R-063?) | I | 2 | 3 | Medium (6) | Services 1 and 2 read as service 12 (D-18); first name shown as last name (D-8). Staff act on what they read | §6.6 UI-DI-06, §6.1 UI-HP-08 |
 | new — a stored value cannot be removed through the UI | T | 2 | 3 | Medium (6) | Clearing an email sends `""`, the API refuses it (D-20); an outdated address stays and notifications go to it | §6.2 UI-NEG-11 |
 
 **Abuse case (new, Critical):** As a nurse I open a patient whose email is on file, correct a typo in the
@@ -117,7 +118,7 @@ which does not run on every pull request.
 
 ## 6. Test catalogue
 
-Columns: **Sev** is the proposed severity of the risk the test proves; **Lvl** is Comp (component, proposed)
+Columns: **Sev** is the proposed severity of the risk the test proves; **Lvl** is Comp (component)
 or E2E; **Auto** is the automation priority (P1 first). Tests marked **fails today** reproduce a defect
 from §3.
 
@@ -151,7 +152,7 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-NEG-08 | Medium | Account without a hospital role (R-015) | Covered by `SignIn.feature` | "No access", token gets 403 | — | E2E | exists |
 | UI-NEG-09 | High | API down when a page opens — **fails in part today (D-23)**: the toast is shown ("says the server cannot be reached…" in `catalogueErrors.test.tsx`), the lasting error state is not | API stopped / route aborted → open Doctors | Error state with "Try again" that stays; **not** "Total Doctors number : 0" | Error shown as empty data | Comp + E2E fault | P2 |
 | UI-NEG-10 | Medium | Keycloak unreachable at start | Keycloak URL unreachable → open app | "Sign-in is unavailable" with Try again (`AuthGate.tsx:40-48`) | Endless spinner | E2E fault | P3 |
-| UI-NEG-11 | Medium | Remove a patient's email — **fails today (D-20)** | Patient with email created via API → Edit → clear email → Update | Saved; API email `null`; no 400 | Empty string sent instead of no value | Comp + E2E | P2 |
+| UI-NEG-11 | Medium | Clear a patient's email (D-20) | Patient with email created via API → Edit → clear email → Update | Per Q-i: if removal is allowed, saved with API email `null` and no 400; if not, the form says so before sending | Empty string sent instead of no value; a 400 the user cannot act on | Comp + E2E | P2 (after Q-i) |
 | UI-NEG-12 | Medium | A field error from the API is shown at its field | Mock 400 with `errors: { Name: [...] }` on create service | Message under "Name", form stays open | Field errors joined into one toast (`apiError.ts:19-20`) | Comp | P3 (after Q-b) |
 
 ### 6.3 Boundary — limits, empty values, special characters
@@ -163,7 +164,7 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-BND-03 | Medium | Patient name 200/201; email format | Patient form | Limit and email format checked in the form | Same; email cannot even be entered today | Comp | P3 |
 | UI-BND-04 | High | Phone numbers: 8 digits, 11 digits with country code, leading zero, `1e5`, negative — **11 digits fails today (D-11)** | Patient form | Agreed format accepted; others refused with a message; value round-trips unchanged | Overflow, lost leading zero, number notation | Comp + E2E | P2 (after Q-c) |
 | UI-BND-05 | Medium | Unicode round trip: `Đorđe Šćepanović`, `Zoë`, Arabic, emoji | Create doctor and patient with these names | Shown and stored exactly as typed | Encoding loss | E2E | P2 |
-| UI-BND-06 | Medium | Whitespace-only names `"   "` — **fails today (D-22)** | Any form | Refused in the form (`whitespace: true` or trimming), and trimmed values sent | antd `required` passes spaces; blank service name saved | Comp | P2 |
+| UI-BND-06 | Medium | Whitespace-only names `"   "` — **fails today (D-22)** | Any form | Refused in the form (`whitespace: true` or trimming), and trimmed values sent | antd `required` passes spaces; a 400 for the name, a blank description saved (*Assumption*, D-22) | Comp | P2 |
 | UI-BND-07 | High | Birthday in UTC+1, UTC−5 and on a DST change — fixed (D-5), tested in `CatalogueEditing.feature` (UTC+1 and UTC−5; DST change not yet) | Playwright context with `TimezoneId` → pick 2 Jan 1980 | API and table show 1980-01-02 in every zone | Off-by-one day | E2E | P1 |
 | UI-BND-08 | Low | Empty lists | No services exist (fresh stack) | Empty-state text and working "Add" | Broken layout, wrong count | Comp | P3 |
 | UI-BND-09 | Medium | 500 rows (R-037) | 500 services created via API → open page | Renders in < 2 s on CI hardware; scroll reaches the last row | Freeze; table with `pagination={false}` (`Doctors.tsx:121`) | E2E | P3 |
@@ -202,6 +203,7 @@ Business value: the catalogue (doctors, services, patients) is the data every bo
 | UI-DI-02 | Critical | **Edit forms send every field `PUT` replaces** — catches D-2, D-3, D-4 as a class. Written: `DoctorForm.test.tsx`, `PatientForm.test.tsx`, `ServiceForm.test.tsx`, `catalogueTables.test.tsx` | Render each edit form with a full record → submit unchanged | Payload contains every DTO field with the original values | Field erasure on edit | Comp | P1 |
 | UI-DI-03 | Medium | A failed write leaves the row unchanged — 409 on delete written (`catalogueErrors.test.tsx`); update and 500 not yet | Mock 409/500 on delete and update | Row and values unchanged; message shown | Optimistic change not rolled back | Comp | P2 |
 | UI-DI-06 | Medium | Multi-value cells are readable — **fails today (D-18)** | Doctor with services 1 and 2 → Doctors table | Two distinguishable services (names, not ids) | Array rendered as "12" | Comp | P2 |
+| UI-DI-07 | Low | Patients table and delete confirmation name what they mean — **fails today (D-19)** | Patient with a service → Patients table → Delete | Service column shows the service name; the confirmation names the patient | Ids shown instead of names; deleting the wrong row unnoticed | Comp | P3 |
 | UI-DI-04 | Low | Renamed service shows its new name on patients after reload | Rename via UI → Patients | New `serviceName` | Stale denormalized name | E2E | P3 |
 | UI-DI-05 | Medium | A UI change is audited with the signed-in user (R-013) | Admin edits a service in the UI → `GET /api/AuditLog` | `Service.Updated` by `admin.user` | Writes outside the audited path | E2E | P3 |
 
@@ -273,6 +275,8 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Q-h | Question | What should the search box search, and the Home page show? Both are empty today (D-10) | — |
 | Q-i | Question | Must staff be able to remove a patient's email (clear the field), or only replace it? Today neither the form nor the API says (D-20) | UI-NEG-11 |
 | Q-j | Question | How long must an error stay visible: until dismissed, or a few seconds? Must a failed list show a retry? (D-23) | UI-NEG-09, UI-REL-01, UI-A11Y-08 |
+| Q-k | Question | Is "a list that fails to load looks empty" part of R-062 (refused saves and deletes, High (8)) or a risk of its own, and at what rating? | §4, UI-NEG-09, UI-REL-01 |
+| Q-l | Question | Do D-8 and D-18 (values that read as other values) belong under R-063 (data of another record shown) or a new risk? The new risks in §4 need IDs before UI-DI-06, UI-DI-07 and UI-NEG-11 can carry a risk tag | §4, UI-HP-08, UI-DI-06, UI-DI-07, UI-NEG-11 |
 | 1 | Fact | No acceptance criteria exist for any UI page; BUSINESS_FLOWS marks F-02 "UI ✅" although editing a patient loses data (D-2) | BUSINESS_FLOWS F-02 |
 | 2 | Fact | Appointments, medical records, departments, users and audit have no pages; those flows can only be tested through the API | F-03 … F-14 |
 | 3 | Fact | No error, loading-timeout or empty-state designs exist (D-6, D-15) | §6.9 |
@@ -317,11 +321,12 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Risk | Tests | Lvl | Today |
 |---|---|---|---|
 | R-059 — field erasure on edit (Critical) | UI-DI-02, UI-HP-04, UI-HP-05, UI-HP-06 | Comp, E2E | fixed; all four written and passing |
-| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-NEG-09, UI-DI-03, UI-REL-01, UI-REL-03 | Comp, E2E | writes fixed, component tests pass; failed lists **fail** (D-23); E2E not written |
+| R-062 — failed write looks successful (High) | UI-NEG-02, UI-NEG-03, UI-DI-03, UI-REL-03 | Comp, E2E | fixed, component tests pass; E2E not written |
+| new — failed list looks empty (Medium, Q-k) | UI-NEG-09, UI-REL-01 | Comp, E2E | **fails** (D-23) |
 | R-060 — date saved as a different date (High) | UI-BND-07 | Comp, E2E | fixed; passes (DST change not tested) |
 | new — broken UI feature unnoticed (High) | everything in §6; specifically UI-HP-04 | Comp, E2E | component level runs on every PR (Q-a); D-8, D-18, D-20 … D-22 were still found only by a probe |
-| new — data reads as a different value (Medium) | UI-HP-08, UI-DI-06 | Comp | **fails** (D-8, D-18) |
-| new — stored value cannot be removed (Medium) | UI-NEG-11 | Comp, E2E | **fails** (D-20) |
+| new — data reads as a different value (Medium, Q-l) | UI-HP-08, UI-DI-06, UI-DI-07 | Comp | **fails** (D-8, D-18, D-19) |
+| new — stored value cannot be removed (Medium) | UI-NEG-11 | Comp, E2E | unknown until Q-i (D-20) |
 | new — actions offered to the wrong role (Medium) | UI-NEG-04, UI-NEG-06, UI-SEC-03 | Comp | **fails** |
 | new — input lost when the session ends (Low) | UI-ST-06 | E2E | unknown (Q-e) |
 | R-001, R-002, R-003 | UI-NEG-05, UI-SEC-04 | E2E | expected to pass (API enforces) |
@@ -330,7 +335,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | R-023 | UI-SEC-01, UI-SEC-02 | E2E | not tested |
 | R-037 | UI-BND-09 | E2E | not tested |
 | R-044 | UI-BND-04 | Comp, E2E | **fails** (D-11) |
-| R-049 | UI-CON-01 | Comp, E2E | **fails** (D-21, probe) |
+| R-049 | UI-CON-01 | Comp, E2E | **fails** at form level (D-21); duplicate records assumed, not counted |
 | R-052 | UI-ST-09 | E2E | not tested |
 
 ### B. Edge-case coverage by page
@@ -342,7 +347,7 @@ All use Playwright route interception on API requests; the stack itself stays re
 | Boundary | – | BND-02, 05, 07, 10 | BND-03, 04, 05, 06 | BND-01, 06, 08, 09 |
 | State | ST-01, 02, 04, 05, 06, 09 | ST-07, 08 | ST-07 | ST-03 |
 | Concurrency | – | CON-06 | CON-01 | CON-02, 03, 05, 06 |
-| Data integrity | – | DI-01, 02, 06 | DI-01, 02, 04 | DI-01, 02, 03, 05 |
+| Data integrity | – | DI-01, 02, 06 | DI-01, 02, 04, 07 | DI-01, 02, 03, 05 |
 | Accessibility | A11Y-01, 06, 07, 08 | A11Y-02, 04 | A11Y-03, 05 | A11Y-02, 08 |
 | Responsive | RSP-03, 04 | RSP-01, 02 | RSP-02 | RSP-01 |
 | Reliability | REL-06, 07 | REL-01, 04 | REL-03 | REL-02, 05 |
@@ -396,8 +401,10 @@ the way to measure them.
 
 - D-1 to D-5 were checked in a real browser (§3). The other defects were confirmed by sending the frontend's
   exact requests to the API (D-11, D-12) or by the component probe (D-8, D-18, D-20 … D-22); those were not
-  clicked through in a browser. The API half of D-20 (`""` refused by `[EmailAddress]`) was not sent to a
-  running API. The accessibility assumptions (UI-A11Y-02, UI-A11Y-08) still need a browser run with axe.
+  clicked through in a browser. D-19 and D-23 come from reading the code only. Not sent to a running API: the
+  API half of D-20 (`""` refused by `[EmailAddress]`) and of D-22 (whitespace name and description). D-21 was
+  shown at form level only; the number of requests and records was not counted. The probe was not committed,
+  so its checks have to be written again as the §6 tests. The accessibility assumptions (UI-A11Y-02, UI-A11Y-08) still need a browser run with axe.
 - Keycloak's own login page (theme, accessibility) is out of scope (TEST_STRATEGY §1).
 - `npm audit` and dependency risks are covered by G1, not here.
 - The planned pages for appointments and medical records do not exist and are not designed here.

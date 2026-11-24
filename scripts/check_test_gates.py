@@ -40,9 +40,10 @@ PULL_REQUEST_LEVELS = {"Unit", "API"}  # a risk that names no test level needs o
 COMPONENT_TEST = re.compile(
     r"^\s*(?:it|test)(?:\.each\(.*?\))?(?P<modifier>\.skip|\.only|\.todo)?\s*\(\s*(?:(?P<q>[\"'`])(?P<title>.*?)(?P=q))?")
 # The title ends at the quote it opened with, so an apostrophe inside "the API's errors" does not cut it short
-# and drop the risk tags after it.
+# and drop the risk tags after it. Like COMPONENT_TEST, the title is optional: a describe.skip whose title does
+# not close on its line (a multi-line template string) still counts as a skip (G5), with no tags read from it.
 COMPONENT_DESCRIBE = re.compile(
-    r"^\s*describe(?P<modifier>\.skip|\.only)?\s*\(\s*(?P<q>[\"'`])(?P<title>.*?)(?P=q)")
+    r"^\s*describe(?P<modifier>\.skip|\.only)?\s*\(\s*(?:(?P<q>[\"'`])(?P<title>.*?)(?P=q))?")
 TAG = re.compile(r"@(R-[0-9]{3})\b")
 
 
@@ -130,9 +131,10 @@ def read_component_tests(directory):
         for number, line in enumerate(lines, start=1):
             describe = COMPONENT_DESCRIBE.match(line)
             if describe:
-                file_risks |= set(TAG.findall(describe.group("title")))
+                title = describe.group("title") or ""
+                file_risks |= set(TAG.findall(title))
                 if describe.group("modifier") == ".skip":
-                    skipped_block = describe.group("title")
+                    skipped_block = title
                     skips.append((path, number, skipped_block))
         for number, line in enumerate(lines, start=1):
             test = COMPONENT_TEST.match(line)
