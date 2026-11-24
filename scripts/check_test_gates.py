@@ -39,7 +39,10 @@ PULL_REQUEST_LEVELS = {"Unit", "API"}  # a risk that names no test level needs o
 # test still counts and takes its risks from the describe blocks.
 COMPONENT_TEST = re.compile(
     r"^\s*(?:it|test)(?:\.each\(.*?\))?(?P<modifier>\.skip|\.only|\.todo)?\s*\(\s*(?:(?P<q>[\"'`])(?P<title>.*?)(?P=q))?")
-COMPONENT_DESCRIBE = re.compile(r"^\s*describe(?P<modifier>\.skip|\.only)?\s*\(\s*[\"'`](?P<title>[^\"'`]*)")
+# The title ends at the quote it opened with, so an apostrophe inside "the API's errors" does not cut it short
+# and drop the risk tags after it.
+COMPONENT_DESCRIBE = re.compile(
+    r"^\s*describe(?P<modifier>\.skip|\.only)?\s*\(\s*(?P<q>[\"'`])(?P<title>.*?)(?P=q)")
 TAG = re.compile(r"@(R-[0-9]{3})\b")
 
 
