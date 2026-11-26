@@ -209,7 +209,8 @@ result in the test.
 | Q-033 | BUSINESS_FLOWS F-02.4 ("a patient tries to register or edit patients") named R-003, which is about reading. Which risk should it name? | R-003, R-069 | **R-069** — who may write patient data (2026-11-24). |
 | Q-034 | With F-02.4 under R-069 (Q-033), should R-069 cover any role, staff or patient, and keep its rating? | R-069 | **Yes** — "a role (staff or patient)"; Critical (12) stays; R-069 sits in the main risk table (2026-11-26). |
 | Q-035 | Does "one allowed role is enough" (Q-026) also hold for editing a patient? | R-069 | **Yes** — an account with Doctor and Nurse may edit patients too (2026-11-26). |
-| Q-036 | R-069 after the API change: does the clause "a later change reuses the `Staff` policy for patient writes" stay, and which status does R-069 get? Should F-02.1 and F-02.4 match the tests? | R-069 | **The clause stays** (I=3, L=4); **status `Covered`**, on the red run and four deliberate breaks; **F-02.1 names R-003 and R-069, F-02.4 expects "403 with an empty body, nothing saved or changed"** (2026-11-26). |
+| Q-036 | R-069 after the API change: does the clause "a later change reuses the `Staff` policy for patient writes" stay, and which status does R-069 get? Should F-02.1 and F-02.4 match the tests? | R-069 | **The clause stays** (I=3, L=4); **status `Covered`**, on the red run and four deliberate breaks; **F-02.1 names R-003 and R-069, F-02.4 expects "403 with an empty body, nothing saved or changed"**; Q-017 gets a dated note that the API part is built (2026-11-26). |
+| Q-037 | Where does the API change of Q-017 (Doctor → 403 on `POST` and `PUT /api/Patient`) go: its own pull request, or the R-067 frontend pull request? | R-067, R-069 | **Its own pull request, merged first**; the R-067 frontend pull request rebases on it (2026-11-24, recorded 2026-11-26). |
 
 ## 5. Accepted risks
 
