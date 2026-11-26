@@ -46,7 +46,7 @@ deactivated accounts and for tokens without a hospital role (R-015: `DefaultPoli
 | `GET /api/MedicalRecord/{id}/history` | 403 | Yes | Yes | 403 | 403 | R-011, R-020 |
 | `GET /api/Patient` | Yes | Yes | Yes | 403 | 403 | R-003 |
 | `GET /api/Patient/{id}` | Yes | Yes | Yes | Own | 403 | R-003 |
-| `POST /api/Patient`, `PUT /api/Patient/{id}` | Yes | Yes | Yes | 403 | 403 | R-003 |
+| `POST /api/Patient`, `PUT /api/Patient/{id}` | Yes | 403 | Yes | 403 | 403 | R-069 |
 | `DELETE /api/Patient/{id}` | Yes | 403 | 403 | 403 | 403 | R-005 |
 | `GET /api/Service`, `GET /api/Service/{id}` | Yes | Yes | Yes | Yes | 403 | R-015 |
 | `POST/PUT/DELETE /api/Service…` | Yes | 403 | 403 | 403 | 403 | R-005, R-016 |

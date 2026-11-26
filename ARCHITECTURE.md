@@ -131,7 +131,8 @@ Four layers, from coarse to fine. Each kind of decision has exactly one home (de
    | Policy | Roles | Used for |
    |---|---|---|
    | `AdminOnly` | Admin | Master data writes, user management, audit log, hard deletes |
-   | `Staff` | Admin, Doctor, Nurse | Patient administration, appointment updates |
+   | `Staff` | Admin, Doctor, Nurse | Reading patients, appointment updates |
+   | `PatientRegistration` | Admin, Nurse | Registering and editing patients (BUSINESS_FLOWS F-02; a doctor may not, RISK_REGISTER Q-017) |
    | `ClinicalStaff` | Doctor, Nurse | Medical record history |
    | `DoctorOnly` | Doctor | Writing medical records |
 

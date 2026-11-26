@@ -151,6 +151,7 @@ public class CatalogTests
     }
 
     [Fact]
+    [Trait("Risk", "R-069")]
     [Trait("Scenario", "F-02.1")]
     public async Task UpdatePatient_ReturnsTheUpdatedPatient()
     {

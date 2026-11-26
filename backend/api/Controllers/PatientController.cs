@@ -8,7 +8,10 @@ using Services.PatientService;
 
 namespace api.Controllers
 {
-    /// <summary>Patient registry: staff manage it; a patient can read only their own record.</summary>
+    /// <summary>
+    /// Patient registry: staff read it; a nurse or an administrator registers and edits patients (F-02); only an
+    /// administrator deletes; a patient can read only their own record.
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -42,7 +45,7 @@ namespace api.Controllers
 
         [HttpPost]
         [ProducesResponseType<PatientDto>(StatusCodes.Status201Created)]
-        [Authorize(Policy = Policies.Staff)]
+        [Authorize(Policy = Policies.PatientRegistration)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
         public async Task<IActionResult> CreatePatient([FromBody] PatientCreationDto dto, CancellationToken cancellationToken)
         {
@@ -54,7 +57,7 @@ namespace api.Controllers
 
         [HttpPut("{id}")]
         [ProducesResponseType<PatientDto>(StatusCodes.Status200OK)]
-        [Authorize(Policy = Policies.Staff)]
+        [Authorize(Policy = Policies.PatientRegistration)]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
         [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, "application/problem+json")]
         public async Task<IActionResult> UpdatePatient([FromRoute] int id, [FromBody] PatientCreationDto dto, CancellationToken cancellationToken) =>
