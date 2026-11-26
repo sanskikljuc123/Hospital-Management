@@ -54,8 +54,9 @@ that changes it.
 | **C**-2 | A step of the architecture refactor, cited in a risk's "Fixed in". | Its commit message (`git log --grep "(C-2)"`) | – | – | – |
 
 **One prefix, two series.** [ARCHITECTURE §11](../../ARCHITECTURE.md#11-decision-log) numbers its *decisions*
-D-1, D-2 … as well: there D-2 is "Keycloak owns identities". Inside `docs/testing` a D-number is always a web
-defect; anywhere else, name the document with it ("ARCHITECTURE D-2", "UI_TEST_DESIGN D-2").
+with D as well: ARCHITECTURE D-2 is "Keycloak owns identities", UI_TEST_DESIGN D-2 is a lost email. The rule:
+inside ARCHITECTURE.md a D-number is one of its decisions; everywhere else a bare D-number is a web defect, and
+a decision is written with the word right before it, `ARCHITECTURE D-9`. Gate G4 (e) checks it.
 
 **Labels on statements.** Every finding is a *Fact* (with a citation someone else can open), an *Assumption*
 (says what would prove it) or a *Question* (for a person). The rules are in
@@ -85,7 +86,10 @@ defect; anywhere else, name the document with it ("ARCHITECTURE D-2", "UI_TEST_D
 
 A test names its risk with `[Trait("Risk", "R-xxx")]` (`@R-xxx` in a frontend test title) and its flow
 scenario with `[Trait("Scenario", "F-xx.y")]` (`@F-xx.y` in Gherkin). Gate G4 checks the right half of the
-chain: every `Covered` risk keeps a test at its level, and every `Risk` trait names a risk that exists.
+chain: every `Covered` risk keeps a test at its level, and every `Risk` trait names a risk that exists. G4 (e)
+checks the IDs themselves: each is defined once in the section this legend names, and every ID mentioned in the
+documents, agent and skill files and tests, scenario traits included, is defined
+([QUALITY_GATES §1](QUALITY_GATES.md#1-gates)).
 
 **Example.** The API let a doctor register patients, but flow F-02 says a nurse or an administrator does.
 That contradiction became question **Q-017**; the test owner answered "follow F-02". The answer became risk

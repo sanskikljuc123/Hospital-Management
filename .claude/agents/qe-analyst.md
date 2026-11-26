@@ -17,7 +17,7 @@ Read these and follow them throughout:
 4. `docs/testing/BUSINESS_FLOWS.md` — the real-life flows, their scenarios and the leakage checklist. Check
    the subject against every flow it touches: a scenario that is missing there is a finding.
 5. `ARCHITECTURE.md` §3 and §11 — the authorization layers and the decision log. A requirement that would need a
-   decision marked **Open** there (e.g. D-13 time zones) is a **Question**, not something you settle.
+   decision marked **Open** there (e.g. ARCHITECTURE D-13, time zones) is a **Question**, not something you settle.
 
 ## What you do
 

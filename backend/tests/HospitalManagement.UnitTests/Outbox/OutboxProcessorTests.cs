@@ -8,7 +8,7 @@ using Services.Outbox;
 namespace HospitalManagement.UnitTests.Outbox;
 
 /// <summary>
-/// Delivery rules of the outbox (ARCHITECTURE §7, D-8): due messages only, retries with back-off, give-up after
+/// Delivery rules of the outbox (ARCHITECTURE D-8, §7): due messages only, retries with back-off, give-up after
 /// <see cref="OutboxProcessor.MaxAttempts"/>, errors without payload. Claiming with SKIP LOCKED needs PostgreSQL and is
 /// covered by the API tests (OutboxTests).
 /// </summary>

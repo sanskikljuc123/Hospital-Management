@@ -10,7 +10,7 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G1 | Build | every PR | `dotnet build backend/backend.sln` has 0 errors; `npm run build` in `frontend-web` succeeds and `npm run lint` (ESLint, `frontend-web/eslint.config.js`: TypeScript rules and the React hook rules) reports no error; no package with a known high or critical vulnerability: NuGet audit at restore for every .NET project, including transitive packages (`Directory.Build.props`), and `npm audit --omit=dev` for what ships to the browser. Build-tool (dev) vulnerabilities are reported as a warning, not gated. A vulnerable package is fixed by pinning a patched version, never by silencing the warning | CI log |
 | G2 | Unit and component tests | every PR | all pass; none skipped without a ticket (G5). Backend unit tests in the backend job; frontend component tests (`npm test`, Vitest) in the `Frontend build (G1)` job, which keeps its name because the ruleset requires that check by name | test results (TRX), Vitest output |
 | G3 | API tests | every PR | all pass against real PostgreSQL; none skipped without a ticket. Includes the API contract check: `contracts/openapi.json` equals what the API offers (TEST_STRATEGY §2) | test results (TRX) |
-| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, a Component risk by a frontend component test (tag `@R-xxx` in its title or `describe`), an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only); (d) every required check named in §1 is a job in `.github/workflows/`, and every job with a gate number in its name is named in this document (`scripts/check_gate_names.py`). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
+| G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, a Component risk by a frontend component test (tag `@R-xxx` in its title or `describe`), an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only); (d) every required check named in §1 is a job in `.github/workflows/`, and every job with a gate number in its name is named in this document (`scripts/check_gate_names.py`); (e) every ID is defined once in the section that owns it and every reference to it resolves (`scripts/check_ids.py`). The script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
 | G7 | E2E | every PR that changes something the E2E stack runs: anything except docs and Markdown, `.claude/`, tests of other levels (`backend/tests/`, frontend component tests), gate scripts and tool manifests (`scripts/`, `dotnet-tools.json`), the other workflows, the Aspire AppHost and repository housekeeping; PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
@@ -84,6 +84,22 @@ resolves, **not** that the cited line still says the same thing: that stays with
 check V3. Cite pull requests, not branch names: a branch is gone after merge. Format examples, routes such as
 `/health`, git-ignored build output and `.env`, and the two legacy folders deleted on purpose are not checked.
 
+**G4 (e) — every ID is defined once and every reference resolves** (`scripts/check_ids.py`, in the same CI job;
+its own tests are in `scripts/tests/`). The legend in [README.md → Identifiers](README.md#identifiers) says which
+section owns each kind of ID. The check fails when an ID such as R-069, A-006, Q-017, Q-a, D-2, UI-HP-05, F-02,
+F-02.6 or G9 is named in a testing document, ARCHITECTURE, API_ENDPOINTS, the root Readme, CLAUDE.md, an agent or
+skill file or a test (including `[Trait("Scenario", "F-02.6")]` and `@F-02.6`) but has no row (a heading for a
+flow) in its owning section, or when an ID has two rows there. It also fails when a file or folder it reads is
+missing, so a rename cannot take a file out of the check. A row elsewhere, such as an accepted risk in
+RISK_REGISTER §5, is a reference, not a definition. A D-number is an ARCHITECTURE decision inside ARCHITECTURE.md
+or when the word right before it is ARCHITECTURE (`ARCHITECTURE D-9`); a bare D-number anywhere else is a web
+defect (Q-037). In the tests it reads every line, frontend test helpers in `frontend-web/src/test/` included, so
+test data must not look like an ID (BUSINESS_FLOWS §4, Q-039). Placeholders such as `R-xxx` are not IDs. It
+checks that an ID *exists*, not that its state is the same everywhere: a state is written in its own row only.
+Known limits: in a range ("R-001 to R-004") only the two ends are checked, in "ARCHITECTURE D-8, D-9" only the
+first number is a decision (write the word before each), a scenario row is not checked against the flow heading above it, and the UI test categories are a fixed list in the script. Production code comments and
+the pull request template are not read. Risk R-070.
+
 **G4 is a ratchet.** A risk enters the gate when the test owner sets it to `Covered` after its tests pass;
 from then on it can never lose its tests unnoticed. Risks of level *Config* and *Ops* join the gate in wave 3
 (QUALITY_GATES §7), when their checks exist. The list of uncovered Critical/High risks is printed on every
@@ -102,8 +118,8 @@ public async Task GetDoctor_DoesNotExposeAccountLink() { ... }
 The fix removes the `Skip` and the `KnownGap` trait in the same pull request, and the test must pass. A
 known-gap test never asserts the current, wrong behavior. It does not count for G4 (a).
 
-**Branch smoke (early feedback, not a merge gate):** `.github/workflows/smoke.yml` runs risk/skip and
-documentation-reference checks on every push to branches other than `master`. All unit and API tests run
+**Branch smoke (early feedback, not a merge gate):** `.github/workflows/smoke.yml` runs the risk/skip,
+documentation-reference, check-name and ID checks (G4, G5) on every push to branches other than `master`. All unit and API tests run
 when backend code or its build configuration changes; the frontend build runs when `frontend-web/` changes.
 It does not replace the checks required on every PR.
 

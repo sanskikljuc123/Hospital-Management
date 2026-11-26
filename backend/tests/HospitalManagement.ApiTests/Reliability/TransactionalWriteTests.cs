@@ -9,7 +9,7 @@ using Services.AuditService;
 namespace HospitalManagement.ApiTests.Reliability;
 
 /// <summary>
-/// Decision D-8: a change and its audit entry commit together or not at all. Here the audit store fails for one
+/// ARCHITECTURE D-8: a change and its audit entry commit together or not at all. Here the audit store fails for one
 /// action; the change that triggered it must not be saved.
 /// </summary>
 [Collection(ApiCollection.Name)]

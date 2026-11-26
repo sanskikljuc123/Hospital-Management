@@ -11,7 +11,7 @@ using Services.Outbox;
 namespace HospitalManagement.ApiTests.Reliability;
 
 /// <summary>
-/// Decision D-8: notifications are recorded in the same transaction as the appointment and delivered afterwards,
+/// ARCHITECTURE D-8: notifications are recorded in the same transaction as the appointment and delivered afterwards,
 /// with retries. A failing provider never fails or slows down the booking. Uses its own host with a controllable
 /// e-mail gateway; the processor is run explicitly (no background timer in tests).
 /// </summary>

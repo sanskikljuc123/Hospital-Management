@@ -189,7 +189,7 @@ public class AppointmentBoundaryTests : IDisposable
         Assert.False(await _bed.Service.DeleteAsync(a.Id));
     }
 
-    // ---------- Notifications (D-8: recorded with the change) ----------
+    // ---------- Notifications (ARCHITECTURE D-8: recorded with the change) ----------
 
     [Fact]
     [Trait("Scenario", "F-03.1")]

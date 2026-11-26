@@ -57,6 +57,8 @@ step "G4 and G5 gate scripts"
 "${PYTHON[@]}" scripts/check_test_gates.py || fail "G4/G5"
 "${PYTHON[@]}" -I scripts/check_doc_references.py || fail "G4 (c) citations"
 "${PYTHON[@]}" -I scripts/check_gate_names.py || fail "G4 (d) required check names"
+"${PYTHON[@]}" -I -m unittest discover -s scripts/tests || fail "G4 (e) tests of the ID check"
+"${PYTHON[@]}" -I scripts/check_ids.py || fail "G4 (e) IDs defined once and resolved"
 
 step "G6 secret scan"
 # Files: what CI checks out plus what you would commit (tracked and untracked, not git-ignored), copied to a

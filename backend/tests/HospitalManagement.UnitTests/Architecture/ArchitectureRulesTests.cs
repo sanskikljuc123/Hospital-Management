@@ -8,7 +8,7 @@ public class ArchitectureRulesTests
 {
     private static readonly DirectoryInfo Backend = FindBackend();
 
-    /// <summary>D-9: which patient's data a caller may reach is decided only by IPatientAccessPolicy.</summary>
+    /// <summary>ARCHITECTURE D-9: which patient's data a caller may reach is decided only by IPatientAccessPolicy.</summary>
     [Theory]
     [InlineData("GetCurrentPatientIdAsync")]
     [InlineData("IsInRole(")]
@@ -27,7 +27,7 @@ public class ArchitectureRulesTests
             $"'{forbidden}' used in {string.Join(", ", offenders)}: ask IPatientAccessPolicy instead.");
     }
 
-    /// <summary>D-16: services return DTOs, never EF entities.</summary>
+    /// <summary>ARCHITECTURE D-16: services return DTOs, never EF entities.</summary>
     [Fact]
     [Trait("Risk", "R-054")]
     public void ServiceInterfaces_DoNotExposeEntities()
