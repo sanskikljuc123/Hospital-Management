@@ -220,6 +220,7 @@ Steps: the administrator reads the audit trail. API ✅ · UI ❌
 | **Realistic variety and volume**: several departments, 10–20 doctors and nurses, hundreds of patients, appointments over past and future weeks in every status, records with several revisions | Flows, paging and performance behave as in production |
 | **Identifiers that cannot be real**: record numbers `TEST-000123`, e-mail on the reserved `.test` domain, phone numbers from a reserved fictional range, no national ID numbers | No synthetic record can match a real person |
 | Names and addresses come from a generator, never from a real list of people | Same |
+| No value has the form of a documentation ID (R, A or Q, a hyphen and three digits; Q, a hyphen and one letter; D, F or G with a number; UI-HP and the like): use `TEST-` numbers instead | Gate G4 (e) reads every line of the tests and would take it for a reference (Q-039) |
 | Every Keycloak sample user is linked to its profile on import | Flows start in a usable state |
 | Production-like configuration loads **no** sample data; the generator runs only in development and test environments | R-029 |
 

@@ -283,7 +283,7 @@ service tests). Second full run: **95.32 %**.
 | Location | Mutation | Why it is accepted |
 |---|---|---|
 | `AppointmentService` slot query, `ScheduledAt > windowStart` → `>=` | Boundary of the database pre-filter | Equivalent: an appointment starting exactly at the window start with the maximum duration ends exactly when the new one starts, which the in-memory overlap check already treats as free |
-| `AppointmentService.ToUtc`, unspecified kind → `ToUniversalTime()` | Treats a time without offset as local instead of UTC | That is the open decision D-13 / risk R-051 (known-gap test in the API tests); the expected behavior is not decided yet |
+| `AppointmentService.ToUtc`, unspecified kind → `ToUniversalTime()` | Treats a time without offset as local instead of UTC | That is the open decision ARCHITECTURE D-13 / risk R-051 (known-gap test in the API tests); the expected behavior is not decided yet |
 | `OutboxProcessor` and `UserService.LinkAsync` transaction handling | Begin/commit removed or forced | Equivalent on the in-memory database (it has no transactions); the real transactional behavior is covered by the API tests on PostgreSQL (`OutboxTests`, `TransactionalWriteTests`, linking in every API test) |
 | `OutboxProcessor.Truncate`, `<=` → `<` | Cut at exactly 500 characters | Equivalent: cutting a 500-character string to 500 characters returns the same string |
 | `UserService` concurrent first sign-in (`DbUpdateException` branch) | Not covered | Needs two requests racing on the unique index of a real database; not reachable on the in-memory database |

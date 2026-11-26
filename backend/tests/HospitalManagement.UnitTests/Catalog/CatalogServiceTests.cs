@@ -12,7 +12,7 @@ using Services.ServiceService;
 namespace HospitalManagement.UnitTests.Catalog;
 
 /// <summary>
-/// The service contract of the catalogue modules (ARCHITECTURE §1, D-16): references validated, deletes that never
+/// The service contract of the catalogue modules (ARCHITECTURE D-16, §1): references validated, deletes that never
 /// lose data, every change audited without personal data (BUSINESS_FLOWS F-02; R-013, R-016, R-019, R-042, R-057).
 /// </summary>
 public class CatalogServiceTests : IDisposable

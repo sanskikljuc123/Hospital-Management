@@ -8,7 +8,7 @@ using Services.UserService;
 namespace HospitalManagement.UnitTests.Authorization;
 
 /// <summary>
-/// The single ownership policy (ARCHITECTURE.md §3, D-9). The API tests prove the endpoints use it
+/// The single ownership policy (ARCHITECTURE D-9, §3). The API tests prove the endpoints use it
 /// (BolaTests); these tests pin down the rules themselves, role by role.
 /// </summary>
 [Trait("Category", "Security")]
