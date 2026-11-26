@@ -54,16 +54,19 @@ API ✅ · UI ❌ (accounts in the Keycloak console, linking only through Swagge
 
 ### F-02 Patient registration
 
-Steps: a nurse or administrator registers the patient → optionally links an account (F-01).
+Steps: a nurse or administrator registers the patient → optionally links an account (F-01). A doctor may not
+register or edit patients; when no nurse or administrator is available, the patient waits (RISK_REGISTER Q-017,
+Q-029).
 API ✅ · UI ✅ (patients list and form)
 
 | ID | Scenario | Expected | Risks |
 |---|---|---|---|
-| F-02.1 | Register a new patient | 201, patient visible to staff only | R-003 |
+| F-02.1 | Register a new patient | 201, patient visible to staff only | R-003, R-069 |
 | F-02.2 | Required data missing or invalid | 400 with field errors, nothing saved | – |
 | F-02.3 | Same person registered twice | **Gap:** no duplicate detection; two records split the history | R-049 |
-| F-02.4 | Patient tries to register or edit patients | 403 | R-003 |
+| F-02.4 | Patient tries to register or edit patients | 403 with an empty body, nothing saved or changed | R-069 |
 | F-02.5 | Delete a patient who has appointments or records | 409, nothing deleted | R-019 |
+| F-02.6 | Doctor tries to register or edit a patient (an existing or a missing id) | 403 with an empty body, nothing saved or changed | R-069 |
 
 ### F-03 Booking an appointment
 

@@ -72,8 +72,8 @@ Create, update and delete are audited (`Doctor.*`).
 |---|---|---|---|---|---|
 | GET | `/api/Patient` | List patients | Staff | – | `PatientDto[]` |
 | GET | `/api/Patient/{id}` | Get one patient | Staff; Patient (own record only) | – | `PatientDto` |
-| POST | `/api/Patient` | Register a patient (400 for an unknown service) | Staff | `PatientCreationDto` | 201 + `PatientDto` |
-| PUT | `/api/Patient/{id}` | Update a patient | Staff | `PatientCreationDto` | `PatientDto` |
+| POST | `/api/Patient` | Register a patient (400 for an unknown service) | Admin, Nurse | `PatientCreationDto` | 201 + `PatientDto` |
+| PUT | `/api/Patient/{id}` | Update a patient | Admin, Nurse | `PatientCreationDto` | `PatientDto` |
 | DELETE | `/api/Patient/{id}` | Delete a patient (409 if they have appointments or records) | Admin | – | 204 |
 
 Create, update and delete are audited (`Patient.*`) with ids and changed field names only, never personal data.

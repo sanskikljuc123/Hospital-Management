@@ -9,6 +9,11 @@ namespace api.Auth
         public const string AdminOnly = nameof(AdminOnly);
         /// <summary>Anyone working in the hospital: Admin, Doctor, Nurse.</summary>
         public const string Staff = nameof(Staff);
+        /// <summary>
+        /// People who register and edit patients: Admin, Nurse (BUSINESS_FLOWS F-02). A doctor reads patients but does
+        /// not write them (RISK_REGISTER Q-017, R-069).
+        /// </summary>
+        public const string PatientRegistration = nameof(PatientRegistration);
         /// <summary>People allowed to read clinical content: Doctor, Nurse.</summary>
         public const string ClinicalStaff = nameof(ClinicalStaff);
         /// <summary>People allowed to write clinical content: Doctor.</summary>
@@ -28,6 +33,7 @@ namespace api.Auth
 
             options.AddPolicy(AdminOnly, p => p.RequireRole(Roles.Admin));
             options.AddPolicy(Staff, p => p.RequireRole(Roles.Admin, Roles.Doctor, Roles.Nurse));
+            options.AddPolicy(PatientRegistration, p => p.RequireRole(Roles.Admin, Roles.Nurse));
             options.AddPolicy(ClinicalStaff, p => p.RequireRole(Roles.Doctor, Roles.Nurse));
             options.AddPolicy(DoctorOnly, p => p.RequireRole(Roles.Doctor));
         }

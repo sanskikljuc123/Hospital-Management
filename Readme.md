@@ -59,14 +59,14 @@ The API decides what each role may do; the full list per endpoint is the role ma
 | Sign in as | Web frontend (Doctors, Patients, Services pages) | API only (Swagger) |
 |---|---|---|
 | `admin.user` (Admin) | Everything: list, add, edit and delete doctors, patients and services | Departments, users and account links, audit log, appointment status corrections and deletes. No medical records |
-| `doctor.user` (Doctor) | List doctors, patients and services; add and edit patients | Appointments (also marking them `Completed`); medical records, once an admin links the account to a doctor record |
+| `doctor.user` (Doctor) | List doctors, patients and services. Add and Edit on the Patients page are still shown but refused (403) until the web frontend hides them (R-067) | Appointments (also marking them `Completed`); medical records, once an admin links the account to a doctor record |
 | `nurse.user` (Nurse) | List doctors, patients and services; add and edit patients | Appointments; read medical records and their history |
 | `patient.user` (Patient) | List doctors and services. The Patients page stays empty | Own appointments and medical records, once an admin links the account to a patient record |
 
 Things to know when you try the frontend:
 
 - **The frontend shows every button to every role.** Add, edit and delete are visible even when the role may
-  not use them. The API refuses the request with 403, and the page shows no message: the list or form simply
+  not use them. The API refuses the request with 403, the page shows "You are not allowed to do this.", and the list or form
   does not change. Use `admin.user` to manage doctors and services.
 - **The sample users are not linked to doctor or patient records.** Until an admin links them
   (`PUT /api/User/{id}/link`), `doctor.user` cannot write medical records and `patient.user` sees no own data.

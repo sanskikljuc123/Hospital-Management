@@ -42,8 +42,9 @@ public static class AuthorizationMatrix
 
         new("GET", "/api/Patient", "ADN"),
         new("GET", "/api/Patient/{id}", "ADN", PatientOwnOnly: true),
-        new("POST", "/api/Patient", "ADN"),
-        new("PUT", "/api/Patient/{id}", "ADN"),
+        // Q-017, Q-024: a doctor neither registers nor edits patients (R-069); a nurse or an administrator does (F-02).
+        new("POST", "/api/Patient", "AN"),
+        new("PUT", "/api/Patient/{id}", "AN"),
         new("DELETE", "/api/Patient/{id}", "A"),
 
         new("GET", "/api/Service", "ADNP"),

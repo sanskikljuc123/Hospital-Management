@@ -20,6 +20,7 @@ public class AuthorizationMatrixTests
     [Trait("Risk", "R-005")]
     [Trait("Risk", "R-015")]
     [Trait("Risk", "R-020")]
+    [Trait("Risk", "R-069")]
     public async Task Endpoint_Identity_GetsExpectedAuthorizationResult(string method, string template, string identity, string expected)
     {
         using var client = _factory.ClientFor(UserFor(identity));
