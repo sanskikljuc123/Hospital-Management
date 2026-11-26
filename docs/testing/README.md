@@ -27,10 +27,70 @@ reliability, and every important scenario and edge case — while all data is fa
 | [TEST_STRATEGY.md](TEST_STRATEGY.md) | What we test at which level, with which tools, data and environments, and how tests are written. |
 | [RISK_REGISTER.md](RISK_REGISTER.md) | How risks are rated, the current risks, the open assumptions, and which test covers which risk. |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Who may call which endpoint, per-record access rules, token and leakage checks. |
-| [UI_TEST_DESIGN.md](UI_TEST_DESIGN.md) | Proposed tests for `frontend-web`: defects found, proposed risks, the test catalogue by category, open questions and automation approach. Not implemented yet. |
+| [UI_TEST_DESIGN.md](UI_TEST_DESIGN.md) | Tests for `frontend-web`: defects found, proposed risks, the test catalogue by category, open questions and automation approach. Which tests are implemented is stated at the top of the document. |
 | [QUALITY_GATES.md](QUALITY_GATES.md) | What must pass before merge and release, the flaky-test and skip policy, and how failures and findings are handled. |
 
 These documents are the **single source of truth**. Agents and skills point to them; they do not copy them.
+This table says what each document *answers*, never what state it is in: a state written in two places goes
+stale in one of them.
+
+## Identifiers
+
+Every item in these documents has an ID. An ID is **defined once**, as a row or a heading in the document
+that owns it; everywhere else it is only referenced. When you meet an ID, open the document in the second
+column. Its state (rating, status, answer) lives in that row only, and is changed in the same pull request
+that changes it.
+
+| ID, example | What it is | Defined in | Who raises it | Who decides | States |
+|---|---|---|---|---|---|
+| **F**-02, scenario F-02.6 | A business flow: what a real user does and the expected result. This is the requirement a test checks. | [BUSINESS_FLOWS §3](BUSINESS_FLOWS.md#3-flows) | Product owner, test owner | Product owner | A scenario is expected behaviour, or **Gap**: not handled yet, pointing to its risk |
+| **R**-069 | A risk: something that *could* go wrong, rated Impact × Likelihood. | [RISK_REGISTER §2](RISK_REGISTER.md#2-risks); a web risk is first proposed in [UI_TEST_DESIGN §4](UI_TEST_DESIGN.md#4-proposed-risks) | Anyone; agents propose | Test owner: rating and status | `Proposed` → `Accepted` → `Covered` → `Closed`, or accepted for now in [§5](RISK_REGISTER.md#5-accepted-risks) |
+| **A**-006 | An assumption: treated as true without proof, with an owner and a date to re-check. | [RISK_REGISTER §3](RISK_REGISTER.md#3-assumptions) | Anyone | Test owner | Open, Verified, Closed |
+| **Q**-017 | A question no code or document answers. Its answer decides the expected result of a test. | [RISK_REGISTER §4](RISK_REGISTER.md#4-open-questions) | Anyone | A person: test owner or product owner, never an agent or the implementer | Open, or the answer with its date |
+| **Q**-a … Q-l | A question raised while designing the web tests. One that went to the test owner got a Q-0nn row, which names its letter (Q-012 is Q-i). | [UI_TEST_DESIGN §7](UI_TEST_DESIGN.md#7-gaps-and-missing-requirements) | Test designer | As Q-0nn | Question (open), Answered |
+| **D**-2 | A defect in the web frontend: something that *is* wrong now, with evidence. | [UI_TEST_DESIGN §3](UI_TEST_DESIGN.md#3-defects-found-while-designing) | Whoever finds it | Fixed in code; the risk it proves is decided as R | Fact (open), Fact, fixed |
+| **UI**-HP-05 | A web test case. The middle part is its category: HP happy path, NEG negative, BND boundary, ST state, CON concurrency, DI data integrity, A11Y accessibility, RSP responsive, REL reliability, SEC security. | [UI_TEST_DESIGN §6](UI_TEST_DESIGN.md#6-test-catalogue) | Test designer | Test owner accepts it | Design, or implemented (listed at the top of UI_TEST_DESIGN) |
+| **G**9 | A quality gate: a check every pull request must pass. | [QUALITY_GATES §1](QUALITY_GATES.md#1-gates) | – | A person: what is required in the repository settings | – |
+| **C**-2 | A step of the architecture refactor, cited in a risk's "Fixed in". | Its commit message (`git log --grep "(C-2)"`) | – | – | – |
+
+**One prefix, two series.** [ARCHITECTURE §11](../../ARCHITECTURE.md#11-decision-log) numbers its *decisions*
+D-1, D-2 … as well: there D-2 is "Keycloak owns identities". Inside `docs/testing` a D-number is always a web
+defect; anywhere else, name the document with it ("ARCHITECTURE D-2", "UI_TEST_DESIGN D-2").
+
+**Labels on statements.** Every finding is a *Fact* (with a citation someone else can open), an *Assumption*
+(says what would prove it) or a *Question* (for a person). The rules are in
+[evidence-rules](../../.claude/skills/evidence-rules/SKILL.md).
+
+**Columns that recur.**
+
+| Column | Meaning | Defined in |
+|---|---|---|
+| I, L, Severity | Impact and Likelihood (1–4); Severity = I × L: Low 1–3, Medium 4–6, High 8–9, Critical 12–16 | [RISK_REGISTER §1](RISK_REGISTER.md#1-risk-model) |
+| STRIDE | Threat category: Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege | [RISK_REGISTER §1](RISK_REGISTER.md#1-risk-model) |
+| Level, Lvl | The lowest test level that can prove it: Unit, API, Component (Comp), E2E | [TEST_STRATEGY §2](TEST_STRATEGY.md#2-test-levels) |
+| Sev | In the web test catalogue: the proposed severity of the risk the test proves | [UI_TEST_DESIGN §6](UI_TEST_DESIGN.md#6-test-catalogue) |
+| Auto | Automation order: P1 first, then P2, then P3 | [UI_TEST_DESIGN §6](UI_TEST_DESIGN.md#6-test-catalogue) |
+
+### How the IDs link
+
+```
+ Q  answers ──┐                         A  is assumed about it
+              ▼                         ▼
+ F  flow  ──► R  risk  ──► test  ──► G  gate
+ what must    what could   names R     runs the test and checks the link
+ happen       go wrong     and F
+                ▲
+ D  proves it ──┘
+```
+
+A test names its risk with `[Trait("Risk", "R-xxx")]` (`@R-xxx` in a frontend test title) and its flow
+scenario with `[Trait("Scenario", "F-xx.y")]` (`@F-xx.y` in Gherkin). Gate G4 checks the right half of the
+chain: every `Covered` risk keeps a test at its level, and every `Risk` trait names a risk that exists.
+
+**Example.** The API let a doctor register patients, but flow F-02 says a nurse or an administrator does.
+That contradiction became question **Q-017**; the test owner answered "follow F-02". The answer became risk
+**R-069**, rated Critical (12). The fix was proven by `PatientWriteAccessTests`, which carries
+`[Trait("Risk", "R-069")]` and `[Trait("Scenario", "F-02.6")]`, and G4 keeps that link from breaking.
 
 ## How the work flows
 
