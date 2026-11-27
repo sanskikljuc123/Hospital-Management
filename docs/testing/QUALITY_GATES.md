@@ -178,9 +178,13 @@ A test is **flaky** when it fails and passes on the same code.
 **Found before it blocks someone:** `.github/workflows/flaky.yml` runs the unit and API tests three times on the
 same commit every night (and on demand) and lists every test whose outcome changed (`scripts/flaky_report.py`).
 It only detects: nothing is re-run to green, and it is not a required check. A test it lists starts at step 1.
+The three runs use the same order, so the job does not find a test that depends on the order of the tests
+(TEST_STRATEGY §8, *Test independence*; R-072, Q-044).
 
 1. **Do not re-run to green.** Record the failure with the flaky-test template (§6).
-2. Reproduce: run the test alone and in its collection, 20 times. Use `qe-reviewer` to triage.
+2. Reproduce: run the test alone and in its collection, 20 times. A test that passes alone and fails only after
+   certain other tests breaks the independence rule (TEST_STRATEGY §8): find the test that left the state
+   behind. Use `qe-reviewer` to triage.
 3. If the cause is not fixed within 2 working days, the test owner may **quarantine** it:
    `[Trait("Quarantine", "#123")]` plus `Skip = "Quarantined #123"`. The ticket names an owner.
 4. A quarantined test covering a Critical risk blocks the merge (G4 still requires a passing test).

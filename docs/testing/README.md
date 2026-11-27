@@ -11,7 +11,7 @@ agent were removed tomorrow, every test and every quality gate would still run t
 |---|---|
 | **Confidence over coverage** | There is no coverage-percentage gate. The gate is: every Critical and High risk has a passing test that would fail if the risk happened. |
 | **Risk over quantity** | Every test traces to a risk ID (`[Trait("Risk", "R-001")]`). A test with no risk behind it is questioned in review. |
-| **Reliability over speed** | No automatic retries, no `Thread.Sleep` / fixed waits, isolated test data. A flaky test is quarantined with an owner and a ticket — never silently skipped. |
+| **Reliability over speed** | No automatic retries, no `Thread.Sleep` / fixed waits, isolated test data. Every test arranges its own data and passes alone and in any order ([TEST_STRATEGY §8](TEST_STRATEGY.md#test-independence)). A flaky test is quarantined with an owner and a ticket — never silently skipped. |
 | **Evidence over assumptions** | A claim cites code (`file:line`), a test, or a test run. Anything unproven is recorded as an assumption with an owner and a review date. |
 
 **Operating principle: production-like, with synthetic data.** Everything is built, configured and tested

@@ -48,7 +48,10 @@ Check and report each item:
 6. **Risks touched** by the change that have no test (see the register), and **flow scenarios**
    (`BUSINESS_FLOWS.md`) the change affects without a `Scenario` trait or Gherkin tag.
 7. **Test conventions** from TEST_STRATEGY §4 and §8 (determinism) that the new tests break, including a known-gap
-   test that asserts the current wrong behavior instead of the correct one.
+   test that asserts the current wrong behavior instead of the correct one. Also check *Test independence* (§8): a
+   test that uses data it did not create, asserts on a total or an empty list of a shared database, leaves state
+   another test can see, or fixes the order of tests (an xUnit test case orderer, `shuffle: false`) without an exception
+   listed in §8.
 8. **Mutation testing (G9, TEST_STRATEGY §11):** a changed line in `backend/Services/`,
    `backend/api/Auth/PatientAccessPolicy.cs` or `frontend-web/src/` (not tests) with no test that would fail if the
    line broke — the pull request's check `Mutation testing of changed code` fails then. Also a new
