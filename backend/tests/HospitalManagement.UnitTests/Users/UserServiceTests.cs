@@ -68,6 +68,9 @@ public sealed class UserServiceTests : IDisposable
         _db.AddUser(_caller.Subject!, _caller.UserName!, isActive: false);
 
         Assert.False(await Service.SyncCurrentUserAsync(), "a deactivated user must be refused");
+        // Refused means refused: no login audited, and nothing cached that would let the next request in (rule 5).
+        Assert.Empty(_audit.Entries);
+        Assert.False(await Service.SyncCurrentUserAsync(), "the next request of a deactivated user must be refused too");
     }
 
     [Fact]
@@ -99,18 +102,21 @@ public sealed class UserServiceTests : IDisposable
         var result = await Service.SetActiveAsync(nurse.Id, false);
 
         Assert.False(result.Value!.IsActive, "the user must be stored as inactive");
-        Assert.Contains(AuditActions.UserDeactivated, _audit.Actions);
+        var deactivated = Assert.Single(_audit.Entries, e => e.Action == AuditActions.UserDeactivated);
+        Assert.Equal(nurse.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), deactivated.EntityId); // the nurse, not the caller (rule 10)
         // The cache entry was evicted, so the next request of that user is refused.
         Assert.False(await new UserService(_db, nurseCaller, _audit, _cache).SyncCurrentUserAsync(), "the next request of the deactivated user must be refused at once");
     }
 
     [Fact]
+    [Trait("Risk", "R-007")]
     public async Task Deactivate_Yourself_IsInvalid()
     {
         var me = _db.AddUser(_caller.Subject!, _caller.UserName!);
 
         Assert.Equal(ResultStatus.Invalid, (await Service.SetActiveAsync(me.Id, false)).Status);
         Assert.True((await _db.Users.SingleAsync()).IsActive, "deactivating yourself must leave your account active");
+        Assert.Empty(_audit.Entries); // a refused change is not audited as made (rule 5)
     }
 
     [Fact]
@@ -267,6 +273,7 @@ public sealed class UserServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("Risk", "R-024")]
     public async Task RequestWithoutSubject_IsLetThrough_WithoutCreatingAProfile()
     {
         _caller.Subject = null;

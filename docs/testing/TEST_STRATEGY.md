@@ -147,12 +147,16 @@ assertion review on 2026-11-27 found such tests in this repository; the examples
 How they are enforced:
 
 - **Gate G4 (g)**, on every pull request: `scripts/check_assertion_rules.py` fails the build on the rules a script can
-  see in the text, 7, 12, 15, 16 and 19 (QUALITY_GATES §1). Same result on every run; it blocks the merge.
-- **Review**, for the rules that need judgement (the others): `qe-reviewer` checks every rule in a change review (mode
-  1, item 11), also as the advisory CI job *Assertion review* when the repository has an API key; its findings are
-  proposals. The code owner decides at the merge (G8).
-- `qe-test-designer` designs to the rules, and the pull request answers for them (QUALITY_GATES §2). A rule may be broken only where a comment on the assertion
-says so and why: `// Assertion rule 4 exception: <reason>`. A deviation without that comment is a finding.
+  see in the text, 7, 12, 15, 16 and 19 (QUALITY_GATES §1). Same result on every run; it blocks the merge. It is a
+  text heuristic with known limits, listed at the top of the script.
+- **Review**, for the rules that need judgement (1–6, 8–11, 13, 14, 17, 18, 20): `qe-reviewer` checks every rule in a
+  change review (mode 1, item 11), also as the advisory CI job *Assertion review* when the repository has an API key;
+  its findings are proposals. The code owner decides at the merge (G8).
+- `qe-test-designer` designs to the rules, and the pull request answers for them (QUALITY_GATES §2).
+
+A rule may be broken only where a comment on the assertion, or directly above it, says so and why:
+`// Assertion rule 4 exception: <reason>`. It covers that one assertion (the next one within ten lines), not the ones
+after it. A deviation without that comment is a finding.
 
 | # | Rule | The test must | Example of the breach |
 |---|---|---|---|

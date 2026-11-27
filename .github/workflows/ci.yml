@@ -120,7 +120,8 @@ jobs:
       - name: Required check names match the workflows (G4 d)
         run: python3 -I scripts/check_gate_names.py
       # Every ID is defined once in the document that owns it, and every reference resolves (README, Identifiers).
-      - name: Tests of the ID check (G4 e)
+      # Also the tests of the assertion-rule check (G4 g) and of the AI review workflow's protections (R-075).
+      - name: Tests of the gate scripts (G4 e, g)
         run: python3 -I -m unittest discover -s scripts/tests
       - name: IDs defined once and every reference resolves (G4 e)
         run: python3 -I scripts/check_ids.py

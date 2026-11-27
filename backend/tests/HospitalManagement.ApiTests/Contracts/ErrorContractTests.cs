@@ -64,11 +64,16 @@ public class ErrorContractTests
     public async Task InvalidBody_Returns400ProblemDetails_WithFieldErrors()
     {
         using var admin = _data.Admin;
+        await _data.ServiceIdAsync(); // the list below is not empty, so the absence can be seen
+        var description = "no name " + Guid.NewGuid().ToString("N")[..8];
 
-        var response = await admin.PostAsJsonAsync("/api/Service", new { description = "no name" }, TestData.Json);
+        var response = await admin.PostAsJsonAsync("/api/Service", new { description }, TestData.Json);
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.BadRequest);
-        Assert.True(problem.GetProperty("errors").TryGetProperty("Name", out _), "the field errors must name the missing Name");
+        Assert.Equal(new[] { "Name" }, problem.GetProperty("errors").EnumerateObject().Select(e => e.Name).ToArray());
+        var services = (await admin.GetFromJsonAsync<JsonElement>("/api/Service", TestData.Json)).EnumerateArray().ToList();
+        Assert.NotEmpty(services);
+        Assert.DoesNotContain(services, s => s.GetProperty("description").GetString() == description);
     }
 
     [Fact]
