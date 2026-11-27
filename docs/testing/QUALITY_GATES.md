@@ -158,6 +158,8 @@ The PR template asks the author:
 - Which risks does this change touch? (IDs)
 - Which tests prove them? (names)
 - Did any test get removed, skipped or loosened? Why?
+- Do the new and changed tests follow the assertion rules (TEST_STRATEGY §4, *Assertion rules*)? Which rule has an
+  exception comment, and why?
 - Does the change touch `[Authorize]`, `Policies.cs`, ownership checks or token validation? If yes, which
   security tests changed?
 - Does the change set a risk to `Covered`? If yes, the **red evidence** for it: a CI run (link) or pasted output
@@ -206,6 +208,7 @@ deleting the test.
 
 - Every gate in §1 passes on the pull request (the required ones block the merge), and G8: a code owner merged it.
 - Every new or changed line in the areas of G9 has a test that fails when the line breaks.
+- Every new or changed test follows the assertion rules (TEST_STRATEGY §4); each exception has its comment.
 - Risks touched by the change are in the register with a status; new Critical/High risks are `Covered`.
 - Open questions the change answers are closed in the register.
 

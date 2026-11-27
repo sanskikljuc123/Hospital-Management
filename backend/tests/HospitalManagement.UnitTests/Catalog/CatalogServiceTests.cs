@@ -110,6 +110,8 @@ public sealed class CatalogServiceTests : IDisposable
 
         Assert.Equal(ResultStatus.Invalid, result.Status);
         Assert.Empty(_db.Doctors);
+        Assert.Empty(_db.DoctorServices);
+        Assert.Empty(_audit.Entries);
     }
 
     [Fact]
@@ -151,6 +153,9 @@ public sealed class CatalogServiceTests : IDisposable
         { FirstName = "T", LastName = "D", ServiceIds = new[] { service.Id } });
 
         Assert.Equal(ResultStatus.Conflict, (await new ServiceServiceImp(_db, _audit).DeleteAsync(service.Id)).Status);
+        Assert.Single(_db.Services);
+        Assert.Single(_db.DoctorServices);
+        Assert.Equal(new[] { AuditActions.DoctorCreated }, _audit.Actions.ToArray());
     }
 
     [Fact]
@@ -163,7 +168,9 @@ public sealed class CatalogServiceTests : IDisposable
 
         Assert.True(result.Success);
         Assert.Empty(_db.Services);
-        Assert.Equal(AuditActions.ServiceDeleted, Assert.Single(_audit.Entries).Action);
+        var entry = Assert.Single(_audit.Entries);
+        Assert.Equal((AuditActions.ServiceDeleted, service.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            (entry.Action, entry.EntityId));
     }
 
     [Fact]
@@ -189,6 +196,7 @@ public sealed class CatalogServiceTests : IDisposable
 
         var first = await departments.CreateAsync(new DepartmentDto { Name = "Cardiology" });
         var duplicate = await departments.CreateAsync(new DepartmentDto { Name = "Cardiology" });
+        Assert.Equal(new[] { "Cardiology" }, await _db.Departments.Select(d => d.Name).ToArrayAsync());
         await departments.UpdateAsync(first.Value!.Id, new DepartmentDto { Name = "Cardiology & Vascular" });
         await departments.DeleteAsync(first.Value.Id);
 

@@ -27,7 +27,9 @@ public sealed class AppointmentRulesTests : IDisposable
         var a = await _bed.BookAsync(At(1, 9));
 
         Assert.Equal(AppointmentStatus.Scheduled, a.Status);
-        Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentCreated);
+        Assert.Equal(AppointmentStatus.Scheduled, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
+        var entry = Assert.Single(_bed.Audit.Entries);
+        Assert.Equal((AuditActions.AppointmentCreated, (object?)a.Id), (entry.Action, entry.EntityId));
     }
 
     [Theory]
@@ -45,6 +47,7 @@ public sealed class AppointmentRulesTests : IDisposable
         });
 
         Assert.Equal(ResultStatus.Invalid, result.Status);
+        AssertNothingWritten();
     }
 
     [Theory]
@@ -65,6 +68,9 @@ public sealed class AppointmentRulesTests : IDisposable
         });
 
         Assert.Equal(ResultStatus.Conflict, result.Status);
+        Assert.Single(_bed.Db.Appointments);
+        Assert.Single(_bed.Audit.Entries);       // the first booking's only
+        Assert.Single(_bed.Notifications.Sent);  // the first booking's only
     }
 
     [Theory]
@@ -264,7 +270,8 @@ public sealed class AppointmentRulesTests : IDisposable
         var result = await _bed.Service.CancelAsync(a.Id);
 
         Assert.Equal(AppointmentStatus.Cancelled, result.Value!.Status);
-        Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentUpdated);
+        Assert.Equal(AppointmentStatus.Cancelled, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
+        Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentUpdated && Equals(e.EntityId, a.Id));
     }
 
     [Fact]
@@ -274,8 +281,13 @@ public sealed class AppointmentRulesTests : IDisposable
     {
         var a = await _bed.BookAsync(At(1, 9));
         _bed.AdvanceTo(At(1, 9, 1));
+        var auditBefore = _bed.Audit.Entries.Count;
+        var sentBefore = _bed.Notifications.Sent.Count;
 
         Assert.Equal(ResultStatus.Conflict, (await _bed.Service.CancelAsync(a.Id)).Status);
+        Assert.Equal(AppointmentStatus.Scheduled, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
+        Assert.Equal(auditBefore, _bed.Audit.Entries.Count);
+        Assert.Equal(sentBefore, _bed.Notifications.Sent.Count);
     }
 
     [Fact]
@@ -315,9 +327,12 @@ public sealed class AppointmentRulesTests : IDisposable
         var a = await _bed.BookAsync(At(1, 9));
         _bed.AdvanceTo(At(1, 9, 5));
         _bed.User.ActAs(role);
+        var auditBefore = _bed.Audit.Entries.Count;
 
         Assert.Equal(ResultStatus.Forbidden,
             (await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed))).Status);
+        Assert.Equal(AppointmentStatus.Scheduled, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
+        Assert.Equal(auditBefore, _bed.Audit.Entries.Count);
     }
 
     [Theory]
@@ -357,6 +372,7 @@ public sealed class AppointmentRulesTests : IDisposable
         var result = await _bed.Service.UpdateAsync(a.Id, update);
 
         Assert.Equal("Follow-up letter sent", result.Value!.Notes);
+        Assert.Equal(AppointmentStatus.Completed, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
     }
 
     // ---------- Status correction (F-11) ----------
@@ -547,6 +563,14 @@ public sealed class AppointmentRulesTests : IDisposable
         var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed));
 
         Assert.Equal(AppointmentStatus.Completed, result.Value!.Status);
+    }
+
+    /// <summary>A refused booking left no appointment, audit entry or notification behind (assertion rule 5).</summary>
+    private void AssertNothingWritten()
+    {
+        Assert.Empty(_bed.Db.Appointments);
+        Assert.Empty(_bed.Audit.Entries);
+        Assert.Empty(_bed.Notifications.Sent);
     }
 
     /// <summary>An appointment tomorrow at 09:00 brought into the given final status by the normal flow.</summary>

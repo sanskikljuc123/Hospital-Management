@@ -14,4 +14,7 @@ This file is loaded by every Claude Code session here. It only points at the rul
   would fail if the line broke (G9).
 - **Never weaken a test** to make it pass: no skips without `Known gap R-xxx` or `#issue`, no retries, no broader
   assertions (AI rule 4).
+- **Assertion rules:** every new or changed test follows the 20 mandatory rules in
+  [docs/testing/TEST_STRATEGY.md §4 → Assertion rules](docs/testing/TEST_STRATEGY.md#assertion-rules); an exception
+  needs an `// Assertion rule N exception: <reason>` comment.
 - **Branches:** work on a feature branch from `origin/master`, never on `master`; a person merges.

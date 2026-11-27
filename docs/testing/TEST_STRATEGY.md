@@ -45,6 +45,8 @@ each action returns). Two checks hold the two sides to it:
 - **API side** — `OpenApiContractTests.cs` (G3) generates the description from the running test host and fails
   when it differs from the committed file. An intended API change updates the file in the same pull request:
   `UPDATE_OPENAPI_CONTRACT=1 dotnet test --filter OpenApiContract` in `backend/tests/HospitalManagement.ApiTests`.
+  That run rewrites the file and fails on purpose, so the variable can never make the check pass; run the test
+  again without it after committing the file.
 - **Frontend side** — `contract.ts`, wired into MSW in `src/test/setup.ts` (G2), checks every request a component
   test sends (method, path, body types and fields) and every response a test mocks (status, body) against the
   file. A mismatch fails the test that caused it.
@@ -135,6 +137,39 @@ Rules for every test:
 5. **No shared mutable state** between tests. A test creates the data it needs, asserts only on what it created
    and passes alone and in any order (§8, *Test independence*).
 6. **No conditional logic** (`if`) in a test body. Use `[Theory]` with data rows instead.
+
+### Assertion rules
+
+**Mandatory** for every new or changed test, at every level (unit, API, component, E2E step). They exist
+because a test that passes with the bug present is worse than no test: it reports the risk as covered. An
+assertion review on 2026-11-27 found such tests in this repository; the examples below are from it.
+
+`qe-reviewer` checks every rule in a change review (mode 1, item 11), `qe-test-designer` designs to them, and the
+pull request answers for them (QUALITY_GATES §2). A rule may be broken only where a comment on the assertion
+says so and why: `// Assertion rule 4 exception: <reason>`. A deviation without that comment is a finding.
+
+| # | Rule | The test must | Example of the breach |
+|---|---|---|---|
+| 1 | **Business result, not technical success** | Assert the outcome the flow or risk is about: the stored state, the content of the body, who received what. A status code or `Success` alone is allowed only where authorization *is* the behavior (the matrix), with an exception comment. | A patient's own item checked only for 200: another patient's data with 200 passed. |
+| 2 | **Oracle independence** | Take the expected value from the requirement, written as a literal, or read it back through an independent channel (another endpoint, another identity, the database). Never from the code under test, its factory or constant, or the response being checked. | `PatientAccessPolicyTests` compares with literal `PatientScope` values, not `PatientScope.All`. |
+| 3 | **Dynamic expectations** | Compute values that depend on time, IDs or generated data from inputs the test controls (the fixed clock, the IDs it created), never from a second reading of "now" or from the output under test. On a shared database, expect a change relative to a value read before the act, not an absolute count. | `recentlyFailed >= 1` on a shared database: other tests' failed messages made it pass. |
+| 4 | **Negative assertions can fail** | Give every "absent / empty / not called / not contains" a positive control: the same query or filter shown to find a matching item (in the same test or a named one). Prefer an allowlist of what may appear over a denylist of what may not. | `Assert.All` on a list that was empty because of the bug; a denylist of internal fields that a new field name passes. |
+| 5 | **Error side effects** | On every rejection (4xx, `Invalid`, `Conflict`, `Forbidden`, `NotFound`), assert that nothing the test created changed: stored state, audit entries, outbox messages and notifications. | A refused booking checked only for `Conflict`. |
+| 6 | **Boundaries** | Test a boundary at the exact value and at the nearest value on each side, so `<` and `<=` give different results. | Start time, 10 min overdue, 24 h failed window, 30 s clock skew. |
+| 7 | **Collections** | Assert the exact content (and the order, where the contract defines one) with `Equal` on the sequence, `Single` or `Contains` on the item the test created. `Assert.All` / `every` only after asserting the collection holds the expected item, since it passes on an empty one. | The E2E "every appointment belongs to the patient" over an empty list. |
+| 8 | **Null and empty** | Assert explicitly where the contract says null or empty (an empty 403 body, `lastEditedByDoctorId` null before the first edit), and test null, empty and whitespace inputs that the endpoint accepts. | |
+| 9 | **Async** | Await every task. Wait for a condition with a deadline and a message that says what the loop was doing, never a fixed sleep. Assert an absence only after the work that could produce it has provably finished. | `OutboxDispatcherTests` waits on a signal with a deadline and reports the loop's state. |
+| 10 | **Mock verification** | Let a fake record every argument the behavior depends on (recipient, content, entity ID) and assert them, with an exact count (`Single`, `toHaveBeenCalledTimes(1)`). Assert the calls that must not happen. | An e-mail checked only by subject while other tests' messages were delivered in the same run. |
+| 11 | **Known defect detection** | Give an open risk a known-gap test that asserts the **correct** behavior (§4 rule 2). A test that pins current, accepted behavior on purpose names its risk in a `Risk` trait and in a comment, so fixing the risk makes it fail visibly. | `KnownSession_IsServedFromTheCache` pins R-039. |
+| 12 | **Exception handling** | Assert an expected exception by its exact type (and message or parameter where it matters) with `Assert.Throws` / `ThrowsAsync` / `rejects`. No `try`/`catch` that swallows a failure. A finished task is checked as not faulted: `IsCompleted` is also true for a faulted task. | `Stop_EndsTheLoop` checked `IsCompleted` only. |
+| 13 | **Assertion coverage** | Assert every outcome the test's name promises. A name with "AndCreatesNothing", "AndAudited" or "ToThePatient" and no assertion for it is a finding. | "Delivers to the patient" without checking the recipient. |
+| 14 | **Evidence grounding** | Show the test failing once on broken code or a mutant (red evidence, §10). An expected value that is not obvious cites where it comes from (flow scenario, risk, contract, decision). | |
+| 15 | **No conditional asserting** | No `if`, `switch`, `try` or early `return` around an assertion; no assertion inside a branch that may not run. Use data rows, or separate tests per expected result. | A matrix test that chose its assertion with `switch`. |
+| 16 | **Assertion specificity** | Use the narrowest assertion that states the requirement: `Equal` over `Contains`, the exact message over "not empty", an exact count over `>=`, `toEqual` over `toMatchObject` when the whole object is the contract (a PUT body). | `toMatchObject` on a patient PUT body that did not check the phone. |
+| 17 | **Equality semantics** | Know what the comparison compares. `DateTime` equality ignores `Kind` (assert `Kind` too); strings compare ordinally unless culture is the point; JSON is compared parsed unless the raw text is the contract. A value that depends on the machine (time zone, culture) is tested with a fixed setting, not with the runner's, which is UTC in CI. | `Book_LocalTime_IsConvertedToUtc` passed on a UTC runner with the conversion removed. |
+| 18 | **Precondition guards** | Before asserting that something did not happen, assert that the act took the path the test is about (the request was refused with the expected status, the data was set up as assumed). | `RejectedChange_SendsNoNotification` never checked that the booking was refused. |
+| 19 | **Failure diagnostics** | Prefer assertions that print expected and actual (`Equal`, `Single`, `Contains`) over `Assert.True(bool)`; every `Assert.True` / `False` gets a message saying what was expected. A failure must be triageable from the log alone (QUALITY_GATES §3). | |
+| 20 | **Concurrency invariants** | In a race or parallel test, assert the invariant on the stored state after all requests have finished (exactly one booking, record XOR NoShow), not only the status codes. | A race test that trusted 201/409 without reading what was saved. |
 
 ## 5. Test identities
 
@@ -239,20 +274,18 @@ fixed order changes (Q-042, Q-044). The rule was checked once, by hand, on 2026-
 
 **Known breaches** (R-072). Found by reading the code, not by a failing run:
 
-- **Counts across the shared database.** Four tests count every row before and after the request. A row another
-  test adds in between would change the count, so they pass only because the API tests run one at a time:
-  - `CatalogTests.cs:68`, all patients;
-  - two tests in `RecordAuthorTests.cs` (`:57`, `:74`), all records, through the helper at `:155`;
-  - `OutboxTests.cs:110`, all outbox messages.
-- **State left for the next test.** `OutboxHealthTests.cs` and a retry test in `OutboxTests.cs` (`:79`) leave failed
-  outbox messages in the shared database. The health test's message has the payload `{}`.
+- **Counts across the shared database.** `OutboxTests.cs:115` counts every outbox message before and after the
+  request. A message another test adds in between would change the count, so it passes only because the API tests
+  run one at a time. (Fixed on 2026-11-27 with the assertion rules: `CatalogTests` now looks for its own named
+  rows, and `RecordAuthorTests` counts only its own patient's records.)
+- **State left for the next test.** `OutboxHealthTests.cs` and a retry test in `OutboxTests.cs` (`:84`) leave failed
+  outbox messages in the shared database. The health test's message has the payload `{}`, and the test now
+  expects its own message to raise the count by exactly one, so other tests' messages no longer make it pass.
   `OutboxDispatcherHostTests.cs:87` reads `AppointmentId` from the payload of every message, so it would throw on
   that row if `OutboxHealthTests` ran first. It passes today only because of the fixed order of the classes. This
   depends on order, not on parallel runs.
-- **An ID the test did not create.** `BolaTests.cs:168` books with `doctorId = 1`. Doctor 1 exists only if another
-  test created it, because the seed data is off. The expected 403 does not depend on the doctor today.
-- **Fixed IDs for "not found".** `BolaTests.cs:17` and `CatalogTests.cs:134` use IDs such as 999 999. They rely on no
-  run creating that many rows.
+- **Fixed IDs for "not found".** `BolaTests.cs:17` and `CatalogTests.cs:154` use IDs such as 999 999. They rely on no
+  run creating that many rows. (`BolaTests` no longer books with `doctorId = 1`, a doctor it did not create.)
 
 ## 9. End-to-end approach
 
@@ -293,8 +326,8 @@ How they run:
 
 ## 10. What makes a test "done"
 
-A test is done when it is tagged with its risk, fails when the behavior is broken (checked once by breaking
-the code or by mutation), passes reliably, and the risk's row in [RISK_REGISTER.md](RISK_REGISTER.md)
+A test is done when it is tagged with its risk, follows the assertion rules (§4, *Assertion rules*), fails when
+the behavior is broken (checked once by breaking the code or by mutation), passes reliably, and the risk's row in [RISK_REGISTER.md](RISK_REGISTER.md)
 names it. The check that it fails is not taken on trust: the pull request that sets a risk to `Covered` links
 the run where the test failed (red evidence, QUALITY_GATES §2).
 

@@ -69,5 +69,9 @@ public class ConcurrentBookingTests
 
         var statuses = string.Join(", ", responses.Select(r => (int)r.StatusCode).OrderBy(s => s));
         Assert.Equal("201, 409", statuses);
+        // The invariant is in the database, not in the status codes (assertion rule 20).
+        using var admin = _data.Admin;
+        var stored = await admin.GetFromJsonAsync<JsonElement>($"/api/Appointment?doctorId={doctorId}", TestData.Json);
+        Assert.Equal(1, stored.GetArrayLength());
     }
 }

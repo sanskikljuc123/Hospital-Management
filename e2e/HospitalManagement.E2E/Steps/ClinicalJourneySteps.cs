@@ -87,7 +87,11 @@ public sealed class ClinicalJourneySteps : IDisposable
     [Then("every appointment in the patient's list belongs to the patient")]
     public async Task OnlyOwnAppointments()
     {
-        var (_, list) = await _current!.GetAsync($"/api/Appointment?patientId={_otherPatientId}");
+        var (status, list) = await _current!.GetAsync($"/api/Appointment?patientId={_otherPatientId}");
+        Assert.Equal(HttpStatusCode.OK, status);
+        // The other patient has no appointments, so an API that obeyed ?patientId= would return an empty list and
+        // Assert.All alone would pass. The patient's own appointment must be there: the filter was overridden.
+        Assert.Contains(list.EnumerateArray(), a => a.GetProperty("id").GetInt32() == _appointmentId);
         Assert.All(list.EnumerateArray(), a => Assert.Equal(_patientId, a.GetProperty("patientId").GetInt32()));
     }
 

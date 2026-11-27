@@ -116,7 +116,9 @@ public sealed class OutboxProcessorTests : IDisposable
 
         var failed = await LoadAsync(id);
         Assert.Equal(OutboxProcessor.MaxAttempts, failed.Attempts);
-        Assert.NotNull(failed.FailedAt);
+        Assert.Equal(_clock.GetUtcNow().UtcDateTime, failed.FailedAt);
+        Assert.Null(failed.ProcessedAt);
+        Assert.Empty(_handler.Delivered);
         _clock.Advance(TimeSpan.FromDays(1));
         Assert.Equal(0, await Processor.ProcessPendingAsync());
     }
@@ -162,6 +164,9 @@ public sealed class OutboxProcessorTests : IDisposable
 
         var message = await LoadAsync(id);
         Assert.Null(message.ProcessedAt);
+        Assert.Null(message.FailedAt);
+        Assert.Equal(1, message.Attempts);
+        Assert.Equal(Now.UtcDateTime.AddMinutes(1), message.NextAttemptAt); // retried like any failure
         Assert.Contains("No outbox handler", message.LastError);
     }
 

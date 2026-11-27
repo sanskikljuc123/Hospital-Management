@@ -18,7 +18,9 @@ public class ArchitectureRulesTests
     [Trait("Risk", "R-003")]
     public void Controllers_DoNotDecideOwnershipThemselves(string forbidden)
     {
-        var offenders = SourceFiles("api/Controllers", "api/Infrastructure")
+        var files = SourceFiles("api/Controllers", "api/Infrastructure").ToList();
+        Assert.NotEmpty(files); // a moved folder must not make the rule pass on nothing (assertion rule 4)
+        var offenders = files
             .Where(f => File.ReadAllText(f.FullName).Contains(forbidden))
             .Select(f => f.Name)
             .ToList();
@@ -35,10 +37,15 @@ public class ArchitectureRulesTests
         var entityNames = SourceFiles("Domain/Entities")
             .Select(f => Path.GetFileNameWithoutExtension(f.Name))
             .ToArray();
-        var offenders = SourceFiles("Services")
+        var contracts = SourceFiles("Services")
             .Where(f => f.Name.StartsWith('I') && f.Name.EndsWith("Service.cs", StringComparison.Ordinal))
+            .ToList();
+        Assert.NotEmpty(entityNames);
+        Assert.NotEmpty(contracts);
+        var offenders = contracts
             .SelectMany(f => File.ReadAllLines(f.FullName)
-                .Where(line => line.TrimStart().StartsWith("Task<", StringComparison.Ordinal))
+                .Where(line => line.TrimStart().StartsWith("Task<", StringComparison.Ordinal)
+                            || line.TrimStart().StartsWith("ValueTask<", StringComparison.Ordinal))
                 .Where(line => entityNames.Any(e => line.Contains($"<{e}>") || line.Contains($"<{e}?>")
                                                      || line.Contains($"<IEnumerable<{e}>>")))
                 .Select(line => $"{f.Name}: {line.Trim()}"))

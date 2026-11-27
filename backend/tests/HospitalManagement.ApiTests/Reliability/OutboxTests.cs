@@ -66,12 +66,17 @@ public class OutboxTests : IAsyncLifetime
         _email.FailuresLeft = 0;
         var (patientId, doctorId) = await PatientAndDoctorAsync();
         var appointmentId = await _data.CreateAppointmentAsync(patientId, doctorId, daysAhead: 16);
+        using var admin = _data.Admin;
+        var address = (await admin.GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/Patient/{patientId}", TestData.Json))
+            .GetProperty("email").GetString();
 
         await ProcessAllAsync();
 
         var message = await MessageForAsync(appointmentId);
         Assert.NotNull(message!.ProcessedAt);
-        Assert.Contains(_email.Sent, s => s.Subject == "Appointment scheduled");
+        // The shared database holds pending messages of other tests, which this run delivers too, so an
+        // "Appointment scheduled" e-mail alone proves nothing: it must go to this patient, once.
+        Assert.Single(_email.Sent, s => s.To == address && s.Subject == "Appointment scheduled");
     }
 
     [Fact]

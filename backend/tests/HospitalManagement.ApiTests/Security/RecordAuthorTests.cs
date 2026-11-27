@@ -86,11 +86,14 @@ public class RecordAuthorTests : IAsyncLifetime
     public async Task UnlinkedDoctor_CreatesRecord_Returns403()
     {
         using var client = _factory.ClientFor(TestUser.Doctor());
+        using var nurse = _factory.ClientFor(TestUser.Nurse());
+        var before = await CountRecordsAsync(nurse);
 
         var response = await client.PostAsJsonAsync("/api/MedicalRecord",
             new { patientId = _patientId, diagnosis = "Synthetic" }, TestData.Json);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(before, await CountRecordsAsync(nurse));
     }
 
     [Fact]
@@ -152,6 +155,8 @@ public class RecordAuthorTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    private static async Task<int> CountRecordsAsync(HttpClient clinicalStaff) =>
-        (await clinicalStaff.GetFromJsonAsync<JsonElement>("/api/MedicalRecord", TestData.Json)).GetArrayLength();
+    /// <summary>The records of this test's own patient only, so another test's records cannot change the count.</summary>
+    private async Task<int> CountRecordsAsync(HttpClient clinicalStaff) =>
+        (await clinicalStaff.GetFromJsonAsync<JsonElement>($"/api/MedicalRecord?patientId={_patientId}", TestData.Json))
+        .GetArrayLength();
 }

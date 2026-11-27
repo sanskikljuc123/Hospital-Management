@@ -81,7 +81,7 @@ public class ErrorContractTests
         var response = await admin.DeleteAsync($"/api/Service/{await _data.ServiceIdAsync()}");
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.Conflict);
-        Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("detail").GetString()));
+        Assert.Equal("The service is still used by patients or doctors", problem.GetProperty("detail").GetString());
     }
 
     [Fact]
