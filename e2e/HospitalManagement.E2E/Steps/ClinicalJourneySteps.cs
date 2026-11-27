@@ -201,7 +201,7 @@ public sealed class ClinicalJourneySteps : IDisposable
 
     /// <summary>A free slot: the doctor is new for every scenario, so any future time works.</summary>
     private static string FutureSlot() =>
-        DateTime.UtcNow.Date.AddDays(14).AddHours(9).AddMinutes(Random.Shared.Next(0, 40) * 15).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+        DateTime.UtcNow.Date.AddDays(14).AddHours(9).AddMinutes(Random.Shared.Next(0, 40) * 15.0).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
     private static string Tag() => Guid.NewGuid().ToString("N")[..8];
 
