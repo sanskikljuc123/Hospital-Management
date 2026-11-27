@@ -56,12 +56,15 @@ function resolve(schema: Schema): Schema {
 export function validate(schema: Schema, value: unknown, at = "$"): string[] {
   const s = resolve(schema);
   if (value === null || value === undefined) return s.nullable || value === undefined ? [] : [`${at} is null`];
-  if (s.enum && !s.enum.includes(value)) return [`${at} is ${JSON.stringify(value)}, not one of ${JSON.stringify(s.enum)}`];
+  if (s.enum && !s.enum.includes(value))
+    return [`${at} is ${JSON.stringify(value)}, not one of ${JSON.stringify(s.enum)}`];
   switch (s.type) {
     case "object": {
       if (typeof value !== "object" || Array.isArray(value)) return [`${at} should be an object`];
       const record = value as Record<string, unknown>;
-      const problems = (s.required ?? []).filter((key) => record[key] === undefined).map((key) => `${at}.${key} is required`);
+      const problems = (s.required ?? [])
+        .filter((key) => record[key] === undefined)
+        .map((key) => `${at}.${key} is required`);
       for (const [key, item] of Object.entries(record)) {
         const property = s.properties?.[key];
         if (property) problems.push(...validate(property, item, `${at}.${key}`));
@@ -94,7 +97,9 @@ function find(method: string, url: string) {
   if (!route) return { problem: `${method} ${path}: the API has no such path` };
   const operation = route.item[method.toLowerCase()];
   if (!operation) {
-    const allowed = Object.keys(route.item).map((m) => m.toUpperCase()).join(", ");
+    const allowed = Object.keys(route.item)
+      .map((m) => m.toUpperCase())
+      .join(", ");
     return { problem: `${method} ${path}: the API offers ${allowed} on ${route.template}, not ${method}` };
   }
   return { label: `${method} ${route.template}`, template: route.template, operation };
@@ -111,7 +116,8 @@ function checkParameterValue(where: string, name: string, raw: string, schema: S
   if (s.enum) return s.enum.map(String).includes(raw) ? [] : wrong(`one of ${s.enum.join(", ")}`);
   switch (s.type) {
     case "integer": {
-      const ok = /^-?\d+$/.test(raw) && (s.format !== "int32" || (Number(raw) >= INT32.min && Number(raw) <= INT32.max));
+      const ok =
+        /^-?\d+$/.test(raw) && (s.format !== "int32" || (Number(raw) >= INT32.min && Number(raw) <= INT32.max));
       return ok ? [] : wrong(s.format === "int32" ? "a 32-bit integer" : "an integer");
     }
     case "number":
@@ -144,7 +150,14 @@ function checkUrlParameters(label: string, template: string, operation: Operatio
     const name = /^\{(.+)\}$/.exec(segment)?.[1];
     if (!name) return;
     const parameter = parameters.find((p) => p.in === "path" && p.name === name);
-    problems.push(...checkParameterValue(`${label} path parameter`, name, decodeURIComponent(actualSegments[index]), parameter?.schema));
+    problems.push(
+      ...checkParameterValue(
+        `${label} path parameter`,
+        name,
+        decodeURIComponent(actualSegments[index]),
+        parameter?.schema,
+      ),
+    );
   });
 
   const accepted = parameters.filter((p) => p.in === "query");
@@ -219,7 +232,8 @@ export async function checkMockedResponse(request: Request, response: Response):
     return [`${label} is mocked with ${response.status}; the API answers ${Object.keys(described).join(", ")}`];
   }
   const schema = responseSchema(spec);
-  if (!schema) return body === undefined ? [] : [`${label} ${response.status} has no body in the API, the mock sends one`];
+  if (!schema)
+    return body === undefined ? [] : [`${label} ${response.status} has no body in the API, the mock sends one`];
   if (body === undefined) return [`${label} ${response.status} has a body in the API, the mock sends none`];
   if (body instanceof NotJson) return notJson(`${label} ${response.status} mocked body`, body);
   return validate(schema, body).map((p) => `${label} ${response.status} mocked body: ${p}`);

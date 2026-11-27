@@ -11,9 +11,7 @@ export function apiErrorMessage(error: unknown): string {
   if (!response) return "The server could not be reached. Check your connection and try again.";
 
   const data = response.data as
-    | { detail?: string | null; title?: string | null; errors?: Record<string, string[]> }
-    | string
-    | undefined;
+    { detail?: string | null; title?: string | null; errors?: Record<string, string[]> } | string | undefined;
   if (data && typeof data === "object") {
     if (data.errors) {
       const messages = Object.values(data.errors).flat().filter(Boolean);

@@ -40,6 +40,12 @@ jobs:
       - name: Build (G1)
         run: dotnet build backend/backend.sln --no-restore -c Release
 
+      # Formatting (G1): the rules in .editorconfig. A failure is fixed with `dotnet format whitespace <project>`.
+      - name: Formatting (G1)
+        run: |
+          dotnet format whitespace backend/backend.sln --verify-no-changes
+          dotnet format whitespace e2e/HospitalManagement.E2E/HospitalManagement.E2E.csproj --verify-no-changes
+
       - name: Unit tests (G2)
         run: >
           dotnet test backend/tests/HospitalManagement.UnitTests --no-build -c Release
@@ -87,6 +93,9 @@ jobs:
       # dependencies (it found the patient details drawer showing the previous patient's service, R-063).
       - name: Lint (G1)
         run: npm run lint
+      # Formatting (G1): Prettier with frontend-web/.prettierrc.json. A failure is fixed with `npm run format`.
+      - name: Formatting (G1)
+        run: npm run format:check
       # Component tests (G2): forms, tables and slices in jsdom, the API mocked with MSW. The job keeps its name
       # "Frontend build (G1)" because the ruleset requires that check by name (QUALITY_GATES §1).
       - name: Component tests (G2)

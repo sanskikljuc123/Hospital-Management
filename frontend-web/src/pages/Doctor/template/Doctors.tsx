@@ -69,7 +69,12 @@ const Doctors: React.FC<DoctorsProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button aria-label='View' onClick={() => handleViewDoctor(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button
+              aria-label='View'
+              onClick={() => handleViewDoctor(record)}
+              className='table--action-btn'
+              icon={<HiOutlineEye />}
+            />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button

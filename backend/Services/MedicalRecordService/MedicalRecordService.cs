@@ -145,17 +145,17 @@ namespace Services.MedicalRecordService
 
         private MedicalRecordRevision NewRevision(int revision, MedicalRecord record, IEnumerable<string> changedFields,
             int doctorId, DateTime at) => new()
-        {
-            MedicalRecordId = record.Id,
-            Revision = revision,
-            Diagnosis = record.Diagnosis,
-            Treatment = record.Treatment,
-            Notes = record.Notes,
-            ChangedFields = string.Join(',', changedFields),
-            EditedByDoctorId = doctorId,
-            EditedByUserName = _currentUser.UserName,
-            EditedAt = at
-        };
+            {
+                MedicalRecordId = record.Id,
+                Revision = revision,
+                Diagnosis = record.Diagnosis,
+                Treatment = record.Treatment,
+                Notes = record.Notes,
+                ChangedFields = string.Join(',', changedFields),
+                EditedByDoctorId = doctorId,
+                EditedByUserName = _currentUser.UserName,
+                EditedAt = at
+            };
 
         private static IQueryable<MedicalRecordDto> Project(IQueryable<MedicalRecord> query) =>
             query.Select(m => new MedicalRecordDto

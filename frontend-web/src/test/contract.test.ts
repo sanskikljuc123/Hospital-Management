@@ -6,11 +6,13 @@ import { checkMockedResponse, checkRequest } from "./contract";
 // API accepts and report what it does not, in words a developer can act on.
 const get = (path: string) => checkRequest(new Request(`${API}${path}`));
 const send = (method: string, path: string, body: unknown) =>
-  checkRequest(new Request(`${API}${path}`, {
-    method,
-    body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
-  }));
+  checkRequest(
+    new Request(`${API}${path}`, {
+      method,
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    }),
+  );
 const mocked = (method: string, path: string, response: Response) =>
   checkMockedResponse(new Request(`${API}${path}`, { method }), response);
 
@@ -56,7 +58,9 @@ describe("API contract check: URL parameters @R-061", () => {
 
   it("checks the type of a path parameter", async () => {
     expect(await get("/doctor/9")).toEqual([]);
-    expect(await get("/doctor/abc")).toEqual(['GET /api/Doctor/{id} path parameter id="abc" should be a 32-bit integer']);
+    expect(await get("/doctor/abc")).toEqual([
+      'GET /api/Doctor/{id} path parameter id="abc" should be a 32-bit integer',
+    ]);
   });
 });
 

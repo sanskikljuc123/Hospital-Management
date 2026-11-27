@@ -1,0 +1,17 @@
+# Formatting rules for the whole repository (QUALITY_GATES G1). They describe the style the code already has;
+# `dotnet format whitespace --verify-no-changes` (backend) and `prettier --check` (frontend-web) fail the build
+# when a change does not follow them. Line endings are left to git (.gitattributes, core.autocrlf), so a Windows
+# checkout with CRLF and a Linux runner with LF give the same result.
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,ts,tsx,js,jsx,mjs,css,scss,html,md}]
+indent_size = 2
+
+[*.cs]
+# Several members of an object initializer or anonymous type may share a line, as in the existing services.
+csharp_new_line_before_members_in_object_initializers = false
+csharp_new_line_before_members_in_anonymous_types = false

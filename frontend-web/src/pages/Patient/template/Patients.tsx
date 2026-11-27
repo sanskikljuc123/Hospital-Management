@@ -59,7 +59,12 @@ const Patients: React.FC<PatientsProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button aria-label='View' onClick={() => handleViewPatient(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button
+              aria-label='View'
+              onClick={() => handleViewPatient(record)}
+              className='table--action-btn'
+              icon={<HiOutlineEye />}
+            />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button

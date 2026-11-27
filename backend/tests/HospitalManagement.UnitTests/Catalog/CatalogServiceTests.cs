@@ -34,9 +34,9 @@ public class CatalogServiceTests : IDisposable
         var patients = new PatientServiceImp(_db, _audit);
 
         var created = await patients.CreateAsync(new PatientCreationDto
-            { UserName = "Ana Example", Email = "ana@hospital.test", Phone = 61234567, ServiceId = serviceId });
+        { UserName = "Ana Example", Email = "ana@hospital.test", Phone = 61234567, ServiceId = serviceId });
         await patients.UpdateAsync(created.Value!.Id, new PatientCreationDto
-            { UserName = "Ana Renamed", Email = "ana@hospital.test", Phone = 61234567, ServiceId = serviceId });
+        { UserName = "Ana Renamed", Email = "ana@hospital.test", Phone = 61234567, ServiceId = serviceId });
 
         Assert.Equal(new[] { AuditActions.PatientCreated, AuditActions.PatientUpdated }, _audit.Actions.ToArray());
         Assert.Contains("UserName", _audit.Entries[1].Details);
@@ -91,7 +91,7 @@ public class CatalogServiceTests : IDisposable
         var b = _db.AddService("B").Id;
 
         var result = await new DoctorServiceImp(_db, _audit).CreateAsync(new DoctorCreationDto
-            { FirstName = "Test", LastName = "Doctor", ServiceIds = new[] { a, b, a } });
+        { FirstName = "Test", LastName = "Doctor", ServiceIds = new[] { a, b, a } });
 
         Assert.Equal(new[] { a, b }, result.Value!.ServiceIds.OrderBy(i => i).ToArray());
         Assert.Equal(AuditActions.DoctorCreated, Assert.Single(_audit.Entries).Action);
@@ -148,7 +148,7 @@ public class CatalogServiceTests : IDisposable
     {
         var service = _db.AddService();
         await new DoctorServiceImp(_db, _audit).CreateAsync(new DoctorCreationDto
-            { FirstName = "T", LastName = "D", ServiceIds = new[] { service.Id } });
+        { FirstName = "T", LastName = "D", ServiceIds = new[] { service.Id } });
 
         Assert.Equal(ResultStatus.Conflict, (await new ServiceServiceImp(_db, _audit).DeleteAsync(service.Id)).Status);
     }
