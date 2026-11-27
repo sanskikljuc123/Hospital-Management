@@ -115,7 +115,7 @@ public sealed class OutboxProcessorTests : IDisposable
         }
 
         var failed = await LoadAsync(id);
-        Assert.Equal(OutboxProcessor.MaxAttempts, failed.Attempts);
+        Assert.Equal(5, failed.Attempts); // ARCHITECTURE.md §7: "after 5 attempts the message is" failed (rule 2)
         Assert.Equal(_clock.GetUtcNow().UtcDateTime, failed.FailedAt);
         Assert.Null(failed.ProcessedAt);
         Assert.Empty(_handler.Delivered);
@@ -209,9 +209,9 @@ public sealed class OutboxProcessorTests : IDisposable
         }
 
         var names = _metrics.Recorded.Select(m => m.Instrument).ToArray();
-        Assert.Equal(Enumerable.Repeat("hospital.outbox.messages.retried", OutboxProcessor.MaxAttempts - 1)
+        Assert.Equal(Enumerable.Repeat("hospital.outbox.messages.retried", 4) // 5 attempts: 4 retries, then failed
             .Append("hospital.outbox.messages.failed"), names);
-        Assert.Equal(OutboxProcessor.MaxAttempts, _metrics.Recorded.Count);
+        Assert.Equal(5, _metrics.Recorded.Count);
         Assert.All(_metrics.Recorded, m => Assert.Equal((1L, ScriptedHandler.HandledType), (m.Value, m.Type)));
     }
 

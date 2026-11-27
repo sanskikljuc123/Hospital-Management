@@ -65,6 +65,8 @@ describe("DoctorForm @R-059 @R-060 @R-061", () => {
       await user.click(screen.getByRole("button", { name: "Create Doctor" }));
 
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      // toEqual, not toStrictEqual: a field left undefined is dropped when the body is sent as JSON, so it is not
+      // part of what the API receives (R-059 is about the fields that are sent).
       expect(onSubmit.mock.calls[0][0]).toEqual({
         firstName: "New",
         lastName: "Doctor",

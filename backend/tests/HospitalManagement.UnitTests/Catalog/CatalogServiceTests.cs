@@ -59,6 +59,7 @@ public sealed class CatalogServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("Risk", "R-013")]
     public async Task Patient_UpdateOrDeleteUnknown_IsNotFound()
     {
         var patients = new PatientServiceImp(_db, _audit);
@@ -67,6 +68,8 @@ public sealed class CatalogServiceTests : IDisposable
         Assert.Equal(ResultStatus.NotFound,
             (await patients.UpdateAsync(999, new PatientCreationDto { UserName = "X", ServiceId = serviceId })).Status);
         Assert.False(await patients.DeleteAsync(999), "deleting an unknown patient must report that it is not found");
+        Assert.Empty(_db.Patients);
+        Assert.Empty(_audit.Entries); // nothing was changed, so nothing is audited (rule 5)
     }
 
     [Fact]

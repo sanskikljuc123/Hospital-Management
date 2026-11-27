@@ -191,8 +191,11 @@ public sealed class AppointmentBoundaryTests : IDisposable
 
         Assert.True(await _bed.Service.DeleteAsync(a.Id), "deleting an existing appointment must report success");
         Assert.Empty(_bed.Db.Appointments);
-        Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentDeleted && Equals(e.EntityId, a.Id));
         Assert.False(await _bed.Service.DeleteAsync(a.Id), "deleting it a second time must report that it is not found");
+        // Exactly one deletion entry, for this appointment, also after the refused second delete (assertion rules 5, 10).
+        var deleted = Assert.Single(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentDeleted);
+        Assert.Equal((object?)a.Id, deleted.EntityId);
+        Assert.Contains($"\"PatientId\":{_bed.PatientId}", System.Text.Json.JsonSerializer.Serialize(deleted.Details));
     }
 
     // ---------- Notifications (ARCHITECTURE D-8: recorded with the change) ----------

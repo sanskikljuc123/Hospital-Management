@@ -6,7 +6,7 @@ const python = "(?:python3|py -3) -I";
 // A plain value such as a commit or a results folder inside the repository: no leading slash, no "..".
 const safeArgument = "(?!/)(?![^ ]*\\.\\.)[A-Za-z0-9_./:-]+";
 const gateScripts =
-  "(?:register_changes|mutation_summary|flaky_report|check_test_gates|check_gate_names|check_doc_references|check_ids)\\.py";
+  "(?:register_changes|mutation_summary|flaky_report|check_test_gates|check_gate_names|check_doc_references|check_ids|check_assertion_rules)\\.py";
 const testProject =
   "(?:backend/backend\\.sln|backend/tests/HospitalManagement\\.(?:Unit|Api)Tests(?:/HospitalManagement\\.(?:Unit|Api)Tests\\.csproj)?|e2e/HospitalManagement\\.E2E(?:/HospitalManagement\\.E2E\\.csproj)?)";
 const testFilter = "(?: --filter (?:FullyQualifiedName|DisplayName)~[A-Za-z0-9_.]+)?";

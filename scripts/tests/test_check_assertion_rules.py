@@ -120,6 +120,79 @@ class ExceptionComments(unittest.TestCase):
         text = cs_test("// Assertion rule 19 exception: explained once for this block\n" + filler + "\nAssert.True(ok);")
         self.assertEqual(["rule 19"], rules(text))
 
+    def test_an_exception_covers_only_the_next_assertion(self):
+        text = cs_test("// Assertion rule 19 exception: the bool is the whole contract here\nAssert.True(a);\nAssert.True(b);")
+        self.assertEqual(["rule 19"], rules(text))
+
+    def test_an_exception_inside_a_string_is_not_an_exception(self):
+        text = cs_test('var s = "// Assertion rule 19 exception: not a comment at all";\nAssert.True(ok);')
+        self.assertEqual(["rule 19"], rules(text))
+
+
+class ReviewFindingsOfPR74(unittest.TestCase):
+    """Cases qe-reviewer found in the first version of the script: misses (C3-C7) and false alarms (C8)."""
+
+    # ---------- misses ----------
+    def test_multi_line_if_condition(self):
+        self.assertEqual(["rule 15"], rules(cs_test("if (a == 1\n    && b > 0)\n{\n    Assert.Equal(1, x);\n}")))
+
+    def test_early_return_before_an_assertion(self):
+        self.assertEqual(["rule 15"], rules(cs_test("if (s == 404) return;\nAssert.Equal(1, x);")))
+
+    def test_foreach_over_a_collection_not_proven_non_empty(self):
+        self.assertEqual(["rule 7"], rules(cs_test("foreach (var a in list) Assert.Equal(1, a);")))
+
+    def test_foreach_after_proof_passes(self):
+        self.assertEqual([], rules(cs_test("Assert.NotEmpty(list);\nforeach (var a in list)\n{\n    Assert.Equal(1, a);\n}")))
+
+    def test_lower_bound_on_a_name_without_count(self):
+        self.assertEqual(["rule 16"], rules(cs_test('Assert.True(recentlyFailed >= 1, "x");')))
+
+    def test_equal_to_zero_is_no_proof_of_content(self):
+        self.assertEqual(["rule 7"], rules(cs_test(
+            "Assert.Equal(0, items.GetArrayLength());\nAssert.All(items.EnumerateArray(), i => Assert.Equal(1, i));")))
+
+    def test_an_unrelated_equal_that_mentions_the_name_is_no_proof(self):
+        self.assertEqual(["rule 7"], rules(cs_test(
+            "Assert.Equal(HttpStatusCode.OK, response.StatusCode);\nAssert.All(response.Items, i => Assert.Equal(1, i));")))
+
+    def test_empty_or_null_message(self):
+        self.assertEqual(["rule 19", "rule 19"], rules(cs_test('Assert.True(ok, "");\nAssert.False(bad, null);')))
+
+    def test_is_faulted_in_a_comment_does_not_count(self):
+        self.assertIn("rule 12", rules(cs_test('Assert.True(stop.IsCompleted, "ended"); // IsFaulted not needed')))
+
+    def test_partial_body_through_object_containing(self):
+        self.assertEqual(["rule 16"], rules("expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ a: 1 }));", TS))
+
+    def test_to_match_object_on_a_body_read_further_up(self):
+        text = ("const sent = onSubmit.mock.calls[0][0];\nconst x = 1;\nconst y = 2;\nconst z = 3;\n"
+                "expect(sent).toMatchObject({ a: 1 });")
+        self.assertEqual(["rule 16"], rules(text, TS))
+
+    # ---------- false alarms ----------
+    def test_generic_type_argument_is_not_a_comparison(self):
+        self.assertEqual([], rules(cs_test('Assert.True(items.OfType<Doctor>().Count() == 2, "two doctors");')))
+
+    def test_an_upper_bound_is_a_real_requirement(self):
+        self.assertEqual([], rules(cs_test('Assert.True(token.Length <= 64, "at most 64 characters");')))
+
+    def test_an_assertion_inside_a_comment_is_ignored(self):
+        self.assertEqual([], rules(cs_test("// before: Assert.True(ok);\nx = 1;")))
+
+    def test_try_finally_is_not_a_branch(self):
+        self.assertEqual([], rules(cs_test("try\n{\n    Assert.Equal(1, x);\n}\nfinally\n{\n    Cleanup();\n}")))
+
+    def test_try_with_a_catch_around_an_assertion_is_flagged(self):
+        self.assertEqual(["rule 15"], rules(cs_test("try\n{\n    Assert.Equal(1, x);\n}\ncatch (Exception)\n{\n    y = 2;\n}")))
+
+    def test_assert_all_over_a_literal_array(self):
+        self.assertEqual([], rules(cs_test("Assert.All(new[] { a, b }, i => Assert.Equal(1, i));")))
+
+    def test_verbatim_string_does_not_unbalance_the_braces(self):
+        text = cs_test('var p = @"C:\\dir\\";\nif (x) { y = 1; }\nAssert.Equal(1, y);')
+        self.assertEqual([], rules(text))
+
 
 class Report(unittest.TestCase):
     def test_a_finding_names_the_file_line_and_rule(self):

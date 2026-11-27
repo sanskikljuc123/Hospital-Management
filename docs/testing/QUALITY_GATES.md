@@ -11,12 +11,14 @@ GitHub Actions and decided by people. **No gate calls an AI agent.**
 | G2 | Unit and component tests | every PR | all pass; none skipped without a ticket (G5). Backend unit tests in the backend job; frontend component tests (`npm test`, Vitest) in the `Frontend build (G1)` job, which keeps its name because the ruleset requires that check by name | test results (TRX), Vitest output |
 | G3 | API tests | every PR | all pass against real PostgreSQL; none skipped without a ticket. Includes the API contract check: `contracts/openapi.json` equals what the API offers (TEST_STRATEGY §2) | test results (TRX) |
 | G4 | Risk coverage | every PR | (a) every risk with status `Covered` in [RISK_REGISTER.md](RISK_REGISTER.md) is named by at least one test that is not skipped (`[Trait("Risk", "R-xxx")]`) **at the risk's level** — a Unit risk by a unit test, an API risk by an API test, a Component risk by a frontend component test (tag `@R-xxx` in its title or `describe`), an E2E risk by an E2E scenario. An E2E scenario (not run on every PR) cannot keep a Unit or API risk Covered; (b) every `Risk` trait names a risk that exists; (c) every path, `file:line` and code name cited in `backticks` in the agent and skill files, the testing documents, ARCHITECTURE and API_ENDPOINTS still exists (code names: agent and skill files only); (d) every required check named in §1 is a job in `.github/workflows/`, and every job with a gate number in its name is named in this document (`scripts/check_gate_names.py`); (e) every ID is defined once in the section that owns it and every reference to it resolves (`scripts/check_ids.py`); (f) the hook that limits `qe-reviewer` to the listed Bash commands denies every other command, and blocks it when the input cannot be read or the list cannot be loaded (`.claude/hooks/restrict-agent-bash.test.mjs`, README AI rule 1, R-073); (g) no test breaks one of the assertion rules a
-script can see in the text (TEST_STRATEGY §4, *Assertion rules*): an assertion inside an `if`, `else`, `switch`, `case`,
-`try` or `catch` (rule 15), `Assert.True` / `False` without a message (19), `Assert.All` with no `NotEmpty`, `Single`,
-`Contains` or `Equal` on the same collection before it (7), `IsCompleted` without `IsFaulted` (12), a count compared
-with `>` / `>=` and `toMatchObject` on a submitted body (16). A finding stands unless the line carries an
-`// Assertion rule N exception: <reason>` comment (`scripts/check_assertion_rules.py`, its tests in
-`scripts/tests/test_check_assertion_rules.py`). The check-ids script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
+script can see in the text (TEST_STRATEGY §4, *Assertion rules*): an assertion inside `if`, `else`, `switch`, `case`,
+`catch` or a `try` that has a `catch`, or after an early `return` in a branch (rule 15; `try`/`finally` and
+`Assert.Fail` are allowed); `Assert.True` / `False` without a message, or with an empty one (19); `Assert.All` or a
+`foreach` with assertions over a collection not first shown to have content (7); `IsCompleted` without `IsFaulted`
+(12); a lower bound where the exact value is known (`>=`, `> 0`, `NotEqual(0, …)`, `toBeGreaterThan`) and a partial
+body (`toMatchObject` on a submitted body, `expect.objectContaining`) (16). A finding stands unless the assertion
+carries an `// Assertion rule N exception: <reason>` comment on its line or directly above it
+(`scripts/check_assertion_rules.py`, its tests in `scripts/tests/test_check_assertion_rules.py`). The check-ids script also **lists** — without failing — every `Critical`/`High` risk of level API, Unit or CI that is not `Covered` yet | script output |
 | G5 | No silent skips | every PR | every `Skip = "…"` names either an open risk (`Known gap R-054`) or a GitHub issue (`#123`) | script output |
 | G6 | Secret scan | every PR | gitleaks finds nothing in the files, nor in any commit of the pull request (a secret added and deleted again inside one PR stays in the history once merged) | gitleaks report |
 | G7 | E2E | every PR that changes something the E2E stack runs: anything except docs and Markdown, `.claude/`, tests of other levels (`backend/tests/`, frontend component tests), gate scripts and tool manifests (`scripts/`, `dotnet-tools.json`), the other workflows, the Aspire AppHost and repository housekeeping; PR label `e2e`, merge to `master`, nightly | all scenarios pass, no retries | Reqnroll report, Playwright trace on failure |
@@ -34,11 +36,26 @@ be updated in the same pull request, or every later pull request waits for a che
 `scripts/check_gate_names.py` (in the G4 job) fails when a check named here is not a job in `.github/workflows/`.
 
 **Advisory, not a gate: the assertion review.** `.github/workflows/assertion-review.yml` runs `qe-reviewer` (mode 1,
-item 11) on every pull request that changes tests, for the assertion rules that need judgement and that G4 (g)
-cannot see (1–5, 8–11, 13, 17, 18, 20). It posts one comment, never blocks the merge, and is not in the ruleset:
+item 11) on pull requests that change tests, for the assertion rules that need judgement and that G4 (g)
+cannot see (1–6, 8–11, 13, 14, 17, 18, 20). It posts one comment, never blocks the merge, and is not in the ruleset:
 two runs can report different findings, and every finding is a proposal (README, AI rule 3) that the person who
-merges checks (G8). It needs the repository secret `ANTHROPIC_API_KEY` and uses API credits per run; without the
-secret it passes with a notice and reviews nothing. Pull requests from forks are skipped.
+merges checks (G8). It needs the repository secret `ANTHROPIC_API_KEY` and uses API credits per run (Claude Opus
+5.5, an estimated 1–2 USD for a typical pull request); without the secret it passes with a notice and reviews
+nothing. Pull requests from forks get no secrets, so they get the same notice.
+
+- **When it runs**, to limit the cost: when a pull request is opened, reopened or marked ready for review, and when
+  the label `ai-review` is added. Not on every push; to review new commits, remove and re-add the label. A pull
+  request opened with the label on it is reviewed once. Nothing runs on a draft, not even for the label.
+- **No secret in the comment (R-075)**, prevented by design, because the repository and the comment are public:
+  - two jobs: the agent runs in `review` with a read-only token (`contents: read`, `pull-requests: read`, no OIDC
+    token) and cannot post; it returns its review as structured output. `post`, without any AI, refuses text that
+    contains the API key or anything shaped like a key or a GitHub token, and only then posts it;
+  - the agent may only read files in the checkout and run `gh pr diff` (not the comments or the description, which
+    anyone can write); editing, the web and subagents are denied; reading outside the checkout (the runner's hidden
+    and temp folders, system folders such as `/proc` with the process environment) and its `.git` folder is denied;
+    the checkout keeps no token (`persist-credentials: false`). Deny rules win over allow rules;
+  - `scripts/tests/test_assertion_review_workflow.py` (in G4 e) fails when any of this is edited away.
+- **Recommended for the key:** a key used only for this job, in its own workspace with a monthly spend limit.
 
 **Not in the ruleset yet** (added 2026-11-24; the test owner changes the ruleset, an implementer never does):
 
