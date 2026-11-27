@@ -17,13 +17,25 @@ async function clickEdit(rowText: string) {
 describe("catalogue tables @R-059", () => {
   it("passes the whole doctor record to Edit, including fields not shown", async () => {
     const doctor = {
-      id: 1, firstName: "Test", lastName: "Doctor", birthday: "1980-01-02T00:00:00Z",
-      address: "1 Test Street", departmentId: 3, serviceIds: [1],
+      id: 1,
+      firstName: "Test",
+      lastName: "Doctor",
+      birthday: "1980-01-02T00:00:00Z",
+      address: "1 Test Street",
+      departmentId: 3,
+      serviceIds: [1],
     };
     const handleEditDoctor = vi.fn();
     render(
-      <Doctors doctors={[doctor]} status='idle' handleEditDoctor={handleEditDoctor} handleFilterChange={noop}
-        handleDeleteDoctor={noop} handleViewDoctor={noop} handleCreateDoctor={noop} />,
+      <Doctors
+        doctors={[doctor]}
+        status='idle'
+        handleEditDoctor={handleEditDoctor}
+        handleFilterChange={noop}
+        handleDeleteDoctor={noop}
+        handleViewDoctor={noop}
+        handleCreateDoctor={noop}
+      />,
     );
 
     await clickEdit("1 Test Street");
@@ -33,13 +45,24 @@ describe("catalogue tables @R-059", () => {
 
   it("passes the whole patient record to Edit, including the email", async () => {
     const patient = {
-      id: 2, userName: "Test Patient", phone: "12345678", email: "test.patient@hospital.test",
-      serviceId: 1, serviceName: "Test Service A",
+      id: 2,
+      userName: "Test Patient",
+      phone: "12345678",
+      email: "test.patient@hospital.test",
+      serviceId: 1,
+      serviceName: "Test Service A",
     };
     const handleEditPatient = vi.fn();
     render(
-      <Patients patients={[patient]} status='idle' handleEditPatient={handleEditPatient} handleFilterChange={noop}
-        handleDeletePatient={noop} handleViewPatient={noop} handleCreatePatient={noop} />,
+      <Patients
+        patients={[patient]}
+        status='idle'
+        handleEditPatient={handleEditPatient}
+        handleFilterChange={noop}
+        handleDeletePatient={noop}
+        handleViewPatient={noop}
+        handleCreatePatient={noop}
+      />,
     );
 
     await clickEdit("Test Patient");
@@ -51,8 +74,15 @@ describe("catalogue tables @R-059", () => {
     const service = { id: 3, name: "Test Service", description: "Synthetic", departmentId: 2 };
     const handleEditService = vi.fn();
     render(
-      <Services services={[service]} status='idle' handleEditService={handleEditService} handleFilterChange={noop}
-        handleDeleteService={noop} handleViewService={noop} handleCreateService={noop} />,
+      <Services
+        services={[service]}
+        status='idle'
+        handleEditService={handleEditService}
+        handleFilterChange={noop}
+        handleDeleteService={noop}
+        handleViewService={noop}
+        handleCreateService={noop}
+      />,
     );
 
     await clickEdit("Test Service");

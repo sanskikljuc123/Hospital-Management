@@ -65,11 +65,11 @@ public static class AuthorizationMatrix
     public static IEnumerable<object[]> Cases()
     {
         foreach (var row in Rows)
-        foreach (var identity in Identities)
-        {
-            if (identity == "Patient" && row.PatientOwnOnly) continue;
-            yield return new object[] { row.Method, row.Template, identity, Expected(row, identity) };
-        }
+            foreach (var identity in Identities)
+            {
+                if (identity == "Patient" && row.PatientOwnOnly) continue;
+                yield return new object[] { row.Method, row.Template, identity, Expected(row, identity) };
+            }
     }
 
     /// <summary>"401", "403", or "allowed" (anything but 401/403: the role passed authorization).</summary>

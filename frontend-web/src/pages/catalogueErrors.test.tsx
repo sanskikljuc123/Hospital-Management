@@ -11,16 +11,20 @@ import Service from "./Service/Service";
 // closed before the API answered (UI_TEST_DESIGN D-6, R-062). The mocked errors are checked against the API
 // contract (R-061): a ProblemDetails body where the API sends one, an empty 403 where it sends none.
 const problem = (status: number, title: string, detail: string) =>
-  HttpResponse.json({ type: "https://tools.ietf.org/html/rfc9110", title, status, detail }, {
-    status,
-    headers: { "Content-Type": "application/problem+json" },
-  });
+  HttpResponse.json(
+    { type: "https://tools.ietf.org/html/rfc9110", title, status, detail },
+    {
+      status,
+      headers: { "Content-Type": "application/problem+json" },
+    },
+  );
 
 describe("catalogue pages show the API's errors @R-061 @R-062", () => {
   it("shows why a service cannot be deleted and keeps its row (409)", async () => {
     server.use(
       http.delete(`${API}/service/1`, () =>
-        problem(409, "Conflict", "The service is still used by patients or doctors")),
+        problem(409, "Conflict", "The service is still used by patients or doctors"),
+      ),
     );
     const { user } = renderWithStore(<Service />);
 
@@ -51,7 +55,8 @@ describe("catalogue pages show the API's errors @R-061 @R-062", () => {
     server.use(
       http.get(`${API}/doctor`, () => HttpResponse.json([])),
       http.post(`${API}/doctor`, async ({ request }) =>
-        HttpResponse.json({ id: 21, departmentId: null, ...((await request.json()) as object) }, { status: 201 })),
+        HttpResponse.json({ id: 21, departmentId: null, ...((await request.json()) as object) }, { status: 201 }),
+      ),
     );
     const { user } = renderWithStore(<Doctor />);
 
@@ -75,8 +80,9 @@ describe("catalogue pages show the API's errors @R-061 @R-062", () => {
 
     renderWithStore(<Doctor />);
 
-    expect(await screen.findByText("The server could not be reached. Check your connection and try again."))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByText("The server could not be reached. Check your connection and try again."),
+    ).toBeInTheDocument();
   });
 });
 

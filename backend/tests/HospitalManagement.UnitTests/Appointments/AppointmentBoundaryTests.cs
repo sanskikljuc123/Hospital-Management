@@ -164,7 +164,7 @@ public class AppointmentBoundaryTests : IDisposable
         var late = await _bed.BookAsync(At(2, 10));                               // patient, doctor A
         var early = await _bed.BookAsync(At(1, 9), doctorId: _bed.OtherDoctorId); // patient, doctor B
         var foreign = await _bed.Service.CreateAsync(new AppointmentCreateDto
-            { PatientId = other.Id, DoctorId = _bed.DoctorId, ScheduledAt = At(3, 9), DurationMinutes = 30 });
+        { PatientId = other.Id, DoctorId = _bed.DoctorId, ScheduledAt = At(3, 9), DurationMinutes = 30 });
 
         Assert.Equal(new[] { early.Id, late.Id }, Ids(await _bed.Service.GetAllAsync(patientId: _bed.PatientId)));
         Assert.Equal(new[] { late.Id, foreign.Value!.Id }, Ids(await _bed.Service.GetAllAsync(doctorId: _bed.DoctorId)));
@@ -217,7 +217,7 @@ public class AppointmentBoundaryTests : IDisposable
         _bed.Notifications.Sent.Clear();
 
         await _bed.Service.CreateAsync(new AppointmentCreateDto
-            { PatientId = _bed.PatientId, DoctorId = _bed.DoctorId, ScheduledAt = At(1, 9), DurationMinutes = 30 });
+        { PatientId = _bed.PatientId, DoctorId = _bed.DoctorId, ScheduledAt = At(1, 9), DurationMinutes = 30 });
 
         Assert.Empty(_bed.Notifications.Sent);
     }

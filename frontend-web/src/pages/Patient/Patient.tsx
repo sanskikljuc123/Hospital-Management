@@ -26,7 +26,10 @@ const PatientC: React.FC = () => {
   const [drawerTitle, setDrawerTitle] = useState<string>("");
   useEffect(() => {
     // A list that cannot be loaded says so, instead of looking empty (UI_TEST_DESIGN D-6).
-    store.dispatch(fetchPatients()).unwrap().catch((error: string) => message.error(error));
+    store
+      .dispatch(fetchPatients())
+      .unwrap()
+      .catch((error: string) => message.error(error));
   }, []);
 
   return (

@@ -53,7 +53,12 @@ const Services: React.FC<ServicesProps> = ({
       render: (_text, record) => (
         <Space size='middle'>
           <Tooltip title='View'>
-            <Button aria-label='View' onClick={() => handleViewService(record)} className='table--action-btn' icon={<HiOutlineEye />} />
+            <Button
+              aria-label='View'
+              onClick={() => handleViewService(record)}
+              className='table--action-btn'
+              icon={<HiOutlineEye />}
+            />
           </Tooltip>
           <Tooltip title='Edit'>
             <Button

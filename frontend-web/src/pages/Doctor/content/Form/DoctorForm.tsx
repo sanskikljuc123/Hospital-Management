@@ -26,7 +26,10 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ doctor, onSubmit }) => {
   // Send the birthday as "YYYY-MM-DD", not as a UTC timestamp: local midnight in UTC+1 is the day before
   // in UTC and would be saved one day early.
   const handleSubmit = async (values: Omit<Doctor, "birthday"> & { birthday?: Dayjs }) => {
-    onSubmit({ ...values, birthday: values.birthday ? values.birthday.format("YYYY-MM-DD") : null } as unknown as Doctor);
+    onSubmit({
+      ...values,
+      birthday: values.birthday ? values.birthday.format("YYYY-MM-DD") : null,
+    } as unknown as Doctor);
   };
 
   return (

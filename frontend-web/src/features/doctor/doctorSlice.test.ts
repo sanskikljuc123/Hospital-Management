@@ -9,8 +9,13 @@ import { updateDoctor } from "./doctorSlice";
 describe("doctorSlice @R-059 @R-061", () => {
   it("saves an edited doctor with PUT to the doctor's address, with every field in the body", async () => {
     const doctor = {
-      id: 9, firstName: "Test", lastName: "Doctor", birthday: "1980-01-02", address: "1 Test Street",
-      departmentId: 3, serviceIds: [1],
+      id: 9,
+      firstName: "Test",
+      lastName: "Doctor",
+      birthday: "1980-01-02",
+      address: "1 Test Street",
+      departmentId: 3,
+      serviceIds: [1],
     };
     let received: { method: string; body: unknown } | undefined;
     server.use(
@@ -26,8 +31,12 @@ describe("doctorSlice @R-059 @R-061", () => {
     expect(received).toEqual({
       method: "PUT",
       body: {
-        firstName: "Test", lastName: "Doctor", birthday: "1980-01-02", address: "1 Test Street",
-        departmentId: 3, serviceIds: [1],
+        firstName: "Test",
+        lastName: "Doctor",
+        birthday: "1980-01-02",
+        address: "1 Test Street",
+        departmentId: 3,
+        serviceIds: [1],
       },
     });
   });

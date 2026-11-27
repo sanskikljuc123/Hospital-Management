@@ -25,7 +25,12 @@ const PrivateRouts = () => {
         <SideMenu menuItems={menuItems} logOut={handelLogOut}></SideMenu>
 
         <Layout>
-          <NavBar userName={getDisplayName()} pageName={page ? `${page.label} Page` : ""} userImg='' pageIcon={page?.icon} />
+          <NavBar
+            userName={getDisplayName()}
+            pageName={page ? `${page.label} Page` : ""}
+            userImg=''
+            pageIcon={page?.icon}
+          />
           <Content
             style={{
               margin: "24px 16px",
