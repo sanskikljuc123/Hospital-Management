@@ -94,7 +94,14 @@ public class RecordLinkedCorrectionTests : IAsyncLifetime
     public async Task RecordAndNoShowAtTheSameMoment_NeverBothSucceed()
     {
         const int Iterations = 20;
-        var both = new List<string>();
+        // Each run ends in one of these two, whatever the timing: the status codes and what was saved must agree,
+        // and the saved state is read back, because a 409 does not prove that nothing was committed (assertion rule 20).
+        string[] allowed =
+        [
+            "record 201, saved 1; NoShow 409, stored Scheduled",
+            "record 409, saved 0; NoShow 200, stored NoShow",
+        ];
+        var outcomes = new List<string>();
         using var nurse = _later.ClientFor(TestUser.Nurse());
 
         for (var i = 0; i < Iterations; i++)
@@ -119,13 +126,19 @@ public class RecordLinkedCorrectionTests : IAsyncLifetime
             var recorded = await record;
             var markedNoShow = await noShow;
 
-            if (recorded.StatusCode == HttpStatusCode.Created && markedNoShow.StatusCode == HttpStatusCode.OK)
-                both.Add($"iteration {i}: record 201 and NoShow 200 on appointment {appointmentId}");
-            else
-                Assert.Contains((int)recorded.StatusCode + "/" + (int)markedNoShow.StatusCode, new[] { "201/409", "409/200" });
+            var saved = (await nurse.GetFromJsonAsync<JsonElement>($"/api/MedicalRecord?patientId={patientId}", TestData.Json))
+                .EnumerateArray()
+                .Count(r => r.GetProperty("appointmentId").ValueKind == JsonValueKind.Number
+                            && r.GetProperty("appointmentId").GetInt32() == appointmentId);
+            var stored = (await nurse.GetFromJsonAsync<JsonElement>($"/api/Appointment/{appointmentId}", TestData.Json))
+                .GetProperty("status").GetString();
+            outcomes.Add($"record {(int)recorded.StatusCode}, saved {saved}; " +
+                         $"NoShow {(int)markedNoShow.StatusCode}, stored {stored}");
         }
 
-        Assert.True(both.Count == 0, $"{both.Count} of {Iterations} visits ended documented AND NoShow:\n" + string.Join("\n", both));
+        var wrong = outcomes.Select((o, i) => $"iteration {i}: {o}").Where((_, i) => !allowed.Contains(outcomes[i])).ToList();
+        Assert.Equal(Iterations, outcomes.Count);
+        Assert.Empty(wrong);
     }
 
     /// <summary>

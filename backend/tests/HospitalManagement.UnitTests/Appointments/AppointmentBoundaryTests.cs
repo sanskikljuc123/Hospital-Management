@@ -138,6 +138,8 @@ public sealed class AppointmentBoundaryTests : IDisposable
         var a = await _bed.BookAsync(DateTime.SpecifyKind(At(1, 9), DateTimeKind.Utc));
 
         Assert.Equal(At(1, 9), a.ScheduledAt);
+        // DateTime equality ignores Kind (assertion rule 17), so the kind is asserted on its own.
+        Assert.Equal(DateTimeKind.Utc, a.ScheduledAt.Kind);
     }
 
     [Fact]
@@ -149,7 +151,11 @@ public sealed class AppointmentBoundaryTests : IDisposable
 
         var a = await _bed.BookAsync(local);
 
+        // CI runs in UTC, where ToLocalTime() changes no digits, so the value alone would pass without the
+        // conversion. Its Kind does not: a time stored without ToUniversalTime() stays Local (assertion rule 17).
         Assert.Equal(At(1, 9), a.ScheduledAt);
+        Assert.Equal(DateTimeKind.Utc, a.ScheduledAt.Kind);
+        Assert.Equal(DateTimeKind.Utc, (await _bed.Db.Appointments.FindAsync(a.Id))!.ScheduledAt.Kind);
     }
 
     // ---------- Lists ----------
@@ -185,7 +191,7 @@ public sealed class AppointmentBoundaryTests : IDisposable
 
         Assert.True(await _bed.Service.DeleteAsync(a.Id));
         Assert.Empty(_bed.Db.Appointments);
-        Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentDeleted);
+        Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentDeleted && Equals(e.EntityId, a.Id));
         Assert.False(await _bed.Service.DeleteAsync(a.Id));
     }
 
@@ -216,9 +222,10 @@ public sealed class AppointmentBoundaryTests : IDisposable
         await _bed.BookAsync(At(1, 9));
         _bed.Notifications.Sent.Clear();
 
-        await _bed.Service.CreateAsync(new AppointmentCreateDto
+        var result = await _bed.Service.CreateAsync(new AppointmentCreateDto
         { PatientId = _bed.PatientId, DoctorId = _bed.DoctorId, ScheduledAt = At(1, 9), DurationMinutes = 30 });
 
+        Assert.Equal(ResultStatus.Conflict, result.Status); // the change really was refused (assertion rule 18)
         Assert.Empty(_bed.Notifications.Sent);
     }
 }

@@ -88,7 +88,8 @@ public class PatientWriteAccessTests
     public async Task CreatePatient_AsAdminOrNurse_Returns201_AndStoresThePatient(string role)
     {
         var tag = Tag();
-        using var client = _factory.ClientFor(TestUser.Create("staff", role));
+        var staff = TestUser.Create("staff", role);
+        using var client = _factory.ClientFor(staff);
 
         var response = await client.PostAsJsonAsync("/api/Patient",
             await BodyAsync($"Test Patient R069 {tag}", $"r069.{tag}@hospital.test"), TestData.Json);
@@ -101,6 +102,12 @@ public class PatientWriteAccessTests
         Assert.Equal($"r069.{tag}@hospital.test", stored.GetProperty("email").GetString());
         var entries = await admin.GetFromJsonAsync<JsonElement>($"/api/AuditLog?entityType=Patient&entityId={id}", TestData.Json);
         Assert.Contains("Patient.Created", entries.EnumerateArray().Select(e => e.GetProperty("action").GetString()));
+        // Positive control for the refused-create check (AssertCreateRefusedAsync): the same audit query, by action and
+        // the caller's subject, finds this user's entry. Otherwise its "no entry" could pass on a broken filter.
+        var byCaller = await admin.GetFromJsonAsync<JsonElement>(
+            $"/api/AuditLog?action=Patient.Created&userId={Uri.EscapeDataString(staff.Subject)}", TestData.Json);
+        Assert.Equal(id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Assert.Single(byCaller.EnumerateArray()).GetProperty("entityId").GetString());
     }
 
     [Fact]

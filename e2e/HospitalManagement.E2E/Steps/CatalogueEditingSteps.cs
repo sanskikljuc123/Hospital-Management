@@ -159,6 +159,7 @@ public sealed class CatalogueEditingSteps : IDisposable
         Assert.Equal(_departmentId.ToString(CultureInfo.InvariantCulture), after.GetProperty("departmentId").GetRawText());
         Assert.Equal(new[] { _serviceId }, after.GetProperty("serviceIds").EnumerateArray().Select(s => s.GetInt32()));
         Assert.Equal(_before.GetProperty("address").GetString(), after.GetProperty("address").GetString());
+        AssertOnlyChanged(_before, after, "firstName");
     }
 
     [Then("the patient's email address, phone and service are unchanged")]
@@ -169,6 +170,7 @@ public sealed class CatalogueEditingSteps : IDisposable
         Assert.Equal(_before.GetProperty("email").GetString(), after.GetProperty("email").GetString());
         Assert.Equal(_before.GetProperty("phone").GetInt32(), after.GetProperty("phone").GetInt32());
         Assert.Equal(_serviceId, after.GetProperty("serviceId").GetInt32());
+        AssertOnlyChanged(_before, after, "userName");
     }
 
     [Then("the service's new description is stored and its department is unchanged")]
@@ -178,6 +180,7 @@ public sealed class CatalogueEditingSteps : IDisposable
         Assert.Equal(_newValue, after.GetProperty("description").GetString());
         Assert.Equal(_before.GetProperty("name").GetString(), after.GetProperty("name").GetString());
         Assert.Equal(_departmentId.ToString(CultureInfo.InvariantCulture), after.GetProperty("departmentId").GetRawText());
+        AssertOnlyChanged(_before, after, "description");
     }
 
     [Then("the new doctor's stored birthday is {string}")]
@@ -197,6 +200,21 @@ public sealed class CatalogueEditingSteps : IDisposable
     }
 
     // ---------- Helpers ----------
+
+    /// <summary>
+    /// R-059 is about the fields the form does not show, so every field is compared, not a chosen few: a field added
+    /// to the API later, and cleared by the form, fails here too. Only <paramref name="changed"/> may differ.
+    /// </summary>
+    private static void AssertOnlyChanged(JsonElement before, JsonElement after, string changed)
+    {
+        var names = before.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(names, after.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray());
+        Assert.Contains(changed, names);
+        var cleared = names.Where(n => n != changed)
+            .Where(n => before.GetProperty(n).GetRawText() != after.GetProperty(n).GetRawText())
+            .Select(n => $"{n}: {before.GetProperty(n).GetRawText()} -> {after.GetProperty(n).GetRawText()}");
+        Assert.Empty(cleared);
+    }
 
     private async Task<int> CreateAsync(string path, object body)
     {

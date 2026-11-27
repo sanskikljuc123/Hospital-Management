@@ -24,9 +24,12 @@ describe("PatientForm @R-059", () => {
     await user.click(screen.getByRole("button", { name: "Update Patient" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+    // The whole body, not a subset: the PUT replaces every field, so a missing phone would erase it too
+    // (assertion rule 16).
+    expect(onSubmit.mock.calls[0][0]).toEqual({
       id: 4,
       userName: "Test Patient Renamed",
+      phone: "12345678",
       email: "test.patient@hospital.test",
       serviceId: 1,
     });

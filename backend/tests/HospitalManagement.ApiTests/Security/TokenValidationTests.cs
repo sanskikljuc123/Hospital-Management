@@ -23,6 +23,10 @@ public class TokenValidationTests
         yield return new object[] { "not a JWT", "Bearer not-a-token" };
         yield return new object[] { "expired beyond clock skew",
             "Bearer " + TestTokenIssuer.Issue(user, notBefore: now.AddHours(-2), expires: now.AddMinutes(-5)) };
+        // The API allows 30 s of clock skew (AuthenticationExtensions.cs). 60 s is past it, but inside the
+        // library's default of 5 min, so this row fails if the skew falls back to the default.
+        yield return new object[] { "expired 60 s ago, past the 30 s clock skew",
+            "Bearer " + TestTokenIssuer.Issue(user, notBefore: now.AddHours(-1), expires: now.AddSeconds(-60)) };
         yield return new object[] { "not yet valid",
             "Bearer " + TestTokenIssuer.Issue(user, notBefore: now.AddMinutes(10), expires: now.AddMinutes(30)) };
         yield return new object[] { "wrong issuer",
@@ -50,6 +54,17 @@ public class TokenValidationTests
     public async Task ProtectedEndpoint_ValidToken_Returns200()
     {
         using var client = _factory.ClientFor(TestUser.Admin());
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(ProtectedPath)).StatusCode);
+    }
+
+    /// <summary>The other side of the 30 s skew boundary: a token that expired 10 s ago is still accepted.</summary>
+    [Fact]
+    public async Task ProtectedEndpoint_TokenExpiredWithinClockSkew_Returns200()
+    {
+        var now = DateTime.UtcNow;
+        using var client = _factory.ClientWithAuthorization(
+            "Bearer " + TestTokenIssuer.Issue(TestUser.Admin(), notBefore: now.AddHours(-1), expires: now.AddSeconds(-10)));
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(ProtectedPath)).StatusCode);
     }

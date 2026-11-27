@@ -16,34 +16,45 @@ public class AuthorizationMatrixTests
 
     public AuthorizationMatrixTests(ApiFixture fixture) => _factory = fixture.Factory;
 
+    // One test per expected result, so no assertion is chosen by a branch (assertion rule 15).
     [Theory]
-    [MemberData(nameof(AuthorizationMatrix.Cases), MemberType = typeof(AuthorizationMatrix))]
+    [MemberData(nameof(AuthorizationMatrix.RefusedCases), MemberType = typeof(AuthorizationMatrix))]
     [Trait("Risk", "R-005")]
     [Trait("Risk", "R-015")]
     [Trait("Risk", "R-020")]
     [Trait("Risk", "R-069")]
-    public async Task Endpoint_Identity_GetsExpectedAuthorizationResult(string method, string template, string identity, string expected)
+    public async Task Endpoint_Identity_IsRefusedWithExactStatus(string method, string template, string identity, int expectedStatus)
+    {
+        using var response = await SendAsync(method, template, identity);
+
+        Assert.Equal((HttpStatusCode)expectedStatus, response.StatusCode);
+    }
+
+    [Theory]
+    [MemberData(nameof(AuthorizationMatrix.AllowedCases), MemberType = typeof(AuthorizationMatrix))]
+    [Trait("Risk", "R-005")]
+    [Trait("Risk", "R-015")]
+    [Trait("Risk", "R-020")]
+    [Trait("Risk", "R-069")]
+    public async Task Endpoint_Identity_PassesAuthorization(string method, string template, string identity)
+    {
+        using var response = await SendAsync(method, template, identity);
+
+        // Assertion rule 1 exception: authorization is the behavior here, and the request is deliberately empty (an
+        // empty body, a missing id). Passing authorization means a normal answer about the request itself: success,
+        // 400, 404 or 409. A 5xx hid the result, so it does not count. The business results are asserted per
+        // endpoint in the other API tests.
+        var status = (int)response.StatusCode;
+        Assert.True(status is not (401 or 403) && status < 500,
+            $"{identity} must pass authorization on {method} {template} and get a normal answer, got {status}");
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(string method, string template, string identity)
     {
         using var client = _factory.ClientFor(UserFor(identity));
         using var request = new HttpRequestMessage(new HttpMethod(method), template.Replace("{id}", MissingId.ToString(CultureInfo.InvariantCulture)));
-        if (method is "POST" or "PUT")
-            request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-
-        var response = await client.SendAsync(request);
-
-        var status = (int)response.StatusCode;
-        switch (expected)
-        {
-            case "401": Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode); break;
-            case "403": Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode); break;
-            default:
-                // Passing authorization means the request reached the endpoint and got a normal answer: success,
-                // or a 4xx about the request itself (400 for the empty body, 404 for the missing id, 409).
-                // A 5xx is a server failure that hid the result, so it does not count as "allowed".
-                Assert.True(status is not (401 or 403) && status < 500,
-                    $"{identity} must pass authorization on {method} {template} and get a normal answer, got {status}");
-                break;
-        }
+        request.Content = method is "POST" or "PUT" ? new StringContent("{}", Encoding.UTF8, "application/json") : null;
+        return await client.SendAsync(request);
     }
 
     /// <summary>The anonymous endpoints outside the matrix, tested by <see cref="HealthEndpoints_AreAnonymous"/>.</summary>

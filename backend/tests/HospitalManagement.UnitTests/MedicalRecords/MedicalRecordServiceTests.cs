@@ -60,7 +60,9 @@ public sealed class MedicalRecordServiceTests : IDisposable
 
         var entry = Assert.Single(_audit.Entries);
         Assert.Equal(AuditActions.MedicalRecordCreated, entry.Action);
+        Assert.Equal(_db.MedicalRecords.Single().Id.ToString(System.Globalization.CultureInfo.InvariantCulture), entry.EntityId);
         Assert.DoesNotContain("Secret diagnosis", entry.Details);
+        Assert.DoesNotContain("Secret", entry.Details);
     }
 
     [Fact]
@@ -156,6 +158,9 @@ public sealed class MedicalRecordServiceTests : IDisposable
     {
         Assert.Equal(ResultStatus.NotFound,
             (await _service.UpdateAsync(999, new MedicalRecordUpdateDto { Diagnosis = "Flu" }, _doctorA)).Status);
+        Assert.Empty(_db.MedicalRecords);
+        Assert.Empty(_db.MedicalRecordRevisions);
+        Assert.Empty(_audit.Entries);
     }
 
     [Fact]

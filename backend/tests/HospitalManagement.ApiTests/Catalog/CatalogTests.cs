@@ -12,8 +12,14 @@ namespace HospitalManagement.ApiTests.Catalog;
 [Collection(ApiCollection.Name)]
 public class CatalogTests
 {
-    private static readonly string[] InternalFields =
-        { "userId", "user", "doctorServices", "patients", "service", "appointments", "department" };
+    // The fields each list may carry, from contracts/openapi.json. An allowlist, not a list of forbidden names: a new
+    // field that leaks an account link or navigation data under any name fails here (assertion rule 4).
+    private static readonly Dictionary<string, string[]> DocumentedFields = new()
+    {
+        ["/api/Doctor"] = ["id", "firstName", "lastName", "birthday", "address", "departmentId", "serviceIds"],
+        ["/api/Patient"] = ["id", "userName", "phone", "email", "serviceId", "serviceName"],
+        ["/api/Service"] = ["id", "name", "description", "departmentId"],
+    };
 
     private readonly ApiFactory _factory;
     private readonly TestData _data;
@@ -41,7 +47,7 @@ public class CatalogTests
 
         Assert.NotEmpty(items.EnumerateArray());
         Assert.All(items.EnumerateArray(), item =>
-            Assert.DoesNotContain(item.EnumerateObject(), p => InternalFields.Contains(p.Name)));
+            Assert.Empty(item.EnumerateObject().Select(p => p.Name).Except(DocumentedFields[path])));
     }
 
     [Fact]
@@ -55,7 +61,8 @@ public class CatalogTests
 
         var item = await client.GetFromJsonAsync<JsonElement>($"/api/Patient/{patientId}", TestData.Json);
 
-        Assert.DoesNotContain(item.EnumerateObject(), p => InternalFields.Contains(p.Name));
+        Assert.Equal(patientId, item.GetProperty("id").GetInt32());
+        Assert.Empty(item.EnumerateObject().Select(p => p.Name).Except(DocumentedFields["/api/Patient"]));
     }
 
     [Fact]
@@ -65,20 +72,31 @@ public class CatalogTests
     {
         using var admin = _data.Admin;
         using var staff = _factory.ClientFor(TestUser.Nurse());
-        var patientsBefore = (await staff.GetFromJsonAsync<JsonElement>("/api/Patient", TestData.Json)).GetArrayLength();
+        // The injected rows point at records that exist, so only the API's binding can keep them out.
+        var existingServiceId = await _data.ServiceIdAsync();
+        var doctorId = await _data.CreateDoctorAsync();
+        var injected = "Injected Patient " + Guid.NewGuid().ToString("N")[..6];
+        var name = "Over-posting test " + Guid.NewGuid().ToString("N")[..6];
 
         var response = await admin.PostAsJsonAsync("/api/Service", new
         {
             id = 424242,
-            name = "Over-posting test " + Guid.NewGuid().ToString("N")[..6],
-            patients = new[] { new { userName = "Injected Patient", serviceId = 1 } },
-            doctorServices = new[] { new { doctorId = 1, serviceId = 1 } }
+            name,
+            patients = new[] { new { userName = injected, serviceId = existingServiceId } },
+            doctorServices = new[] { new { doctorId, serviceId = existingServiceId } }
         }, TestData.Json);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var service = await response.Content.ReadFromJsonAsync<JsonElement>(TestData.Json);
-        Assert.NotEqual(424242, service.GetProperty("id").GetInt32());
-        Assert.Equal(patientsBefore, (await staff.GetFromJsonAsync<JsonElement>("/api/Patient", TestData.Json)).GetArrayLength());
+        var id = service.GetProperty("id").GetInt32();
+        Assert.NotEqual(424242, id);
+        Assert.Equal(name, (await admin.GetFromJsonAsync<JsonElement>($"/api/Service/{id}", TestData.Json))
+            .GetProperty("name").GetString());
+        var patients = (await staff.GetFromJsonAsync<JsonElement>("/api/Patient", TestData.Json)).EnumerateArray().ToList();
+        Assert.NotEmpty(patients);
+        Assert.DoesNotContain(patients, p => p.GetProperty("userName").GetString() == injected);
+        var doctor = await admin.GetFromJsonAsync<JsonElement>($"/api/Doctor/{doctorId}", TestData.Json);
+        Assert.Empty(doctor.GetProperty("serviceIds").EnumerateArray());
     }
 
     [Fact]
@@ -93,6 +111,7 @@ public class CatalogTests
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/Patient/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/api/Service/{serviceId}")).StatusCode);
     }
 
     [Fact]
@@ -129,13 +148,18 @@ public class CatalogTests
     public async Task CreateDoctor_UnknownReference_Returns400(string field)
     {
         using var admin = _data.Admin;
+        await _data.CreateDoctorAsync(); // the list below is not empty, so the absence can be seen
+        var lastName = "Refused " + Guid.NewGuid().ToString("N")[..8];
         object body = field == "serviceIds"
-            ? new { firstName = "Test", lastName = "Doctor", serviceIds = new[] { 987_654 } }
-            : new { firstName = "Test", lastName = "Doctor", departmentId = 987_654 };
+            ? new { firstName = "Test", lastName, serviceIds = new[] { 987_654 } }
+            : new { firstName = "Test", lastName, departmentId = 987_654 };
 
         var response = await admin.PostAsJsonAsync("/api/Doctor", body, TestData.Json);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var doctors = (await admin.GetFromJsonAsync<JsonElement>("/api/Doctor", TestData.Json)).EnumerateArray().ToList();
+        Assert.NotEmpty(doctors);
+        Assert.DoesNotContain(doctors, d => d.GetProperty("lastName").GetString() == lastName);
     }
 
     [Fact]
@@ -143,11 +167,16 @@ public class CatalogTests
     public async Task CreatePatient_UnknownService_Returns400()
     {
         using var admin = _data.Admin;
+        await _data.CreatePatientAsync(); // the list below is not empty, so the absence can be seen
+        var userName = "Refused Patient " + Guid.NewGuid().ToString("N")[..8];
 
         var response = await admin.PostAsJsonAsync("/api/Patient",
-            new { userName = "Test Patient", email = "p@hospital.test", serviceId = 987_654 }, TestData.Json);
+            new { userName, email = "p@hospital.test", serviceId = 987_654 }, TestData.Json);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var patients = (await admin.GetFromJsonAsync<JsonElement>("/api/Patient", TestData.Json)).EnumerateArray().ToList();
+        Assert.NotEmpty(patients);
+        Assert.DoesNotContain(patients, p => p.GetProperty("userName").GetString() == userName);
     }
 
     [Fact]
@@ -178,11 +207,12 @@ public class CatalogTests
     {
         var patientId = await _data.CreatePatientAsync();
         using var admin = _data.Admin;
-        await admin.PutAsJsonAsync($"/api/Patient/{patientId}", new
+        var update = await admin.PutAsJsonAsync($"/api/Patient/{patientId}", new
         {
             userName = "Audit Check Patient", phone = 30000000, email = "auditcheck@hospital.test",
             serviceId = await _data.ServiceIdAsync()
         }, TestData.Json);
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode); // otherwise the absence checks below prove nothing
 
         var entries = await admin.GetFromJsonAsync<JsonElement>(
             $"/api/AuditLog?entityType=Patient&entityId={patientId}", TestData.Json);

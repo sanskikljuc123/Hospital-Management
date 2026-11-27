@@ -142,7 +142,10 @@ public sealed class OutboxDispatcherTests : IAsyncDisposable
         await _dispatcher.StopAsync(CancellationToken.None).WaitAsync(Deadline);
 
         Assert.Empty(_errors.Entries);
-        Assert.True(_dispatcher.ExecuteTask!.IsCompleted);
+        // IsCompleted is also true for a faulted task: an exception that escaped the loop unlogged would pass it.
+        var loop = _dispatcher.ExecuteTask!;
+        Assert.True(loop.IsCompleted, $"The loop did not end: {loop.Status}");
+        Assert.False(loop.IsFaulted, $"The loop ended with an error: {loop.Exception?.GetBaseException()}");
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "SemaphoreSlim holds no OS handle here: AvailableWaitHandle is never read")]

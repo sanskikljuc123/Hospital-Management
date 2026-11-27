@@ -19,7 +19,7 @@ public class BolaTests : IAsyncLifetime
     private readonly TestData _data;
 
     private TestUser _patientA = null!, _patientB = null!;
-    private int _patientAId, _patientBId, _appointmentA, _appointmentB, _recordA, _recordB;
+    private int _patientAId, _patientBId, _doctorId, _appointmentA, _appointmentB, _recordA, _recordB;
 
     public BolaTests(ApiFixture fixture)
     {
@@ -32,6 +32,7 @@ public class BolaTests : IAsyncLifetime
         (_patientA, _patientAId) = await _data.LinkedPatientAsync();
         (_patientB, _patientBId) = await _data.LinkedPatientAsync();
         var (doctor, doctorId) = await _data.LinkedDoctorAsync();
+        _doctorId = doctorId;
         _appointmentA = await _data.CreateAppointmentAsync(_patientAId, doctorId, daysAhead: 7);
         _appointmentB = await _data.CreateAppointmentAsync(_patientBId, doctorId, daysAhead: 8);
         _recordA = await _data.CreateRecordAsync(doctor, _patientAId);
@@ -94,6 +95,7 @@ public class BolaTests : IAsyncLifetime
         var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, MissingId));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync()); // like another patient's id: nothing tells them apart
     }
 
     [Theory]
@@ -170,7 +172,9 @@ public class BolaTests : IAsyncLifetime
 
         var response = await client.PostAsJsonAsync("/api/Appointment", new
         {
-            patientId = _patientBId, doctorId = 1, scheduledAt = DateTime.UtcNow.AddDays(20), durationMinutes = 30
+            // A real doctor and a free slot: without the ownership check this booking would succeed.
+            patientId = _patientBId, doctorId = _doctorId, scheduledAt = DateTime.UtcNow.Date.AddDays(20).AddHours(9),
+            durationMinutes = 30
         }, TestData.Json);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);

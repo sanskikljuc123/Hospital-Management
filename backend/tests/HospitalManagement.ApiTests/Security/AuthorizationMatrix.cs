@@ -62,15 +62,25 @@ public static class AuthorizationMatrix
 
     public static readonly string[] Identities = { "Anonymous", "NoRole", "Admin", "Doctor", "Nurse", "Patient" };
 
-    public static IEnumerable<object[]> Cases()
+    /// <summary>Every (row, identity) pair, with "401", "403" or "allowed".</summary>
+    public static IEnumerable<(Row Row, string Identity, string Expected)> Cases()
     {
         foreach (var row in Rows)
             foreach (var identity in Identities)
             {
                 if (identity == "Patient" && row.PatientOwnOnly) continue;
-                yield return new object[] { row.Method, row.Template, identity, Expected(row, identity) };
+                yield return (row, identity, Expected(row, identity));
             }
     }
+
+    /// <summary>The pairs that must be refused, with the exact status (401 or 403).</summary>
+    public static IEnumerable<object[]> RefusedCases() =>
+        Cases().Where(c => c.Expected != "allowed")
+            .Select(c => new object[] { c.Row.Method, c.Row.Template, c.Identity, int.Parse(c.Expected, System.Globalization.CultureInfo.InvariantCulture) });
+
+    /// <summary>The pairs that must pass authorization.</summary>
+    public static IEnumerable<object[]> AllowedCases() =>
+        Cases().Where(c => c.Expected == "allowed").Select(c => new object[] { c.Row.Method, c.Row.Template, c.Identity });
 
     /// <summary>"401", "403", or "allowed" (anything but 401/403: the role passed authorization).</summary>
     private static string Expected(Row row, string identity) => identity switch

@@ -44,6 +44,8 @@ public sealed class AppointmentNotificationHandlerTests : IDisposable
         var sms = Assert.Single(_gateways.Sms);
         Assert.Equal("38761234", sms.Number);
         Assert.Equal("Your appointment is scheduled for 2027-03-01 09:30:00Z.", sms.Message);
+        Assert.Equal(("patient.one@hospital.test", "Appointment scheduled", "Your appointment is scheduled for 2027-03-01 09:30:00Z."),
+            Assert.Single(_gateways.Email));
     }
 
     [Fact]
@@ -55,17 +57,46 @@ public sealed class AppointmentNotificationHandlerTests : IDisposable
         await Handler.HandleAsync(Payload(patientId));
 
         Assert.Empty(_gateways.Sms);
-        Assert.Equal("patient.two@hospital.test", Assert.Single(_gateways.Email));
+        Assert.Equal("patient.two@hospital.test", Assert.Single(_gateways.Email).To);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [Trait("Risk", "R-042")]
+    public async Task HandleAsync_PatientWithoutEmail_SendsTheSmsButNoEmail(string? email)
+    {
+        var patientId = await PatientAsync(38761234, email);
+
+        await Handler.HandleAsync(Payload(patientId));
+
+        Assert.Empty(_gateways.Email);
+        Assert.Equal("38761234", Assert.Single(_gateways.Sms).Number);
+    }
+
+    [Fact]
+    [Trait("Risk", "R-042")]
+    public async Task HandleAsync_PatientNoLongerExists_SendsNothing_AndDoesNotFail()
+    {
+        var knownPatientId = await PatientAsync(38761234, "patient.three@hospital.test"); // proves the gateways work
+
+        await Handler.HandleAsync(Payload(knownPatientId + 1000));
+
+        Assert.Empty(_gateways.Email);
+        Assert.Empty(_gateways.Sms);
+        await Handler.HandleAsync(Payload(knownPatientId)); // positive control (assertion rule 4)
+        Assert.Single(_gateways.Email);
     }
 
     private sealed class RecordingGateways : IEmailService, ISmsService
     {
-        public List<string> Email { get; } = [];
+        public List<(string To, string Subject, string Body)> Email { get; } = [];
         public List<(string Number, string Message)> Sms { get; } = [];
 
         public Task SendAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
         {
-            Email.Add(to);
+            Email.Add((to, subject, body));
             return Task.CompletedTask;
         }
 

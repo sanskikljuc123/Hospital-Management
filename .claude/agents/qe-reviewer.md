@@ -69,6 +69,13 @@ Check and report each item:
 10. **Lint and static analysis:** an `eslint-disable` added in `frontend-web/`, or a CodeQL alert dismissed in the
    pull request, without a stated reason.
 
+11. **Assertion rules** (TEST_STRATEGY §4, *Assertion rules*, rules 1–20): for every new or changed test, each
+   rule it breaks without an `// Assertion rule N exception: <reason>` comment. Name the rule, quote the
+   assertion, and give the concrete bug that would pass it (a false positive). The ones that hide a defect most
+   often: a status-only check of a business outcome (1), an absence with no positive control or an `Assert.All`
+   that may run on an empty list (4, 7), a rejection without its side-effect checks (5), a fake whose recipient or
+   content is not asserted (10), `IsCompleted` for "no error" (12), and a race test that trusts status codes (20).
+
 Output section: **Review comments** — one per finding, with `file:line`, and a suggested PR-template answer
 the author can confirm.
 

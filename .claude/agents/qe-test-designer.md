@@ -39,6 +39,8 @@ Read these and follow them throughout:
    - Assert the exact status **and** the state the risk is about (data not created, not changed, not in
      the body). A status code alone is not enough for a BOLA or tampering risk.
    - Include the negative cases: wrong identity, missing ID, other patient's ID, boundary values.
+   - Every assertion follows the assertion rules in TEST_STRATEGY §4 (rules 1–20). A design that needs an
+     exception says which rule and why, so the comment can go into the code.
 3. **Check that each test can fail.** For every test, say what code change would make it fail. A test that
    cannot fail is not proposed.
 4. **Draft code** (only when asked) as text in a code block: xUnit for unit and API tests, Reqnroll feature

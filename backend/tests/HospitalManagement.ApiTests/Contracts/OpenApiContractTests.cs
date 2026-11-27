@@ -32,11 +32,14 @@ public class OpenApiContractTests
             .SerializeAsJson(OpenApiSpecVersion.OpenApi3_0));
         var path = Path.Combine(RepositoryRoot(), "contracts", "openapi.json");
 
-        if (Environment.GetEnvironmentVariable(UpdateVariable) == "1")
+        // Update mode never passes on a file it has just rewritten: a run with the variable set by mistake (in CI, say)
+        // fails instead of silently accepting any contract (assertion rule 15). An unchanged file is compared below.
+        if (Environment.GetEnvironmentVariable(UpdateVariable) == "1"
+            && (!File.Exists(path) || File.ReadAllText(path).Replace("\r\n", "\n") != generated))
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, generated);
-            return;
+            Assert.Fail($"{path} was updated. Review and commit it, then run the test again without {UpdateVariable}.");
         }
 
         Assert.True(File.Exists(path), $"{path} is missing. Create it: {UpdateVariable}=1 dotnet test --filter OpenApiContract");
