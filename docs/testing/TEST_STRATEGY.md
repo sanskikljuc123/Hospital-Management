@@ -132,7 +132,8 @@ Rules for every test:
 3. **One behavior per test.** Arrange – Act – Assert, with the assertion on the outcome the risk is about
    (status code **and** that no other patient's data is in the body).
 4. **Exact assertions.** Assert the exact status code, not "not 200". Never `Assert.True(true)`.
-5. **No shared mutable state** between tests. A test creates the data it needs.
+5. **No shared mutable state** between tests. A test creates the data it needs, asserts only on what it created
+   and passes alone and in any order (§8, *Test independence*).
 6. **No conditional logic** (`if`) in a test body. Use `[Theory]` with data rows instead.
 
 ## 5. Test identities
@@ -165,7 +166,10 @@ must produce the same shape, and the test host must trust only the test key.
   directly in an in-memory database (unit tests). The seed data (`Database:SeedOnStartup`) is not relied on.
 - **Isolation by data:** one PostgreSQL container and one API host per test run; every test creates its own
   users, patients, doctors and appointments with unique values and asserts only on what it created. Tests
-  never depend on IDs or rows created by another test.
+  never depend on IDs or rows created by another test. Four tests still count every row (§8, *Known breaches*).
+- **Unique, not fixed, values:** a test makes its values unique with a new GUID (`TestUser.cs`, `TestData.cs`).
+  This way two tests in one run, and two E2E runs against the same stack, never share data. The fixed-seed rule in BUSINESS_FLOWS §4 is for the sample-data
+  generator, not for the values a test creates.
 - **Time:** the services read the clock from an injected `TimeProvider` (A-004). Unit tests fix it with
   `FakeTimeProvider` and move it explicitly ("before / after the start" is exact). API tests use dates
   relative to now with a safe margin (e.g. `+7 days`), never fixed calendar dates.
@@ -182,12 +186,73 @@ must produce the same shape, and the test host must trust only the test key.
 
 - **No retries** — not in xUnit, not in Playwright, not in the CI job.
 - **No fixed waits.** Wait for a condition: `/health` returning 200, a Playwright locator or response.
-- **No order dependence.** Tests pass when run alone, in any order, and in parallel within their collection.
-  In `frontend-web`, the shared `src/test/setup.ts` resets the Redux store and removes antd toasts after every
-  test, because Vitest isolates files, not tests (R-071). The one deliberate exception is
-  `src/test/isolation.test.tsx`, whose test pairs run in file order (`shuffle: false`) to check that reset.
+- **No order dependence:** every test is independent of every other test (*Test independence* below).
 - **No network** outside the containers the test starts.
 - A failure that cannot be reproduced is handled by the flaky-test policy in [QUALITY_GATES.md](QUALITY_GATES.md#3-flaky-tests).
+
+### Test independence
+
+A test's result depends only on the code under test and on the test itself, never on which tests ran before
+it, in what order, or at the same time. This applies to every level (R-071, R-072).
+
+Every test:
+
+1. **Passes alone, in any order and repeated:** run on its own, shuffled among the others, or twice in a row.
+2. **Arranges its own data.** It creates the users, records and state it needs (§6) and never reads an ID, a row
+   or a store value that another test or the seed data left behind.
+3. **Asserts only on what it created.** It reads its own rows back, by their ID or with a filter on them
+   (`?patientId=` the patient it created). It never asserts on a total, on "the list is empty" or on "the system is
+   healthy" across a shared database, because another test's rows change those.
+4. **Leaves no state that another test can see,** or removes it when it ends. On the shared API database this
+   means data that changes a system-wide result (a failed outbox message makes `/health` Degraded). In
+   `frontend-web`, `src/test/setup.ts` resets the Redux store and removes antd toasts after every test, because
+   Vitest isolates files, not tests (R-071).
+5. **Declares any exception,** with its reason, in this section:
+   - `src/test/isolation.test.tsx` runs its test pairs in file order (`shuffle: false`). The first test of each pair
+     leaves state behind on purpose, and the second checks that the setup removed it.
+   - The E2E scenarios share one stack and the Keycloak sample users, so they run one at a time
+     (`xunit.runner.json`). Each scenario links `patient.user` and `doctor.user` to new profiles in its own
+     `Background`, so no scenario depends on what an earlier one linked.
+
+**How the tests run today:**
+
+| Level | Runs in parallel | Order |
+|---|---|---|
+| Unit | Test classes run in parallel; the tests of one class run one at a time (xUnit 2 makes each class a collection) | Fixed by xUnit, the same in every run |
+| API | One at a time: every class is in the collection `api` (`PostgresFixture.cs:37`), which shares one database and one host | Fixed by xUnit, the same in every run |
+| Component | Test files run in parallel, each in its own environment (Vitest defaults, not set in `vitest.config.ts`); the tests of one file run one at a time | Files: Vitest's own order. Tests in a file: as written |
+| E2E | One at a time (`xunit.runner.json`) | Fixed by xUnit, the same in every run |
+
+Nothing runs the tests in a changing order yet, so a test that depends on order would be noticed only when the
+fixed order changes (Q-042, Q-044). The rule was checked once, by hand, on 2026-11-27:
+
+- Component tests shuffled with five seeds (`vitest run --sequence.shuffle --sequence.seed=<n>`): 43 of 43 passed
+  each time.
+- Unit tests with five seeds and API tests with three, using a temporary random orderer. The orderer shuffled only
+  the tests inside a class, not the order of the classes. Unit: 157 passed in every seed. API: 322 passed in every
+  seed. Five tests failed in every seed, for a reason that has nothing to do with order: the build went to a folder
+  outside the repository, and these tests look for the repository above it. They are the four
+  `ArchitectureRulesTests` and `OpenApiContractTests`.
+- 15 of the 16 API test classes, each on its own against a new database: all passed. `OpenApiContractTests` was
+  not run alone.
+- Not checked: the E2E scenarios in another order, and a test repeated twice in one run.
+
+**Known breaches** (R-072). Found by reading the code, not by a failing run:
+
+- **Counts across the shared database.** Four tests count every row before and after the request. A row another
+  test adds in between would change the count, so they pass only because the API tests run one at a time:
+  - `CatalogTests.cs:68`, all patients;
+  - two tests in `RecordAuthorTests.cs` (`:57`, `:74`), all records, through the helper at `:155`;
+  - `OutboxTests.cs:110`, all outbox messages.
+- **State left for the next test.** `OutboxHealthTests.cs` and a retry test in `OutboxTests.cs` (`:79`) leave failed
+  outbox messages in the shared database. The health test's message has the payload `{}`.
+  `OutboxDispatcherHostTests.cs:87` reads `AppointmentId` from the payload of every message, so it would throw on
+  that row if `OutboxHealthTests` ran first. It passes today only because of the fixed order of the classes. This
+  depends on order, not on parallel runs.
+- **An ID the test did not create.** `BolaTests.cs:168` books with `doctorId = 1`. Doctor 1 exists only if another
+  test created it, because the seed data is off. The expected 403 does not depend on the doctor today.
+- **Fixed IDs for "not found".** `BolaTests.cs:17` and `CatalogTests.cs:134` use IDs such as 999 999. They rely on no
+  run creating that many rows.
 
 ## 9. End-to-end approach
 

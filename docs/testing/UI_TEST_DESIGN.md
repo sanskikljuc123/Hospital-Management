@@ -309,8 +309,12 @@ All use Playwright route interception on API requests; the stack itself stays re
   rows (`onRow` can add it) and icon buttons. No CSS classes, no XPath, no indexes.
 - **Page objects:** one per page and per drawer (Doctors page, Doctor form, Patients page, …) next to
   `BrowserSession.cs`; steps call page objects, page objects never assert business rules.
-- **Isolation:** data created through the API as admin (`HospitalApi.cs`) with a unique suffix; scenario
-  clean-up deletes what it created where the API allows it.
+- **Isolation:** data created through the API as admin (`HospitalApi.cs`) with a unique suffix, and assertions only
+  on that data (TEST_STRATEGY §8, *Test independence*). Clean-up today: `CatalogueEditing.feature` deletes the
+  records it created after each scenario (`CatalogueEditingSteps.cs:217`), and `SignIn.feature` deletes the
+  role-less Keycloak account it creates (`SignInSteps.cs:96`). `ClinicalJourney.feature` deletes nothing. Its patients, doctor profiles and records stay,
+  and `patient.user` and `doctor.user` stay linked to the profiles of the last scenario. This is safe because every
+  scenario links them again in its `Background` and asserts only on its own records.
 - **Retries:** none (TEST_STRATEGY §8). A flaky test follows QUALITY_GATES §3.
 - **Mocking:** only at the component level (MSW) and in the fault-injection rows (§6.9). Happy paths and
   security rows always use the real stack.
