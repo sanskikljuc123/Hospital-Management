@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Data;
 using Domain.Entities;
@@ -97,7 +98,7 @@ namespace Services.Integrations
             if (!string.IsNullOrWhiteSpace(patient.Email))
                 await _email.SendAsync(patient.Email, subject, message, cancellationToken);
             if (patient.Phone > 0)
-                await _sms.SendAsync(patient.Phone.ToString(), message, cancellationToken);
+                await _sms.SendAsync(patient.Phone.ToString(CultureInfo.InvariantCulture), message, cancellationToken);
         }
     }
 }

@@ -15,7 +15,7 @@ namespace HospitalManagement.UnitTests.Catalog;
 /// The service contract of the catalogue modules (ARCHITECTURE D-16, §1): references validated, deletes that never
 /// lose data, every change audited without personal data (BUSINESS_FLOWS F-02; R-013, R-016, R-019, R-042, R-057).
 /// </summary>
-public class CatalogServiceTests : IDisposable
+public sealed class CatalogServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _db = TestDb.Create();
     private readonly AuditSpy _audit = new();

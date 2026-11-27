@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -38,7 +39,7 @@ public class ErrorContractTests
     {
         using var admin = _data.Admin;
 
-        var response = await admin.SendAsync(new HttpRequestMessage(new HttpMethod(method), string.Format(pathFormat, Missing)));
+        var response = await admin.SendAsync(new HttpRequestMessage(new HttpMethod(method), string.Format(CultureInfo.InvariantCulture, pathFormat, Missing)));
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
         Assert.Contains("not found", problem.GetProperty("detail").GetString());

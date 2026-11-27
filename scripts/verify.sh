@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the same steps as CI (.github/workflows/ci.yml), in the same order, on this machine: G1 (restore with
-# package audit, build, the E2E project's build, formatting, frontend audit, build, lint and formatting), G2 (unit
-# tests, frontend component tests), G3 (API tests on .NET 10), G4 and G5 (gate scripts), G6 (gitleaks on the files and on the commits since
+# package audit, build with every analyzer warning an error, the E2E project's build, formatting, frontend audit,
+# build, lint and formatting), G2 (unit tests, frontend component tests), G3 (API tests on .NET 10), G4 and G5 (gate scripts), G6 (gitleaks on the files and on the commits since
 # origin/master). Green here means ci.yml is green; E2E (G7), mutation of changed code (G9) and CodeQL (G10) run
 # on the pull request. Stops at the first failing gate. Needs: .NET 10 SDK, Node 24 (as CI), Docker, Python 3.
 # On Windows run it from Git Bash, or through scripts/verify.ps1.

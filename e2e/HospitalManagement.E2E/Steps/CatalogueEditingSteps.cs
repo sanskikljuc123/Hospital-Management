@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using HospitalManagement.E2E.Support;
@@ -155,7 +156,7 @@ public sealed class CatalogueEditingSteps : IDisposable
         var after = await GetAsync($"/api/Doctor/{_doctorId}");
         Assert.Equal(_newValue, after.GetProperty("firstName").GetString());
         Assert.Equal(_before.GetProperty("birthday").GetString(), after.GetProperty("birthday").GetString());
-        Assert.Equal(_departmentId.ToString(), after.GetProperty("departmentId").GetRawText());
+        Assert.Equal(_departmentId.ToString(CultureInfo.InvariantCulture), after.GetProperty("departmentId").GetRawText());
         Assert.Equal(new[] { _serviceId }, after.GetProperty("serviceIds").EnumerateArray().Select(s => s.GetInt32()));
         Assert.Equal(_before.GetProperty("address").GetString(), after.GetProperty("address").GetString());
     }
@@ -176,7 +177,7 @@ public sealed class CatalogueEditingSteps : IDisposable
         var after = await GetAsync($"/api/Service/{_serviceId}");
         Assert.Equal(_newValue, after.GetProperty("description").GetString());
         Assert.Equal(_before.GetProperty("name").GetString(), after.GetProperty("name").GetString());
-        Assert.Equal(_departmentId.ToString(), after.GetProperty("departmentId").GetRawText());
+        Assert.Equal(_departmentId.ToString(CultureInfo.InvariantCulture), after.GetProperty("departmentId").GetRawText());
     }
 
     [Then("the new doctor's stored birthday is {string}")]

@@ -61,7 +61,7 @@ public sealed class AppointmentTestBed : IDisposable
         return result.Value!;
     }
 
-    public AppointmentUpdateDto UpdateOf(AppointmentDto a, AppointmentStatus status) => new()
+    public static AppointmentUpdateDto UpdateOf(AppointmentDto a, AppointmentStatus status) => new()
     {
         DoctorId = a.DoctorId, ServiceId = a.ServiceId, ScheduledAt = a.ScheduledAt,
         DurationMinutes = a.DurationMinutes, Status = status, Reason = a.Reason, Notes = a.Notes

@@ -20,6 +20,7 @@ namespace HospitalManagement.ApiTests.Reliability;
 /// </summary>
 [Collection(ApiCollection.Name)]
 [Trait("Category", "Reliability")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Disposed in IAsyncLifetime.DisposeAsync, which the analyzer does not see")]
 public class OutboxDispatcherHostTests : IAsyncLifetime
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(30);
@@ -95,6 +96,7 @@ public class OutboxDispatcherHostTests : IAsyncLifetime
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "SemaphoreSlim holds no OS handle here: AvailableWaitHandle is never read")]
     private sealed class RecordingEmail : IEmailService
     {
         private readonly ConcurrentQueue<(string To, string Subject)> _sent = new();

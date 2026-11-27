@@ -11,7 +11,7 @@ using Services.MedicalRecordService;
 namespace HospitalManagement.UnitTests.MedicalRecords;
 
 /// <summary>Record author, revisions and audit (BUSINESS_FLOWS F-08, F-09; R-010, R-011, R-013).</summary>
-public class MedicalRecordServiceTests : IDisposable
+public sealed class MedicalRecordServiceTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2027, 3, 1, 10, 0, 0, TimeSpan.Zero);
 
@@ -169,7 +169,8 @@ public class MedicalRecordServiceTests : IDisposable
 
         var history = await _service.GetHistoryAsync(id);
 
-        Assert.Equal(new[] { "v1", "v2", "v3" }, history!.Select(r => r.Diagnosis).ToArray());
+        Assert.NotNull(history);
+        Assert.Equal(new[] { "v1", "v2", "v3" }, history.Select(r => r.Diagnosis).ToArray());
         Assert.Equal(new[] { 1, 2, 3 }, history.Select(r => r.Revision).ToArray());
         Assert.Equal(new[] { "Diagnosis" }, history[2].ChangedFields);
         Assert.Empty(history[0].ChangedFields); // revision 1 changed nothing

@@ -76,7 +76,7 @@ public sealed class SignInSteps : IDisposable
         // route handlers do not).
         var redirected = await page.RunAndWaitForRequestAsync(
             async () => await page.GotoAsync(authorize),
-            r => r.Url.StartsWith(E2EConfig.FrontendUrl) && r.Url.Contains("code="));
+            r => r.Url.StartsWith(E2EConfig.FrontendUrl, StringComparison.Ordinal) && r.Url.Contains("code="));
         var code = System.Web.HttpUtility.ParseQueryString(new Uri(redirected.Url).Query)["code"];
         Assert.False(string.IsNullOrEmpty(code), "Keycloak returned no authorization code");
 

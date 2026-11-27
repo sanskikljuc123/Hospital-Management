@@ -17,6 +17,7 @@ namespace HospitalManagement.ApiTests.Contracts;
 /// </summary>
 [Collection(ApiCollection.Name)]
 [Trait("Category", "Contracts")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Disposed in IAsyncLifetime.DisposeAsync, which the analyzer does not see")]
 public class RecordLinkedCorrectionTests : IAsyncLifetime
 {
     private static readonly TimeSpan EightDaysLater = TimeSpan.FromDays(8);
@@ -115,11 +116,13 @@ public class RecordLinkedCorrectionTests : IAsyncLifetime
                 status = "NoShow"
             }, TestData.Json);
             await Task.WhenAll(record, noShow);
+            var recorded = await record;
+            var markedNoShow = await noShow;
 
-            if (record.Result.StatusCode == HttpStatusCode.Created && noShow.Result.StatusCode == HttpStatusCode.OK)
+            if (recorded.StatusCode == HttpStatusCode.Created && markedNoShow.StatusCode == HttpStatusCode.OK)
                 both.Add($"iteration {i}: record 201 and NoShow 200 on appointment {appointmentId}");
             else
-                Assert.Contains((int)record.Result.StatusCode + "/" + (int)noShow.Result.StatusCode, new[] { "201/409", "409/200" });
+                Assert.Contains((int)recorded.StatusCode + "/" + (int)markedNoShow.StatusCode, new[] { "201/409", "409/200" });
         }
 
         Assert.True(both.Count == 0, $"{both.Count} of {Iterations} visits ended documented AND NoShow:\n" + string.Join("\n", both));

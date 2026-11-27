@@ -15,3 +15,33 @@ indent_size = 2
 # Several members of an object initializer or anonymous type may share a line, as in the existing services.
 csharp_new_line_before_members_in_object_initializers = false
 csharp_new_line_before_members_in_anonymous_types = false
+
+# Code analysis (QUALITY_GATES G1, Directory.Build.props). Each rule switched off below has its scope and its
+# reason; a new one is approved by a person in review.
+
+[*.cs]
+# The one repository-wide exception (decided 2026-11-27): LoggerMessage delegates (CA1848) and argument cost when
+# logging is off (CA1873) are a performance gain this application does not need. Neither rule looks at what is
+# logged (personal data in logs is R-042).
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+
+[backend/Services/Common/ServiceResult.cs]
+# ServiceResult<T>.Ok / NotFound / Invalid / Conflict / Forbidden are the intended factory API of every service.
+dotnet_diagnostic.CA1000.severity = none
+
+[{backend/Services/AppointmentService/IAppointmentService.cs,backend/Services/Integrations/IntegrationContracts.cs}]
+# Parameters named `from` and `to` are keywords in Visual Basic only; nothing calls these interfaces from VB.
+dotnet_diagnostic.CA1716.severity = none
+
+[backend/Data/Migrations/**.cs]
+# Written by `dotnet ef migrations add`, so every new migration would bring the same warnings; analysers skip them
+# as generated code. Two migrations also hold hand-written SQL (MedicalRecordRevisions, AppointmentNoOverlap),
+# which is reviewed in the pull request that adds it and proven by the API tests against PostgreSQL.
+generated_code = true
+
+[backend/tests/**.cs]
+# Test names follow Method_Condition_ExpectedResult (TEST_STRATEGY §4).
+dotnet_diagnostic.CA1707.severity = none
+# Constant arrays in test data and assertions: performance does not matter in tests.
+dotnet_diagnostic.CA1861.severity = none

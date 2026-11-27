@@ -20,7 +20,7 @@ public sealed class BrowserSession
     /// <summary>Waits until the browser shows the Keycloak sign-in page of the hospital realm.</summary>
     public async Task ExpectSignInPageAsync()
     {
-        await Page.WaitForURLAsync(url => url.StartsWith($"{E2EConfig.KeycloakUrl}/realms/{E2EConfig.Realm}/"));
+        await Page.WaitForURLAsync(url => url.StartsWith($"{E2EConfig.KeycloakUrl}/realms/{E2EConfig.Realm}/", StringComparison.Ordinal));
         await Assertions.Expect(KeycloakUsername).ToBeVisibleAsync();
     }
 
@@ -31,7 +31,7 @@ public sealed class BrowserSession
         await KeycloakUsername.FillAsync(username);
         await Page.Locator("#password").FillAsync(password);
         await Page.Locator("#kc-login").ClickAsync();
-        await Page.WaitForURLAsync(url => url.StartsWith(E2EConfig.FrontendUrl));
+        await Page.WaitForURLAsync(url => url.StartsWith(E2EConfig.FrontendUrl, StringComparison.Ordinal));
     }
 
     public async Task SignInFromStartAsync(string username, string password)
@@ -53,8 +53,8 @@ public sealed class BrowserSession
     {
         var request = await Page.RunAndWaitForRequestAsync(
             async () => await Page.GotoAsync(E2EConfig.FrontendUrl + "/doctor"),
-            r => r.Url.StartsWith(E2EConfig.ApiUrl + "/api/") && r.Headers.ContainsKey("authorization"));
+            r => r.Url.StartsWith(E2EConfig.ApiUrl + "/api/", StringComparison.Ordinal) && r.Headers.ContainsKey("authorization"));
         var header = request.Headers["authorization"];
-        return header.StartsWith("Bearer ") ? header["Bearer ".Length..] : throw new InvalidOperationException("No bearer token");
+        return header.StartsWith("Bearer ", StringComparison.Ordinal) ? header["Bearer ".Length..] : throw new InvalidOperationException("No bearer token");
     }
 }

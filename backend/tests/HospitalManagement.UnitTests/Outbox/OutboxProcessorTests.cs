@@ -12,7 +12,7 @@ namespace HospitalManagement.UnitTests.Outbox;
 /// <see cref="OutboxProcessor.MaxAttempts"/>, errors without payload. Claiming with SKIP LOCKED needs PostgreSQL and is
 /// covered by the API tests (OutboxTests).
 /// </summary>
-public class OutboxProcessorTests : IDisposable
+public sealed class OutboxProcessorTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2027, 3, 1, 8, 0, 0, TimeSpan.Zero);
 

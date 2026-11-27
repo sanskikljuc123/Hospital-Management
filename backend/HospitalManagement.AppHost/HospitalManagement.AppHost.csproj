@@ -1,6 +1,9 @@
 <Project Sdk="Aspire.AppHost.Sdk/13.6.5">
 
   <PropertyGroup>
+    <!-- ASPIRE010 (Aspire CLI bundle off) stays a visible warning, not an error: turning the bundle on changes how
+         the AppHost starts, which is not part of the code analysis gate (QUALITY_GATES G1). -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);ASPIRE010</WarningsNotAsErrors>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

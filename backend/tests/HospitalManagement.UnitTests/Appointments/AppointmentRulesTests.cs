@@ -10,7 +10,7 @@ namespace HospitalManagement.UnitTests.Appointments;
 /// Booking rules and the appointment lifecycle (docs/API_ENDPOINTS.md "Appointment lifecycle";
 /// BUSINESS_FLOWS F-03 to F-07, F-11). The clock is fixed, so "before / after the start" is exact.
 /// </summary>
-public class AppointmentRulesTests : IDisposable
+public sealed class AppointmentRulesTests : IDisposable
 {
     private readonly AppointmentTestBed _bed = new();
 
@@ -123,7 +123,7 @@ public class AppointmentRulesTests : IDisposable
     {
         var a = await _bed.BookAsync(At(1, 9));
 
-        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Confirmed));
+        var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Confirmed));
 
         Assert.Equal(AppointmentStatus.Confirmed, result.Value!.Status);
     }
@@ -137,7 +137,7 @@ public class AppointmentRulesTests : IDisposable
         var a = await _bed.BookAsync(At(1, 9), durationMinutes: 45);
         Assert.Equal(At(1, 9, 45), (await _bed.Db.Appointments.FindAsync(a.Id))!.EndsAt);
 
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.ScheduledAt = At(2, 10);
         move.DurationMinutes = 20;
         await _bed.Service.UpdateAsync(a.Id, move);
@@ -151,9 +151,9 @@ public class AppointmentRulesTests : IDisposable
     public async Task Move_ConfirmedAppointment_GoesBackToScheduled()
     {
         var a = await _bed.BookAsync(At(1, 9));
-        a = (await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Confirmed))).Value!;
+        a = (await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Confirmed))).Value!;
 
-        var move = _bed.UpdateOf(a, AppointmentStatus.Confirmed);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Confirmed);
         move.ScheduledAt = At(2, 10);
         var result = await _bed.Service.UpdateAsync(a.Id, move);
 
@@ -167,7 +167,7 @@ public class AppointmentRulesTests : IDisposable
     public async Task Move_IntoThePast_IsInvalid()
     {
         var a = await _bed.BookAsync(At(1, 9));
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.ScheduledAt = At(-1, 9);
 
         Assert.Equal(ResultStatus.Invalid, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
@@ -180,7 +180,7 @@ public class AppointmentRulesTests : IDisposable
     {
         await _bed.BookAsync(At(1, 9), doctorId: _bed.OtherDoctorId);
         var a = await _bed.BookAsync(At(1, 9));
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.DoctorId = _bed.OtherDoctorId;
 
         Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
@@ -196,7 +196,7 @@ public class AppointmentRulesTests : IDisposable
     {
         _bed.User.ActAs(Roles.Doctor);
         var a = await _bed.BookAsync(At(1, 9));
-        var move = _bed.UpdateOf(a, final);
+        var move = AppointmentTestBed.UpdateOf(a, final);
         move.ScheduledAt = At(2, 9);
 
         Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
@@ -215,7 +215,7 @@ public class AppointmentRulesTests : IDisposable
         var a = await _bed.BookAsync(At(1, 9));
         _bed.AdvanceTo(At(1, 9, minutesAfterStart));
         var auditBefore = _bed.Audit.Entries.Count;
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.ScheduledAt = At(2, 10);
 
         var result = await _bed.Service.UpdateAsync(a.Id, move);
@@ -233,7 +233,7 @@ public class AppointmentRulesTests : IDisposable
     {
         var a = await _bed.BookAsync(At(1, 9));
         _bed.AdvanceTo(At(1, 9, 5));
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.DoctorId = _bed.OtherDoctorId;
 
         Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
@@ -246,7 +246,7 @@ public class AppointmentRulesTests : IDisposable
     {
         var a = await _bed.BookAsync(At(1, 9));
         _bed.AdvanceTo(At(1, 8, 59));
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.ScheduledAt = At(2, 10);
 
         Assert.Equal(At(2, 10), (await _bed.Service.UpdateAsync(a.Id, move)).Value!.ScheduledAt);
@@ -300,7 +300,7 @@ public class AppointmentRulesTests : IDisposable
         _bed.AdvanceTo(At(1, 9, 5));
         _bed.User.ActAs(Roles.Doctor);
 
-        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Completed));
+        var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed));
 
         Assert.Equal(AppointmentStatus.Completed, result.Value!.Status);
     }
@@ -317,7 +317,7 @@ public class AppointmentRulesTests : IDisposable
         _bed.User.ActAs(role);
 
         Assert.Equal(ResultStatus.Forbidden,
-            (await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Completed))).Status);
+            (await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed))).Status);
     }
 
     [Theory]
@@ -330,7 +330,7 @@ public class AppointmentRulesTests : IDisposable
         _bed.User.ActAs(Roles.Doctor);
         var a = await _bed.BookAsync(At(1, 9));
 
-        Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, status))).Status);
+        Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, status))).Status);
     }
 
     [Theory]
@@ -343,7 +343,7 @@ public class AppointmentRulesTests : IDisposable
     {
         var a = await MakeFinalAsync(final);
 
-        Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, target))).Status);
+        Assert.Equal(ResultStatus.Conflict, (await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, target))).Status);
     }
 
     [Fact]
@@ -351,7 +351,7 @@ public class AppointmentRulesTests : IDisposable
     public async Task FinalStatus_NotesCanStillBeAdded()
     {
         var a = await MakeFinalAsync(AppointmentStatus.Completed);
-        var update = _bed.UpdateOf(a, AppointmentStatus.Completed);
+        var update = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed);
         update.Notes = "Follow-up letter sent";
 
         var result = await _bed.Service.UpdateAsync(a.Id, update);
@@ -525,7 +525,7 @@ public class AppointmentRulesTests : IDisposable
         var auditBefore = _bed.Audit.Entries.Count;
         var sentBefore = _bed.Notifications.Sent.Count;
 
-        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.NoShow));
+        var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.NoShow));
 
         Assert.Equal(ResultStatus.Conflict, result.Status);
         Assert.Equal(AppointmentStatus.Scheduled, (await _bed.Db.Appointments.FindAsync(a.Id))!.Status);
@@ -544,7 +544,7 @@ public class AppointmentRulesTests : IDisposable
         _bed.User.ActAs(Roles.Doctor);
         await AddRecordAsync(a.Id);
 
-        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Completed));
+        var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed));
 
         Assert.Equal(AppointmentStatus.Completed, result.Value!.Status);
     }
@@ -558,7 +558,7 @@ public class AppointmentRulesTests : IDisposable
 
         _bed.AdvanceTo(At(1, 9, 5));
         _bed.User.ActAs(Roles.Doctor);
-        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, final));
+        var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, final));
         Assert.True(result.Success, result.Error);
         return result.Value!;
     }

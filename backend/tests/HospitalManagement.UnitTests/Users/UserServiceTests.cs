@@ -13,7 +13,7 @@ namespace HospitalManagement.UnitTests.Users;
 /// User mirroring, login detection, linking and deactivation (ARCHITECTURE §2, §4; BUSINESS_FLOWS F-01, F-12;
 /// R-007, R-008, R-013).
 /// </summary>
-public class UserServiceTests : IDisposable
+public sealed class UserServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _db = TestDb.Create();
     private readonly AuditSpy _audit = new();
