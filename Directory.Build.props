@@ -11,4 +11,17 @@
     <NuGetAuditLevel>low</NuGetAuditLevel>
     <WarningsAsErrors>$(WarningsAsErrors);NU1903;NU1904</WarningsAsErrors>
   </PropertyGroup>
+  <!--
+    Code analysis (QUALITY_GATES G1): the .NET analyzers' recommended rules, pinned to the 10.0 set so a newer SDK
+    does not add rules to an unrelated pull request (raising it is a change of its own). Every warning is an error,
+    in CI, in scripts/verify.sh and in the IDE alike. NuGet audit stays as above: low and moderate findings
+    (NU1901, NU1902) and audit data that could not be fetched (NU1900) are warnings, as before this rule. A rule is
+    switched off only in .editorconfig or with [SuppressMessage], scoped to a file or type, with a reason, and
+    approved by a person in review; CA1848 and CA1873 are the one repository-wide exception (.editorconfig).
+  -->
+  <PropertyGroup>
+    <AnalysisLevel>10.0-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902</WarningsNotAsErrors>
+  </PropertyGroup>
 </Project>

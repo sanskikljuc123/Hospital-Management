@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -33,7 +34,7 @@ public class ConcurrentBookingTests
         var (_, doctorId) = await _data.LinkedDoctorAsync();
         var patientIds = new List<int>();
         for (var i = 0; i < Parallel; i++) patientIds.Add(await _data.CreatePatientAsync());
-        var slot = DateTime.UtcNow.Date.AddDays(40).AddHours(9).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        var slot = DateTime.UtcNow.Date.AddDays(40).AddHours(9).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         var clients = patientIds.Select(_ => _factory.ClientFor(TestUser.Admin())).ToList();
 
         var responses = await Task.WhenAll(clients.Select((client, i) => client.PostAsJsonAsync("/api/Appointment",
@@ -56,7 +57,7 @@ public class ConcurrentBookingTests
         var (_, doctorId) = await _data.LinkedDoctorAsync();
         var first = await _data.CreatePatientAsync();
         var second = await _data.CreatePatientAsync();
-        var day = DateTime.UtcNow.Date.AddDays(41).ToString("yyyy-MM-dd");
+        var day = DateTime.UtcNow.Date.AddDays(41).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         using var a = _factory.ClientFor(TestUser.Admin());
         using var b = _factory.ClientFor(TestUser.Admin());
 

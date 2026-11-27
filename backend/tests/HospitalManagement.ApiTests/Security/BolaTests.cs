@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -52,7 +53,7 @@ public class BolaTests : IAsyncLifetime
     {
         using var client = _factory.ClientFor(_patientA);
 
-        var response = await client.GetAsync(string.Format(pathFormat, OwnId(pathFormat)));
+        var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, OwnId(pathFormat)));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -69,7 +70,7 @@ public class BolaTests : IAsyncLifetime
     {
         using var client = _factory.ClientFor(_patientA);
 
-        var response = await client.GetAsync(string.Format(pathFormat, OtherId(pathFormat)));
+        var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, OtherId(pathFormat)));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync()); // nothing of patient B leaks
@@ -85,7 +86,7 @@ public class BolaTests : IAsyncLifetime
     {
         using var client = _factory.ClientFor(_patientA);
 
-        var response = await client.GetAsync(string.Format(pathFormat, MissingId));
+        var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, MissingId));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
@@ -98,7 +99,7 @@ public class BolaTests : IAsyncLifetime
     {
         using var client = _factory.ClientFor(TestUser.Nurse());
 
-        var response = await client.GetAsync(string.Format(pathFormat, MissingId));
+        var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, MissingId));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -147,7 +148,7 @@ public class BolaTests : IAsyncLifetime
     {
         using var client = _factory.ClientFor(TestUser.Patient());
 
-        var response = await client.GetAsync(string.Format(pathFormat, OwnId(pathFormat)));
+        var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, OwnId(pathFormat)));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await response.Content.ReadAsStringAsync());

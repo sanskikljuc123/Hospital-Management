@@ -17,6 +17,7 @@ namespace HospitalManagement.ApiTests.Reliability;
 /// </summary>
 [Collection(ApiCollection.Name)]
 [Trait("Category", "Reliability")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Disposed in IAsyncLifetime.DisposeAsync, which the analyzer does not see")]
 public class OutboxTests : IAsyncLifetime
 {
     private readonly ApiFixture _fixture;

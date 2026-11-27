@@ -101,6 +101,7 @@ in a row since.
 | Mutation testing (phase 5) | Stryker.NET on the services and the patient access policy; StrykerJS (Vitest runner) on `frontend-web` (§11) |
 | Lint | ESLint with typescript-eslint and the React hook rules (`frontend-web/eslint.config.js`) |
 | Formatting | `dotnet format whitespace` with `.editorconfig`; Prettier with `frontend-web/.prettierrc.json` (G1) |
+| Code analysis | .NET analyzers, rule set `10.0-recommended`, every warning an error (`Directory.Build.props`, G1) |
 | Static analysis | CodeQL, C# and TypeScript (`.github/workflows/codeql.yml`, G10) |
 | Secret scanning | gitleaks in CI |
 

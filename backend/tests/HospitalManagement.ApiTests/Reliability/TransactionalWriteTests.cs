@@ -14,6 +14,7 @@ namespace HospitalManagement.ApiTests.Reliability;
 /// </summary>
 [Collection(ApiCollection.Name)]
 [Trait("Category", "Reliability")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "Disposed in IAsyncLifetime.DisposeAsync, which the analyzer does not see")]
 public class TransactionalWriteTests : IAsyncLifetime
 {
     private readonly ApiFixture _fixture;
@@ -69,7 +70,7 @@ public class TransactionalWriteTests : IAsyncLifetime
 
         public Task LogAsync(string action, string? entityType = null, object? entityId = null, object? details = null,
             bool success = true, CancellationToken cancellationToken = default) =>
-            action.StartsWith("User.")
+            action.StartsWith("User.", StringComparison.Ordinal)
                 ? _inner.LogAsync(action, entityType, entityId, details, success, cancellationToken)
                 : throw new InvalidOperationException("Simulated audit store failure");
 

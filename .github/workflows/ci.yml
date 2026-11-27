@@ -37,6 +37,8 @@ jobs:
           dotnet restore backend/backend.sln
           dotnet restore e2e/HospitalManagement.E2E
 
+      # Every warning, the .NET analyzers' included, is an error here, except NU1900–NU1902 and ASPIRE010
+      # (Directory.Build.props, G1).
       - name: Build (G1)
         run: dotnet build backend/backend.sln --no-restore -c Release
 

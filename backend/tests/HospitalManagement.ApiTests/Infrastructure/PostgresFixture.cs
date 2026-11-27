@@ -35,6 +35,7 @@ public sealed class ApiFixture : IAsyncLifetime
 }
 
 [CollectionDefinition(Name)]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711", Justification = "xUnit names a collection definition this way")]
 public sealed class ApiCollection : ICollectionFixture<ApiFixture>
 {
     public const string Name = "api";

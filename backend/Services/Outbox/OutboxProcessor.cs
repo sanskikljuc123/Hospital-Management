@@ -16,7 +16,7 @@ namespace Services.Outbox
         public const int MaxAttempts = 5;
 
         private readonly ApplicationDbContext _context;
-        private readonly IReadOnlyDictionary<string, IOutboxHandler> _handlers;
+        private readonly Dictionary<string, IOutboxHandler> _handlers;
         private readonly TimeProvider _time;
         private readonly OutboxMetrics _metrics;
         private readonly ILogger<OutboxProcessor> _logger;

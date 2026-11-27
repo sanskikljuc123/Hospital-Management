@@ -11,7 +11,7 @@ namespace HospitalManagement.UnitTests.Appointments;
 /// showed that "&lt;=" could become "&lt;" at the start time, list filters could be removed and notifications
 /// dropped without any test noticing.
 /// </summary>
-public class AppointmentBoundaryTests : IDisposable
+public sealed class AppointmentBoundaryTests : IDisposable
 {
     private readonly AppointmentTestBed _bed = new();
 
@@ -28,7 +28,7 @@ public class AppointmentBoundaryTests : IDisposable
         _bed.AdvanceTo(At(1, 9));
         _bed.User.ActAs(Roles.Doctor);
 
-        var result = await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Completed));
+        var result = await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Completed));
 
         Assert.Equal(AppointmentStatus.Completed, result.Value!.Status);
     }
@@ -43,7 +43,7 @@ public class AppointmentBoundaryTests : IDisposable
 
         Assert.Equal(ResultStatus.Conflict, (await _bed.Service.CancelAsync(a.Id)).Status);
         Assert.Equal(ResultStatus.Conflict,
-            (await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Cancelled))).Status);
+            (await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Cancelled))).Status);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class AppointmentBoundaryTests : IDisposable
     public async Task Move_ToExactlyNow_IsInvalid()
     {
         var a = await _bed.BookAsync(At(1, 9));
-        var move = _bed.UpdateOf(a, AppointmentStatus.Scheduled);
+        var move = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Scheduled);
         move.ScheduledAt = Now.UtcDateTime;
 
         Assert.Equal(ResultStatus.Invalid, (await _bed.Service.UpdateAsync(a.Id, move)).Status);
@@ -118,7 +118,7 @@ public class AppointmentBoundaryTests : IDisposable
     {
         var a = await _bed.BookAsync(At(1, 9));
         var auditBefore = _bed.Audit.Entries.Count;
-        var update = _bed.UpdateOf(a, AppointmentStatus.Confirmed);
+        var update = AppointmentTestBed.UpdateOf(a, AppointmentStatus.Confirmed);
         update.ScheduledAt = DateTime.SpecifyKind(a.ScheduledAt, DateTimeKind.Unspecified);
 
         var result = await _bed.Service.UpdateAsync(a.Id, update);
@@ -196,7 +196,7 @@ public class AppointmentBoundaryTests : IDisposable
     public async Task EveryChange_AsksForTheMatchingPatientNotification()
     {
         var a = await _bed.BookAsync(At(1, 9));
-        await _bed.Service.UpdateAsync(a.Id, _bed.UpdateOf(a, AppointmentStatus.Confirmed));
+        await _bed.Service.UpdateAsync(a.Id, AppointmentTestBed.UpdateOf(a, AppointmentStatus.Confirmed));
         await _bed.Service.CancelAsync(a.Id);
         await _bed.Service.CorrectStatusAsync(a.Id,
             new AppointmentStatusCorrectionDto { Status = AppointmentStatus.Scheduled, Reason = "Cancelled by mistake" });

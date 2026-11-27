@@ -12,7 +12,7 @@ namespace HospitalManagement.UnitTests.Outbox;
 /// R-046: a failed or stuck notification must show up in /health, not only in a log line. Boundaries are tested at
 /// the exact value, so the weekly mutation run notices a changed comparison.
 /// </summary>
-public class OutboxMonitorTests : IDisposable
+public sealed class OutboxMonitorTests : IDisposable
 {
     private static readonly DateTime Now = new(2027, 3, 1, 8, 0, 0, DateTimeKind.Utc);
 

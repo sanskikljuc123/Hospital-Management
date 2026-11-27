@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -25,7 +26,7 @@ public class TimeZoneTests
         var (_, doctorId) = await _data.LinkedDoctorAsync();
         var patientId = await _data.CreatePatientAsync();
         using var admin = _data.Admin;
-        var localWithoutOffset = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd'T'09:00:00");
+        var localWithoutOffset = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd'T'09:00:00", CultureInfo.InvariantCulture);
 
         var response = await admin.PostAsJsonAsync("/api/Appointment", new
         {
@@ -45,7 +46,7 @@ public class TimeZoneTests
         var (_, doctorId) = await _data.LinkedDoctorAsync();
         var patientId = await _data.CreatePatientAsync();
         using var admin = _data.Admin;
-        var day = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd");
+        var day = DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         var response = await admin.PostAsJsonAsync("/api/Appointment", new
         {

@@ -16,7 +16,7 @@ namespace Domain.Entities
         public int? UserId { get; set; }
         [JsonIgnore]
         public virtual User? User { get; set; }
-        public virtual ICollection<DoctorService> DoctorServices { get; set; }
+        public virtual ICollection<DoctorService> DoctorServices { get; set; } = new List<DoctorService>();
 
     }
 }

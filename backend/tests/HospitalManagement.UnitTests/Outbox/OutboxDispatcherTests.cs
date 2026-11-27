@@ -76,12 +76,12 @@ public sealed class OutboxDispatcherTests : IAsyncDisposable
         {
             var loop = _dispatcher.ExecuteTask;
             Assert.Fail($"Timed out. Loop: {loop?.Status}; error: {loop?.Exception?.GetBaseException()}; " +
-                        $"delivered: {_handler.Delivered.Count}; errors logged: {_errors.Entries.Count}");
+                        $"delivered: {_handler.Delivered.Length}; errors logged: {_errors.Entries.Count}");
             throw;
         }
     }
 
-    private Task WithinDeadline(Task condition) => WithinDeadline(condition.ContinueWith(t => { t.GetAwaiter().GetResult(); return 0; }));
+    private Task<int> WithinDeadline(Task condition) => WithinDeadline(condition.ContinueWith(t => { t.GetAwaiter().GetResult(); return 0; }));
 
     private async Task EnqueueAsync(int count)
     {
@@ -145,6 +145,7 @@ public sealed class OutboxDispatcherTests : IAsyncDisposable
         Assert.True(_dispatcher.ExecuteTask!.IsCompleted);
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "SemaphoreSlim holds no OS handle here: AvailableWaitHandle is never read")]
     private sealed class RecordingHandler : IOutboxHandler
     {
         public const string HandledType = "Test";
@@ -152,7 +153,7 @@ public sealed class OutboxDispatcherTests : IAsyncDisposable
         private readonly SemaphoreSlim _signal = new(0);
 
         public string Type => HandledType;
-        public IReadOnlyList<string> Delivered => _delivered.ToArray();
+        public string[] Delivered => _delivered.ToArray();
 
         public Task HandleAsync(string payload, CancellationToken cancellationToken = default)
         {

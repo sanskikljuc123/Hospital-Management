@@ -36,9 +36,9 @@ public class ArchitectureRulesTests
             .Select(f => Path.GetFileNameWithoutExtension(f.Name))
             .ToArray();
         var offenders = SourceFiles("Services")
-            .Where(f => f.Name.StartsWith("I") && f.Name.EndsWith("Service.cs"))
+            .Where(f => f.Name.StartsWith('I') && f.Name.EndsWith("Service.cs", StringComparison.Ordinal))
             .SelectMany(f => File.ReadAllLines(f.FullName)
-                .Where(line => line.TrimStart().StartsWith("Task<"))
+                .Where(line => line.TrimStart().StartsWith("Task<", StringComparison.Ordinal))
                 .Where(line => entityNames.Any(e => line.Contains($"<{e}>") || line.Contains($"<{e}?>")
                                                      || line.Contains($"<IEnumerable<{e}>>")))
                 .Select(line => $"{f.Name}: {line.Trim()}"))

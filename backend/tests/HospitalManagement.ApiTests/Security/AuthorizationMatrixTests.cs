@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using HospitalManagement.ApiTests.Infrastructure;
@@ -24,7 +25,7 @@ public class AuthorizationMatrixTests
     public async Task Endpoint_Identity_GetsExpectedAuthorizationResult(string method, string template, string identity, string expected)
     {
         using var client = _factory.ClientFor(UserFor(identity));
-        var request = new HttpRequestMessage(new HttpMethod(method), template.Replace("{id}", MissingId.ToString()));
+        using var request = new HttpRequestMessage(new HttpMethod(method), template.Replace("{id}", MissingId.ToString(CultureInfo.InvariantCulture)));
         if (method is "POST" or "PUT")
             request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
 

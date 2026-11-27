@@ -6,6 +6,7 @@ namespace api.Infrastructure
     public static class SwaggerExtensions
     {
         private const string SchemeName = "keycloak";
+        private static readonly string[] Scopes = ["openid", "profile"];
 
         /// <summary>Swagger with an "Authorize" button that signs in through Keycloak (authorization code + PKCE).</summary>
         public static IServiceCollection AddSwaggerWithKeycloak(this IServiceCollection services, IConfiguration configuration)
@@ -41,7 +42,7 @@ namespace api.Infrastructure
                         {
                             Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = SchemeName }
                         },
-                        new[] { "openid", "profile" }
+                        Scopes
                     }
                 });
             });
