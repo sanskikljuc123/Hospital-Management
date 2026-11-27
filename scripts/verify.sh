@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Runs the same steps as CI (.github/workflows/ci.yml), in the same order, on this machine: G1 (restore with
-# package audit, build, frontend audit, build and lint, the E2E project's build), G2 (unit tests, frontend component
-# tests), G3 (API tests on .NET 10), G4 and G5 (gate scripts), G6 (gitleaks on the files and on the commits since
+# package audit, build, the E2E project's build, formatting, frontend audit, build, lint and formatting), G2 (unit
+# tests, frontend component tests), G3 (API tests on .NET 10), G4 and G5 (gate scripts), G6 (gitleaks on the files and on the commits since
 # origin/master). Green here means ci.yml is green; E2E (G7), mutation of changed code (G9) and CodeQL (G10) run
 # on the pull request. Stops at the first failing gate. Needs: .NET 10 SDK, Node 24 (as CI), Docker, Python 3.
 # On Windows run it from Git Bash, or through scripts/verify.ps1.
 # Usage: scripts/verify.sh            all gates
-#        scripts/verify.sh --no-frontend   skip the frontend (npm ci, audit, build, lint, component tests)
+#        scripts/verify.sh --no-frontend   skip the frontend (npm ci, audit, build, lint, formatting,
+#                                          component tests)
 #                                          when only backend code changed
 set -euo pipefail
 
@@ -37,9 +38,15 @@ dotnet build backend/backend.sln --no-restore -c Release || fail "G1 build"
 # CI builds it in the E2E job; a compile error there would otherwise show only on the pull request.
 dotnet build e2e/HospitalManagement.E2E --no-restore || fail "G1 build of the E2E project"
 
+step "G1 formatting (.editorconfig)"
+dotnet format whitespace backend/backend.sln --verify-no-changes \
+  || fail "G1 formatting of the backend: run dotnet format whitespace backend/backend.sln"
+dotnet format whitespace e2e/HospitalManagement.E2E/HospitalManagement.E2E.csproj --verify-no-changes \
+  || fail "G1 formatting of the E2E project: run dotnet format whitespace e2e/HospitalManagement.E2E/HospitalManagement.E2E.csproj"
+
 if [ "$FRONTEND" = 1 ]; then
-  step "G1 frontend: install, audit, build, lint"
-  (cd frontend-web && npm ci && npm audit --omit=dev --audit-level=high && npm run build && npm run lint) \
+  step "G1 frontend: install, audit, build, lint, formatting"
+  (cd frontend-web && npm ci && npm audit --omit=dev --audit-level=high && npm run build && npm run lint && npm run format:check) \
     || fail "G1 frontend (on Windows an EPERM from npm ci means a running dev server, e.g. from the AppHost, holds node_modules: stop it first)"
   (cd frontend-web && npm audit --audit-level=high >/dev/null) \
     || printf '\033[33mWarning: build-tool (dev) dependencies have high or critical vulnerabilities (not gating).\033[0m\n'

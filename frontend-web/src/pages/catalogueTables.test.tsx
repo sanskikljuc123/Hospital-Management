@@ -9,10 +9,12 @@ import Services from "./Service/template/Services";
 // got the email or the department, and the API's PUT then cleared them (R-059, UI_TEST_DESIGN D-2, D-3).
 const noop = () => {};
 
-async function clickEdit(rowText: string) {
+async function clickInRow(rowText: string, button: "Edit" | "View") {
   const row = screen.getByRole("row", { name: new RegExp(rowText) });
-  await userEvent.setup().click(within(row).getByRole("button", { name: "Edit" }));
+  await userEvent.setup().click(within(row).getByRole("button", { name: button }));
 }
+
+const clickEdit = (rowText: string) => clickInRow(rowText, "Edit");
 
 describe("catalogue tables @R-059", () => {
   it("passes the whole doctor record to Edit, including fields not shown", async () => {
@@ -88,5 +90,105 @@ describe("catalogue tables @R-059", () => {
     await clickEdit("Test Service");
 
     expect(handleEditService).toHaveBeenCalledWith(service);
+  });
+});
+
+// View opens the details of the row it was clicked on, not of another row: with two rows, the second row's View
+// must hand over the second record (R-063, a details drawer showing another record's data).
+describe("catalogue tables open the clicked row in View @R-063", () => {
+  it("passes the clicked doctor to View", async () => {
+    const first = {
+      id: 1,
+      firstName: "First",
+      lastName: "Doctor",
+      birthday: "1980-01-02T00:00:00Z",
+      address: "1 Test Street",
+      departmentId: 3,
+      serviceIds: [1],
+    };
+    const second = {
+      id: 2,
+      firstName: "Second",
+      lastName: "Doctor",
+      birthday: "1981-03-04T00:00:00Z",
+      address: "2 Test Street",
+      departmentId: 4,
+      serviceIds: [2],
+    };
+    const handleViewDoctor = vi.fn();
+    render(
+      <Doctors
+        doctors={[first, second]}
+        status='idle'
+        handleEditDoctor={noop}
+        handleFilterChange={noop}
+        handleDeleteDoctor={noop}
+        handleViewDoctor={handleViewDoctor}
+        handleCreateDoctor={noop}
+      />,
+    );
+
+    await clickInRow("2 Test Street", "View");
+
+    expect(handleViewDoctor).toHaveBeenCalledTimes(1);
+    expect(handleViewDoctor).toHaveBeenCalledWith(second);
+  });
+
+  it("passes the clicked patient to View", async () => {
+    const first = {
+      id: 1,
+      userName: "First Patient",
+      phone: "12345678",
+      email: "first.patient@hospital.test",
+      serviceId: 1,
+      serviceName: "Test Service A",
+    };
+    const second = {
+      id: 2,
+      userName: "Second Patient",
+      phone: "87654321",
+      email: "second.patient@hospital.test",
+      serviceId: 2,
+      serviceName: "Test Service B",
+    };
+    const handleViewPatient = vi.fn();
+    render(
+      <Patients
+        patients={[first, second]}
+        status='idle'
+        handleEditPatient={noop}
+        handleFilterChange={noop}
+        handleDeletePatient={noop}
+        handleViewPatient={handleViewPatient}
+        handleCreatePatient={noop}
+      />,
+    );
+
+    await clickInRow("Second Patient", "View");
+
+    expect(handleViewPatient).toHaveBeenCalledTimes(1);
+    expect(handleViewPatient).toHaveBeenCalledWith(second);
+  });
+
+  it("passes the clicked service to View", async () => {
+    const first = { id: 3, name: "First Service", description: "Synthetic", departmentId: 2 };
+    const second = { id: 4, name: "Second Service", description: "Synthetic", departmentId: 5 };
+    const handleViewService = vi.fn();
+    render(
+      <Services
+        services={[first, second]}
+        status='idle'
+        handleEditService={noop}
+        handleFilterChange={noop}
+        handleDeleteService={noop}
+        handleViewService={handleViewService}
+        handleCreateService={noop}
+      />,
+    );
+
+    await clickInRow("Second Service", "View");
+
+    expect(handleViewService).toHaveBeenCalledTimes(1);
+    expect(handleViewService).toHaveBeenCalledWith(second);
   });
 });

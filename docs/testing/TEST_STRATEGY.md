@@ -100,6 +100,7 @@ in a row since.
 | E2E driver | Playwright for .NET: browser for user journeys through `frontend-web`, API request context for API-only journeys |
 | Mutation testing (phase 5) | Stryker.NET on the services and the patient access policy; StrykerJS (Vitest runner) on `frontend-web` (§11) |
 | Lint | ESLint with typescript-eslint and the React hook rules (`frontend-web/eslint.config.js`) |
+| Formatting | `dotnet format whitespace` with `.editorconfig`; Prettier with `frontend-web/.prettierrc.json` (G1) |
 | Static analysis | CodeQL, C# and TypeScript (`.github/workflows/codeql.yml`, G10) |
 | Secret scanning | gitleaks in CI |
 
@@ -181,6 +182,9 @@ must produce the same shape, and the test host must trust only the test key.
 - **No retries** — not in xUnit, not in Playwright, not in the CI job.
 - **No fixed waits.** Wait for a condition: `/health` returning 200, a Playwright locator or response.
 - **No order dependence.** Tests pass when run alone, in any order, and in parallel within their collection.
+  In `frontend-web`, the shared `src/test/setup.ts` resets the Redux store and removes antd toasts after every
+  test, because Vitest isolates files, not tests (R-071). The one deliberate exception is
+  `src/test/isolation.test.tsx`, whose test pairs run in file order (`shuffle: false`) to check that reset.
 - **No network** outside the containers the test starts.
 - A failure that cannot be reproduced is handled by the flaky-test policy in [QUALITY_GATES.md](QUALITY_GATES.md#3-flaky-tests).
 
