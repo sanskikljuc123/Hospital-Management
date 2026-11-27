@@ -39,7 +39,8 @@ public class ErrorContractTests
     {
         using var admin = _data.Admin;
 
-        var response = await admin.SendAsync(new HttpRequestMessage(new HttpMethod(method), string.Format(CultureInfo.InvariantCulture, pathFormat, Missing)));
+        using var request = new HttpRequestMessage(new HttpMethod(method), string.Format(CultureInfo.InvariantCulture, pathFormat, Missing));
+        var response = await admin.SendAsync(request);
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
         Assert.Contains("not found", problem.GetProperty("detail").GetString());
