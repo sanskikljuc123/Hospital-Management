@@ -68,7 +68,7 @@ public class ErrorContractTests
         var response = await admin.PostAsJsonAsync("/api/Service", new { description = "no name" }, TestData.Json);
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.BadRequest);
-        Assert.True(problem.GetProperty("errors").TryGetProperty("Name", out _));
+        Assert.True(problem.GetProperty("errors").TryGetProperty("Name", out _), "the field errors must name the missing Name");
     }
 
     [Fact]

@@ -211,6 +211,7 @@ public sealed class OutboxProcessorTests : IDisposable
         var names = _metrics.Recorded.Select(m => m.Instrument).ToArray();
         Assert.Equal(Enumerable.Repeat("hospital.outbox.messages.retried", OutboxProcessor.MaxAttempts - 1)
             .Append("hospital.outbox.messages.failed"), names);
+        Assert.Equal(OutboxProcessor.MaxAttempts, _metrics.Recorded.Count);
         Assert.All(_metrics.Recorded, m => Assert.Equal((1L, ScriptedHandler.HandledType), (m.Value, m.Type)));
     }
 

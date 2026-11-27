@@ -189,10 +189,10 @@ public sealed class AppointmentBoundaryTests : IDisposable
     {
         var a = await _bed.BookAsync(At(1, 9));
 
-        Assert.True(await _bed.Service.DeleteAsync(a.Id));
+        Assert.True(await _bed.Service.DeleteAsync(a.Id), "deleting an existing appointment must report success");
         Assert.Empty(_bed.Db.Appointments);
         Assert.Contains(_bed.Audit.Entries, e => e.Action == AuditActions.AppointmentDeleted && Equals(e.EntityId, a.Id));
-        Assert.False(await _bed.Service.DeleteAsync(a.Id));
+        Assert.False(await _bed.Service.DeleteAsync(a.Id), "deleting it a second time must report that it is not found");
     }
 
     // ---------- Notifications (ARCHITECTURE D-8: recorded with the change) ----------

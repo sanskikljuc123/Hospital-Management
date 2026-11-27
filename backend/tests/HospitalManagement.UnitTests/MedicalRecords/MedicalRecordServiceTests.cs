@@ -130,7 +130,7 @@ public sealed class MedicalRecordServiceTests : IDisposable
 
         var result = await _service.UpdateAsync(id, new MedicalRecordUpdateDto { Diagnosis = "Flu" }, _doctorB);
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error);
         Assert.Equal(1, await _db.MedicalRecordRevisions.CountAsync());
         Assert.Empty(_audit.Entries);
         Assert.Null(result.Value!.LastEditedByDoctorId);

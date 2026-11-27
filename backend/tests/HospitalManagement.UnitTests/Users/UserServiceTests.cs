@@ -38,7 +38,7 @@ public sealed class UserServiceTests : IDisposable
         _caller.Subject = "sub-new";
         _caller.UserName = "nurse.new";
 
-        Assert.True(await Service.SyncCurrentUserAsync());
+        Assert.True(await Service.SyncCurrentUserAsync(), "the first request of an active user must be let in");
 
         var user = await _db.Users.SingleAsync();
         Assert.Equal(("sub-new", "nurse.new", Roles.Nurse, "session-1"), (user.KeycloakId, user.UserName, user.Role, user.LastSessionId));
@@ -67,7 +67,7 @@ public sealed class UserServiceTests : IDisposable
     {
         _db.AddUser(_caller.Subject!, _caller.UserName!, isActive: false);
 
-        Assert.False(await Service.SyncCurrentUserAsync());
+        Assert.False(await Service.SyncCurrentUserAsync(), "a deactivated user must be refused");
     }
 
     [Fact]
@@ -94,14 +94,14 @@ public sealed class UserServiceTests : IDisposable
     {
         var nurse = _db.AddUser("sub-nurse", "nurse.user");
         var nurseCaller = new FakeCaller { Subject = "sub-nurse", UserName = "nurse.user" }.As(Roles.Nurse);
-        Assert.True(await new UserService(_db, nurseCaller, _audit, _cache).SyncCurrentUserAsync()); // now cached
+        Assert.True(await new UserService(_db, nurseCaller, _audit, _cache).SyncCurrentUserAsync(), "the nurse's first request must be let in"); // now cached
 
         var result = await Service.SetActiveAsync(nurse.Id, false);
 
-        Assert.False(result.Value!.IsActive);
+        Assert.False(result.Value!.IsActive, "the user must be stored as inactive");
         Assert.Contains(AuditActions.UserDeactivated, _audit.Actions);
         // The cache entry was evicted, so the next request of that user is refused.
-        Assert.False(await new UserService(_db, nurseCaller, _audit, _cache).SyncCurrentUserAsync());
+        Assert.False(await new UserService(_db, nurseCaller, _audit, _cache).SyncCurrentUserAsync(), "the next request of the deactivated user must be refused at once");
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class UserServiceTests : IDisposable
         var me = _db.AddUser(_caller.Subject!, _caller.UserName!);
 
         Assert.Equal(ResultStatus.Invalid, (await Service.SetActiveAsync(me.Id, false)).Status);
-        Assert.True((await _db.Users.SingleAsync()).IsActive);
+        Assert.True((await _db.Users.SingleAsync()).IsActive, "deactivating yourself must leave your account active");
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class UserServiceTests : IDisposable
         (await _db.Users.SingleAsync()).IsActive = false; // changed behind the service's back
         await _db.SaveChangesAsync();
 
-        Assert.True(await Service.SyncCurrentUserAsync());
+        Assert.True(await Service.SyncCurrentUserAsync(), "a known session is served from the cache, even after the user was deactivated (R-039)");
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public sealed class UserServiceTests : IDisposable
         _caller.RoleSet.Clear();
         _caller.RoleSet.Add("offline_access");
 
-        Assert.True(await Service.SyncCurrentUserAsync());
+        Assert.True(await Service.SyncCurrentUserAsync(), "a token without a hospital role still gets a profile");
         Assert.Null((await _db.Users.SingleAsync()).Role);
     }
 
@@ -227,7 +227,7 @@ public sealed class UserServiceTests : IDisposable
 
         var result = await Service.SetActiveAsync(user.Id, true);
 
-        Assert.True(result.Value!.IsActive);
+        Assert.True(result.Value!.IsActive, "the reactivated user must be stored as active");
         Assert.Equal(new[] { AuditActions.UserActivated }, _audit.Actions.ToArray());
     }
 
@@ -271,7 +271,7 @@ public sealed class UserServiceTests : IDisposable
     {
         _caller.Subject = null;
 
-        Assert.True(await Service.SyncCurrentUserAsync());
+        Assert.True(await Service.SyncCurrentUserAsync(), "a request without a subject is let through");
         Assert.Empty(_db.Users);
         Assert.Empty(_audit.Entries);
     }
