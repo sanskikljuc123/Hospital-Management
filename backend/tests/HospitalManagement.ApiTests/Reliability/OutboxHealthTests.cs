@@ -24,6 +24,10 @@ public class OutboxHealthTests
     [Trait("Risk", "R-046")]
     public async Task FailedNotification_MakesHealthDegraded_ButStill200()
     {
+        // The database is shared: other tests leave failed and overdue messages, so /health may be Degraded already.
+        // Only an exact increase shows that this message was counted.
+        var failedBefore = (int)(await OutboxEntryAsync()).Data["recentlyFailed"];
+
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -37,18 +41,21 @@ public class OutboxHealthTests
             await db.SaveChangesAsync();
         }
 
-        HealthReport report;
-        using (var scope = _factory.Services.CreateScope())
-            report = await scope.ServiceProvider.GetRequiredService<HealthCheckService>()
-                .CheckHealthAsync(r => r.Name == "outbox");
-
-        var outbox = report.Entries["outbox"];
+        var outbox = await OutboxEntryAsync();
         Assert.Equal(HealthStatus.Degraded, outbox.Status);
-        Assert.True((int)outbox.Data["recentlyFailed"] >= 1);
+        Assert.Equal(failedBefore + 1, (int)outbox.Data["recentlyFailed"]);
 
         using var anonymous = _factory.ClientFor(null);
         var response = await anonymous.GetAsync("/health");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Degraded", await response.Content.ReadAsStringAsync());
+    }
+
+    private async Task<HealthReportEntry> OutboxEntryAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var report = await scope.ServiceProvider.GetRequiredService<HealthCheckService>()
+            .CheckHealthAsync(r => r.Name == "outbox");
+        return report.Entries["outbox"];
     }
 }

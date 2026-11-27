@@ -56,6 +56,11 @@ public class BolaTests : IAsyncLifetime
         var response = await client.GetAsync(string.Format(CultureInfo.InvariantCulture, pathFormat, OwnId(pathFormat)));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // 200 alone would also pass if the API answered with another patient's data: the body must be the item asked for.
+        var item = await response.Content.ReadFromJsonAsync<JsonElement>(TestData.Json);
+        Assert.Equal(OwnId(pathFormat), item.GetProperty("id").GetInt32());
+        var owner = pathFormat.Contains("Patient/") ? item.GetProperty("id") : item.GetProperty("patientId");
+        Assert.Equal(_patientAId, owner.GetInt32());
     }
 
     [Theory]
