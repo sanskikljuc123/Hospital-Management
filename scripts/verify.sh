@@ -66,6 +66,7 @@ step "G4 and G5 gate scripts"
 "${PYTHON[@]}" -I scripts/check_gate_names.py || fail "G4 (d) required check names"
 "${PYTHON[@]}" -I -m unittest discover -s scripts/tests || fail "G4 (e) tests of the ID check"
 "${PYTHON[@]}" -I scripts/check_ids.py || fail "G4 (e) IDs defined once and resolved"
+node --test .claude/hooks/restrict-agent-bash.test.mjs || fail "G4 (f) tests of the agent Bash hook"
 
 step "G6 secret scan"
 # Files: what CI checks out plus what you would commit (tracked and untracked, not git-ignored), copied to a

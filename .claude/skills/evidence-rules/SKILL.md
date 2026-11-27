@@ -16,6 +16,8 @@ Read, in this order, only what the task needs:
 2. `docs/testing/` — the single source of truth for strategy, risks, the security matrix and gates.
 3. `docs/API_ENDPOINTS.md` and `ARCHITECTURE.md` for documented intent.
 4. Input the person gave in the conversation (requirement text, diff, test output).
+5. For `qe-reviewer` only: the output of a command it ran itself (README, AI rule 1), quoted with the exact
+   command line and the lines that matter, so that anyone can run the same command and compare.
 
 Nothing else counts as a source — not memory of other projects, not general best practice presented as
 a fact about this code. If the code and a document disagree, report the disagreement as a **Question**;

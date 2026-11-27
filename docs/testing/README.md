@@ -145,8 +145,19 @@ quiet unlink on delete (R-058).
 
 ## AI rules
 
-1. **Agents are read-only.** They read code and documents. They never edit files, commit, push, approve a
-   pull request, change a risk rating or run in CI.
+1. **Agents do not change anything.** They read code and documents. They never edit files, commit, push, approve a
+   pull request, change a risk rating or run in CI. One exception, decided by the test owner on 2026-11-27:
+   `qe-reviewer` may run commands to check a claim, and only these: the .NET test projects (`dotnet test`, also
+   for one class or test), the component tests, the gate scripts with `-I` and their unit tests, and the hook's own
+   tests. A hook in its frontmatter denies every other Bash command (`.claude/hooks/restrict-agent-bash.mjs`, list
+   in `.claude/hooks/agent-bash-policy.mjs`, tests in `.claude/hooks/restrict-agent-bash.test.mjs`).
+   - **What it does not change:** the allowed commands still pass through the session's own permission rules.
+     That is a prompt, unless an allow rule or the permission mode skips it. The hook never approves anything.
+   - **What the commands write:** they build the code (`bin/`, `obj/`, test results), but they do not change
+     source files. They run the code and scripts of the branch under review, including the hook's own list.
+   - **When the hook does not protect:** the hook is skipped if the folder is not trusted in Claude Code, and it
+     cannot block if `node` does not start. The permission rules are then the only check. In every other failure
+     (unreadable input, a missing list, an error in the check) it blocks the command.
 2. **People decide.** A person accepts every risk rating, every test and every merge. Code owners approve
    pull requests ([.github/CODEOWNERS](../../.github/CODEOWNERS)).
 3. **Agent output is a proposal.** Every statement is labelled *Fact* (with a citation), *Assumption* or
@@ -156,7 +167,7 @@ quiet unlink on delete (R-058).
 5. **No secrets or real patient data** are given to an agent. Test data is synthetic. This is enforced, not
    only asked for: [.claude/settings.json](../../.claude/settings.json) denies reading the local `.env`
    files and key files, for every Claude session in this repository.
-6. **The implementer is governed too.** The rules above cover the three read-only agents. The session that
+6. **The implementer is governed too.** The rules above cover the three agents. The session that
    changes code — a person, or an AI coding session such as Claude Code — follows
    [The implementer](#the-implementer) below.
 
