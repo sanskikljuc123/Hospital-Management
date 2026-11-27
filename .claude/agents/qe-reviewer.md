@@ -75,6 +75,8 @@ Check and report each item:
    often: a status-only check of a business outcome (1), an absence with no positive control or an `Assert.All`
    that may run on an empty list (4, 7), a rejection without its side-effect checks (5), a fake whose recipient or
    content is not asserted (10), `IsCompleted` for "no error" (12), and a race test that trusts status codes (20).
+   Rules 7, 12, 15, 16 and 19 are also checked by gate G4 (g) (`scripts/check_assertion_rules.py`); spend the review on
+   the rules that need judgement, and report a G4 (g) finding only when the script missed it.
 
 Output section: **Review comments** — one per finding, with `file:line`, and a suggested PR-template answer
 the author can confirm.

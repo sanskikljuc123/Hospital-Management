@@ -66,7 +66,7 @@ public sealed class CatalogServiceTests : IDisposable
 
         Assert.Equal(ResultStatus.NotFound,
             (await patients.UpdateAsync(999, new PatientCreationDto { UserName = "X", ServiceId = serviceId })).Status);
-        Assert.False(await patients.DeleteAsync(999));
+        Assert.False(await patients.DeleteAsync(999), "deleting an unknown patient must report that it is not found");
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public sealed class CatalogServiceTests : IDisposable
 
         var result = await new ServiceServiceImp(_db, _audit).DeleteAsync(service.Id);
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.Error);
         Assert.Empty(_db.Services);
         var entry = Assert.Single(_audit.Entries);
         Assert.Equal((AuditActions.ServiceDeleted, service.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),

@@ -144,8 +144,14 @@ Rules for every test:
 because a test that passes with the bug present is worse than no test: it reports the risk as covered. An
 assertion review on 2026-11-27 found such tests in this repository; the examples below are from it.
 
-`qe-reviewer` checks every rule in a change review (mode 1, item 11), `qe-test-designer` designs to them, and the
-pull request answers for them (QUALITY_GATES §2). A rule may be broken only where a comment on the assertion
+How they are enforced:
+
+- **Gate G4 (g)**, on every pull request: `scripts/check_assertion_rules.py` fails the build on the rules a script can
+  see in the text, 7, 12, 15, 16 and 19 (QUALITY_GATES §1). Same result on every run; it blocks the merge.
+- **Review**, for the rules that need judgement (the others): `qe-reviewer` checks every rule in a change review (mode
+  1, item 11), also as the advisory CI job *Assertion review* when the repository has an API key; its findings are
+  proposals. The code owner decides at the merge (G8).
+- `qe-test-designer` designs to the rules, and the pull request answers for them (QUALITY_GATES §2). A rule may be broken only where a comment on the assertion
 says so and why: `// Assertion rule 4 exception: <reason>`. A deviation without that comment is a finding.
 
 | # | Rule | The test must | Example of the breach |

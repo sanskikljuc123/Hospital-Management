@@ -35,7 +35,7 @@ public class PatientAccessPolicyTests
         // Compared with literal values, not with PatientScope.All: a broken factory would change both sides.
         var list = await Policy.ListScopeAsync(scope);
         Assert.Equal(new PatientScope(AllPatients: true, OnlyPatientId: null), list);
-        Assert.False(list.IsEmpty);
+        Assert.False(list.IsEmpty, "staff reach every patient, so the scope is not empty");
         Assert.Equal(AccessDecision.Allow, await Policy.CheckAsync(OtherPatient, scope));
         Assert.Equal(AccessDecision.NotFound, await Policy.CheckAsync(null, scope));
     }
@@ -48,7 +48,7 @@ public class PatientAccessPolicyTests
 
         var list = await Policy.ListScopeAsync(StaffScope.ClinicalStaff);
         Assert.Equal(new PatientScope(AllPatients: false, OnlyPatientId: null), list);
-        Assert.True(list.IsEmpty);
+        Assert.True(list.IsEmpty, "an administrator reaches no clinical data, so the scope is empty");
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(OtherPatient, StaffScope.ClinicalStaff));
     }
 
@@ -66,7 +66,7 @@ public class PatientAccessPolicyTests
 
         var list = await Policy.ListScopeAsync(scope);
         Assert.Equal(new PatientScope(AllPatients: false, OnlyPatientId: OwnPatient), list);
-        Assert.False(list.IsEmpty);
+        Assert.False(list.IsEmpty, "a linked patient reaches their own record, so the scope is not empty");
         Assert.Equal(AccessDecision.Allow, await Policy.CheckAsync(OwnPatient, scope));
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(OtherPatient, scope));
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(null, scope));
@@ -82,7 +82,7 @@ public class PatientAccessPolicyTests
 
         var list = await Policy.ListScopeAsync(StaffScope.Staff);
         Assert.Equal(new PatientScope(AllPatients: false, OnlyPatientId: null), list);
-        Assert.True(list.IsEmpty);
+        Assert.True(list.IsEmpty, "an unlinked patient reaches nothing, so the scope is empty");
         Assert.Equal(AccessDecision.Forbidden, await Policy.CheckAsync(OwnPatient, StaffScope.Staff));
     }
 

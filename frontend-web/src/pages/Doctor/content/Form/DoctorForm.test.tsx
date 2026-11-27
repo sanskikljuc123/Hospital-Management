@@ -65,7 +65,13 @@ describe("DoctorForm @R-059 @R-060 @R-061", () => {
       await user.click(screen.getByRole("button", { name: "Create Doctor" }));
 
       await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-      expect(onSubmit.mock.calls[0][0]).toMatchObject({ birthday: "1980-01-02", serviceIds: [1] });
+      expect(onSubmit.mock.calls[0][0]).toEqual({
+        firstName: "New",
+        lastName: "Doctor",
+        address: "2 Test Street",
+        birthday: "1980-01-02",
+        serviceIds: [1],
+      });
     });
   });
 

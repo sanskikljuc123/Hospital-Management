@@ -8,6 +8,8 @@
 - **Flow scenarios** (IDs from docs/testing/BUSINESS_FLOWS.md):
 - **Tests that prove them** (names):
 - **Tests removed, skipped or loosened?** No / Yes — why:
+- **Assertion rules** (TEST_STRATEGY §4): the new and changed tests follow them — exceptions, each with its
+  `// Assertion rule N exception` comment, and why:
 - **New or changed lines without a test that fails when they break?** No / Yes — which (G9 checks services, the
   access policy and `frontend-web/src`; a `Stryker disable` or `eslint-disable` needs its reason here):
 - **Known gaps closed?** (removed `Skip = "Known gap R-xxx"`): No / Yes — which:

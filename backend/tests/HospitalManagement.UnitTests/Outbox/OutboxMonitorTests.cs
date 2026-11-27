@@ -44,7 +44,7 @@ public sealed class OutboxMonitorTests : IDisposable
         var state = await Monitor.GetStateAsync();
 
         Assert.Equal(new OutboxState(0, 0), state);
-        Assert.True(state.IsHealthy);
+        Assert.True(state.IsHealthy, "nothing failed and nothing is overdue, so the outbox is healthy");
     }
 
     [Theory]
