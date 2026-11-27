@@ -34,11 +34,21 @@ be updated in the same pull request, or every later pull request waits for a che
 `scripts/check_gate_names.py` (in the G4 job) fails when a check named here is not a job in `.github/workflows/`.
 
 **Advisory, not a gate: the assertion review.** `.github/workflows/assertion-review.yml` runs `qe-reviewer` (mode 1,
-item 11) on every pull request that changes tests, for the assertion rules that need judgement and that G4 (g)
+item 11) on pull requests that change tests, for the assertion rules that need judgement and that G4 (g)
 cannot see (1–5, 8–11, 13, 17, 18, 20). It posts one comment, never blocks the merge, and is not in the ruleset:
 two runs can report different findings, and every finding is a proposal (README, AI rule 3) that the person who
-merges checks (G8). It needs the repository secret `ANTHROPIC_API_KEY` and uses API credits per run; without the
-secret it passes with a notice and reviews nothing. Pull requests from forks are skipped.
+merges checks (G8). It needs the repository secret `ANTHROPIC_API_KEY` and uses API credits per run (Claude Opus
+5.5, an estimated 1–2 USD for a typical pull request); without the secret it passes with a notice and reviews
+nothing. Pull requests from forks are skipped.
+
+- **When it runs**, to limit the cost: when a pull request is opened, reopened or marked ready for review, and when
+  the label `ai-review` is added. Not on every push; to review new commits, remove and re-add the label.
+- **Hardening**, because the repository is public and the comment is public: the checkout keeps no token in
+  `.git/config` (`persist-credentials: false`); the agent may read, search and use `gh pr diff`, `view` and
+  `comment` only; editing, the web and subagents are denied; and reading outside the checkout (the runner's hidden
+  and temp folders, system folders such as `/proc` with the process environment) and the checkout's `.git` folder
+  is denied. Deny rules win over allow rules. The pull request's content is data for the agent, never instructions.
+- **Recommended for the key:** a key used only for this job, in its own workspace with a monthly spend limit.
 
 **Not in the ruleset yet** (added 2026-11-24; the test owner changes the ruleset, an implementer never does):
 
